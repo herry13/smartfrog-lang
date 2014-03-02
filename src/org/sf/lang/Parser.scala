@@ -1,11 +1,17 @@
 package org.sf.lang
 
 import scala.util.parsing.combinator.JavaTokenParsers
+import scala.io.Source
 
 class Parser extends JavaTokenParsers {
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
   
-  def Sf: Parser[Store] = Body ^^ (b => b(Reference.empty)(Store.Empty))
+  def Sf: Parser[Store] = Body ^^ (b =>
+      ((v: Any) =>
+        if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
+        else throw new Exception("sfConfig is not exist or a component")
+      )(b(Reference.empty)(Store.Empty).accept(Store.replaceLink).find(Reference("sfConfig")))
+    )
 
   def Body: Parser[Reference => Store => Store] = AttributeList
   
@@ -13,7 +19,10 @@ class Parser extends JavaTokenParsers {
     ( Attribute ~ AttributeList ^^ { case a ~ al =>
         (ns: Reference) => (s: Store) => al(ns)(a(ns)(s))
       }
-    | "#include" ~> stringLiteral ~ AttributeList ^^ (x => ???)  // TODO
+    | "#include" ~> stringLiteral ~ AttributeList ^^ { case file ~ al =>
+        (ns: Reference) => (s: Store) =>
+          al(ns)(parseIncludeFile(file, ns, s))
+      }
     | "#include?" ~> stringLiteral ~ AttributeList ^^ (x => ???) // TODO
     | ";" ~> AttributeList
     | (epsilon | "\\Z".r) ^^ (x => (ns: Reference) => (s: Store) => s)
@@ -88,11 +97,11 @@ class Parser extends JavaTokenParsers {
 
   def Null: Parser[Any] = "NULL" ^^ (x => null)
     
-  /*def Vector: Parser[List[Any]] =
+  def Vector: Parser[List[Any]] =
     "[" ~>
     ( SimpleValue ~ ("," ~> SimpleValue).* ^^ { case x ~ xs => x :: xs }
     | epsilon ^^ (x => List())
-    ) <~ "]"*/
+    ) <~ "]"
     
   def Boolean: Parser[Boolean] =
     ( "true" ^^ (x => true)
@@ -197,5 +206,12 @@ class Parser extends JavaTokenParsers {
     }
   }
     
-  def parseFile(filePath: String) = parse(scala.io.Source.fromFile(filePath).mkString)
+  def parseIncludeFile(filePath: String, ns: Reference, s: Store): Store = {
+    parseAll(Body, Source.fromFile(filePath).mkString) match {
+      case Success(body, _) => body(ns)(s)
+      case NoSuccess(msg, next) => throw new Exception("at " + next.pos)
+    }
+  }
+    
+  def parseFile(filePath: String) = parse(Source.fromFile(filePath).mkString)
 }
