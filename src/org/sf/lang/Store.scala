@@ -3,14 +3,19 @@ package org.sf.lang
 object Store {
   type Cell = (String, Any)
   
-  object empty extends Store(("", null)) {
+  object Empty extends Store(("", null)) {
     override val rest = this
-    override def toString = "[empty]"
+    override def toString = "[Empty]"
   }
   
-  object undefined extends Store(("", null)) {
+  object Undefined extends Store(("", null)) {
     override val rest = this
-    override def toString = "[undefined]"
+    override def toString = "[Undefined]"
+  }
+  
+  object TBD extends Store(("", null)) {
+    override val rest = this
+    override def toString = "[TBD]"
   }
   
   def apply(id: String, v: Any, rest: Store): Store = new Store((id, v), rest)
@@ -20,24 +25,24 @@ object Store {
   def replaceLink(s: Store, ns: Reference, c: Cell): Any =
     if (c._2.isInstanceOf[LinkReference])
       ((v: Any) =>
-        if (v == undefined) throw new Exception("invalid link reference: " + c._2)
+        if (v == Undefined) throw new Exception("invalid link reference: " + c._2)
         else v
       )(s.resolvelink(ns, c._2.asInstanceOf[LinkReference]))
     else c._2
 }
 
-class Store(val head: Store.Cell, val rest: Store = Store.empty) {
+class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
   import Store._
   
   def put(id: String, v: Any): Store =
-    if (this == empty) Store(id, v, empty)
+    if (this == Empty) Store(id, v, Empty)
     else if (head._1.equals(id)) Store(id, v, rest)
     else Store(head, rest.put(id, v))
     
   def bind(r: Reference, v: Any): Store =
     if (r == Reference.empty) throw new Exception("invalid reference: " + r + "=" + v)
     else if (r.rest == Reference.empty) put(r.head, v)
-    else if (this == empty) throw new Exception("invalid reference: " + r + "=" + v)
+    else if (this == Empty) throw new Exception("invalid reference: " + r + "=" + v)
     else
       if (head._1.equals(r.head))
         if (head._2.isInstanceOf[Store]) Store(head._1, head._2.asInstanceOf[Store].bind(r.rest, v), rest)
@@ -45,18 +50,18 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
       else Store(head, rest.bind(r, v))
   
   def find(r: Reference): Any =
-    if (this == empty) undefined
+    if (this == Empty) Undefined
     else if (r.rest == Reference.empty)
       if (head._1.equals(r.head)) head._2
       else rest.find(r)
     else
       if (head._1.equals(r.head))
         if (head._2.isInstanceOf[Store]) head._2.asInstanceOf[Store].find(r.rest)
-        else undefined
+        else Undefined
       else rest.find(r)
   
   def copy(src: Store, r: Reference): Store =
-    if (src == empty) this
+    if (src == Empty) this
     else bind(r ++ src.head._1, src.head._2).copy(src.rest, r)
 
   def inherit(ns: Reference, src: Reference, dest: Reference): Store =
@@ -74,7 +79,7 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
     if (ns == Reference.empty) (ns, find(r))
     else
       ((v: Any) =>
-        if (v == undefined) resolve(ns.prefix, r)
+        if (v == Undefined) resolve(ns.prefix, r)
         else (ns, v)
       )( find(ns ++ r) )
       
@@ -96,7 +101,7 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
     accept1(this, Reference.empty, visitor)
     
   def accept1(root: Store, ns: Reference, visitor: (Store, Reference, Cell) => Any): Store = {
-    if (this == empty) root
+    if (this == Empty) root
     else if (head._2.isInstanceOf[Store])
       rest.accept1(head._2.asInstanceOf[Store].accept1(root, ns ++ head._1, visitor) , ns, visitor)
     else {
@@ -114,6 +119,6 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
   }
 
   override def toString =
-    "(" + head._1 + "," + head._2 + ")" + (if (rest == empty) "" else "," + rest)
+    "(" + head._1 + "," + head._2 + ")" + (if (rest == Empty) "" else "," + rest)
     
 }

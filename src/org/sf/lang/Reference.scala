@@ -61,7 +61,7 @@ class Reference(val head: String, val _rest: Reference = Reference.empty) {
     else if (this.head.equals(that)) this.rest
     else this
     
-  def subsetof(that: Reference): Boolean = (this -- that) == empty
+  def subseteqof(that: Reference): Boolean = (this -- that) == empty
   
   def equals(that: Reference): Boolean =
     if (that == empty) false

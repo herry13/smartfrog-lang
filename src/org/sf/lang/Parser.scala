@@ -5,56 +5,72 @@ import scala.util.parsing.combinator.JavaTokenParsers
 class Parser extends JavaTokenParsers {
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
   
-  def Stream: Parser[Any] = Body ^^ (x => ???)
+  def Sf: Parser[Store] = Body ^^ (b => b(Reference.empty)(Store.Empty))
 
-  def Body: Parser[Any] = AttributeList ^^ (x => ???)
+  def Body: Parser[Reference => Store => Store] = AttributeList
   
-  def AttributeList: Parser[List[Any]] =
-    ( Attribute ~ AttributeList ^^ { case attr ~ attrList => attr :: attrList }
-    //| "#include" ~> stringLiteral ~ AttributeList ^^ (x => ???)
-    //| "#include?" ~> stringLiteral ~ AttributeList ^^ (x => ???)
+  def AttributeList: Parser[Reference => Store => Store] =
+    ( Attribute ~ AttributeList ^^ { case a ~ al =>
+        (ns: Reference) => (s: Store) => al(ns)(a(ns)(s))
+      }
+    | "#include" ~> stringLiteral ~ AttributeList ^^ (x => ???)  // TODO
+    | "#include?" ~> stringLiteral ~ AttributeList ^^ (x => ???) // TODO
     | ";" ~> AttributeList
-    | (epsilon | "\\Z".r) ^^ (x => List())
+    | (epsilon | "\\Z".r) ^^ (x => (ns: Reference) => (s: Store) => s)
     )
 
-  def Attribute: Parser[Any] =
-    Name ~ Value ^^ { case name ~ value => ??? }
+  def Attribute: Parser[Reference => Store => Store] =
+    Name ~ Value ^^ { case name ~ value =>
+      (ns: Reference) => (s: Store) =>
+        if (name.length == 1) value(ns)(ns ++ name)(s)
+        else
+          ((l: (Reference, Any)) =>
+          	if (l._2.isInstanceOf[Store]) value(ns)(l._1 ++ name)(s)
+          	else throw new Exception("prefix of " + name + " is not a component")
+          )(s.resolve(ns, name.prefix))
+    }
 	
-  def Name: Parser[List[Any]] =
-    ( "--" ^^ (x => List("x" + scala.util.Random.alphanumeric.take(5).mkString))
+  def Name: Parser[Reference] =
+    ( "--" ^^ (x => Reference("x" + scala.util.Random.alphanumeric.take(5).mkString))
     | Word ~ (":" ~> Name).? ^^ { case word ~ name =>
-      	if (name.isEmpty) List(word)
-      	else word :: name.last
+      	if (name.isEmpty) Reference(word)
+      	else Reference(word, name.last)
       }
     )
 
   def Word: Parser[String] = ident
 
-  def Value: Parser[Any => Any] =
-    ( Component ^^ (v => (r: Any) => ???)
-    | SimpleValue <~ ";"  ^^ (v => (r: Any) => ???)
-    | LinkReference <~ ";"  ^^ (v => (r: Any) => ???)
-    | ";" ^^ { x => (r: Any) => ??? } 
+  def Value: Parser[Reference => Reference => Store => Store] =
+    ( Component ^^ (c =>
+        (ns: Reference) => (r: Reference) => (s: Store) => ???
+      )
+    | SimpleValue <~ ";"  ^^ (sv =>
+        (ns: Reference) => (r: Reference) => (s: Store) => s.bind(r, sv)
+      )
+    | LinkReference <~ ";"  ^^ (lr =>
+        (ns: Reference) => (r: Reference) => (s: Store) => s.bind(r, lr(r))
+      )
+    | ";" ^^ { x => (ns: Reference) => (r: Reference) => (s: Store) => s } 
     )
 	
   def SimpleValue: Parser[Any] =
     ( Basic
     | TBD
-    //| Function  // TODO
-    //| Predicate  // TODO
+    | Function
+    | Predicate
     )
 
   def Basic: Parser[Any] =
-    ( stringLiteral ^^ (x => ???)
-    | Number ^^ (x => ???)
-    | Boolean ^^ (x => ???)
-    | ByteArray ^^ (x => ???)
-    | ReferenceValue ^^ (x => ???)
-    | BasicVector ^^ (x => ???)
-    | Null ^^ (x => ???)
+    ( stringLiteral
+    | Number
+    | Boolean
+    | ByteArray
+    | ReferenceValue
+    | BasicVector
+    | Null
     )
 
-  val TBD: Parser[Any] = "TBD" ^^ (x => ???)
+  val TBD: Parser[Any] = "TBD" ^^ (x => Store.TBD)
     
   protected val intRegex = """\-?[0-9]+(?!\.)""".r
   
@@ -64,19 +80,19 @@ class Parser extends JavaTokenParsers {
       else n.toInt
     )
 
-  def BasicVector: Parser[Any] =
+  def BasicVector: Parser[List[Any]] =
     "[|" ~>
-    ( Basic ~ ("," ~> Basic).* ^^ { case x ~ xs => ??? }
-    | epsilon ^^ (x => ???)
+    ( Basic ~ ("," ~> Basic).* ^^ { case x ~ xs => x :: xs }
+    | epsilon ^^ (x => List())
     ) <~ "|]"
 
-  def Null: Parser[Any] = "NULL" ^^ (x => ???)
+  def Null: Parser[Any] = "NULL" ^^ (x => null)
     
-  def Vector: Parser[Any] =
+  /*def Vector: Parser[List[Any]] =
     "[" ~>
-    ( SimpleValue ~ ("," ~> SimpleValue).* ^^ { case x ~ xs => ??? }
-    | epsilon ^^ (x => ???)
-    ) <~ "]"
+    ( SimpleValue ~ ("," ~> SimpleValue).* ^^ { case x ~ xs => x :: xs }
+    | epsilon ^^ (x => List())
+    ) <~ "]"*/
     
   def Boolean: Parser[Boolean] =
     ( "true" ^^ (x => true)
@@ -92,41 +108,56 @@ class Parser extends JavaTokenParsers {
     | "#B64#" ~> "([a-z][A-Z][0-9])+".r <~ "#"
     ) ^^ (x => ???)
 
-  def ReferenceValue: Parser[Any] =
-    "DATA" ~> BaseReference ^^ (r => ???)
+  def ReferenceValue: Parser[Reference] =
+    "DATA" ~> BaseReference
 
-  def BaseReference: Parser[Any] =
-    ReferencePart ~ (":" ~> ReferencePart).* ^^ { case r ~ rs => ??? }
+  def BaseReference: Parser[Reference] =
+    ReferencePart ~ (":" ~> ReferencePart).* ^^ {
+      case r ~ rs => Reference(r, Reference(rs))
+    }
 	
   def ReferencePart: Parser[String] =
-    ( "ROOT" ^^ (x => "ROOT")
-    | "PARENT" ^^ (x => "PARENT")
-    | "ATTRIB" ~> Word ^^ (x => "ATTRIB")
-    | "HERE" ~> Word ^^ (x => "HERE")
-    | "THIS" ^^ (x => "THIS")
-    | Word ^^ (x => x)
+    ( "ROOT"
+    | "PARENT"
+    | "ATTRIB"
+    | "HERE"
+    | "THIS"
+    | Word
     )
 	
-  def LinkReference: Parser[Any] =
-    OptionalValueLinkReference.? ~ BaseReference ^^ { case opt ~ r =>
-      if (opt.isEmpty) ???
-      else ???
+  def LinkReference: Parser[Reference => LinkReference] =
+    OptionalValueLinkReference.? ~ BaseReference ^^ { case opt ~ lr =>
+      (r: Reference) =>
+        if (opt.isEmpty)
+          if (lr.subseteqof(r)) throw new Exception("link reference is referring the parent")
+          else new LinkReference(lr)
+        else new LinkReference(lr, opt.head)
     }
 
   def OptionalValueLinkReference: Parser[Any] =
-    "OPTIONAL" ~> SimpleValue ^^ (x => ???)
+    "OPTIONAL" ~> SimpleValue
         
-  def Component: Parser[Any] =
-    "extends" ~> Prototypes ^^ (p => ???)
+  def Component: Parser[Reference => Reference => Store => Store] =
+    "extends" ~> Prototypes
 
-  def Prototypes: Parser[Any] =
-    ( Prototype ~ ("," ~> Prototype).* ^^ { case p ~ ps => ??? }
-    | epsilon ^^ (x => ???)
+  def Prototypes: Parser[Reference => Reference => Store => Store] =
+    ( Prototype ~ ("," ~> Prototype).* ^^ { case p ~ ps =>
+        (ns: Reference) => (r: Reference) => (s: Store) =>
+          ps.foldRight(p(ns)(r)(s))(
+            (p1: Reference => Reference => Store => Store, s1: Store) =>
+              p1(ns)(r)(s1)
+          )
+      }
+    | epsilon ^^ (x => (ns: Reference) => (r: Reference) => (s: Store) => s)
     )
     
-  def Prototype: Parser[Any] =
-    ( BaseReference
-    | "{" ~> AttributeList <~ "}" ^^ (attrs => ???)
+  def Prototype: Parser[Reference => Reference => Store => Store] =
+    ( BaseReference ^^ (br =>
+        (ns: Reference) => (r: Reference) => (s: Store) => s.inherit(ns, br, r)
+      )
+    | "{" ~> AttributeList <~ "}" ^^ (attrs =>
+        (ns: Reference) => (r: Reference) => (s: Store) => attrs(r)(s)
+      )
     )
   
   // TODO
@@ -160,7 +191,7 @@ class Parser extends JavaTokenParsers {
   val epsilon: Parser[Any] = ""
   
   def parse(s: String): Any = {
-    parseAll(Stream, s) match {
+    parseAll(Sf, s) match {
       case Success(root, _) => root
       case NoSuccess(msg, next) => throw new Exception("at " + next.pos)
     }
