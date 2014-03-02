@@ -5,12 +5,13 @@ import scala.io.Source
 
 class Parser extends JavaTokenParsers {
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
+  protected val sfConfig = Reference("sfConfig")
   
   def Sf: Parser[Store] = Body ^^ (b =>
       ((v: Any) =>
         if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
         else throw new Exception("sfConfig is not exist or a component")
-      )(b(Reference.empty)(Store.Empty).accept(Store.replaceLink).find(Reference("sfConfig")))
+      )(b(Reference.empty)(Store.Empty).accept(Store.replaceLink).find(sfConfig))
     )
 
   def Body: Parser[Reference => Store => Store] = AttributeList

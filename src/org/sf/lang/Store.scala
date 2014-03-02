@@ -49,6 +49,13 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
         else throw new Exception
       else Store(head, rest.bind(r, v))
   
+  /**
+   * Find a value of given reference.
+   * 
+   * @param r reference of the value
+   * 
+   * TODO -- handles ROOT, PARENT, HERE, THIS, ATTRIB
+   */
   def find(r: Reference): Any =
     if (this == Empty) Undefined
     else if (r.rest == Reference.empty)
