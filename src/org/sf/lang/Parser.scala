@@ -3,6 +3,12 @@ package org.sf.lang
 import scala.util.parsing.combinator.JavaTokenParsers
 import scala.io.Source
 
+object Parser extends Parser with App {
+  val help = "Usage: scala org.sf.lang.Parser <sf-file>"
+  if (args.length <= 0) Console.println(help)
+  else parseFile(args.head)
+}
+
 class Parser extends JavaTokenParsers {
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
   protected val sfConfig = Reference("sfConfig")
