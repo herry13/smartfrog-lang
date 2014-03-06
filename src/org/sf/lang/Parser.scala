@@ -17,7 +17,7 @@ class Parser extends JavaTokenParsers {
       ((v: Any) =>
         if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
         else throw new Exception("sfConfig is not exist or a component")
-      )(b(Reference.empty)(Store.Empty).accept(Store.replaceLink).find(sfConfig))
+      )(b(Reference.Empty)(Store.Empty).accept(Store.replaceLink).find(sfConfig))
     )
 
   def Body: Parser[Reference => Store => Store] = AttributeList

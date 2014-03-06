@@ -1,11 +1,6 @@
 smartfrog-lang
 ==============
-
-- Author: Herry (herry13@gmail.com)
-- License: BSD
-
-
-This is an implementation of the formal semantic of SmartFrog (SF) language. The supported features are:
+This is the implementation of the formal semantic of SmartFrog (SF) language in Scala. The supported features are:
 
 - Primitive Value
 - Data and Link Reference + late-binding of link reference
@@ -13,7 +8,9 @@ This is an implementation of the formal semantic of SmartFrog (SF) language. The
 - Prototype
 - Placement (no late-binding)
 
-Not supported yet:
+Note that the _lazy reference_ is treated same as data reference.
+
+Not yet supported:
 
 - TBD
 - Optional value of link reference
@@ -22,8 +19,19 @@ Not supported yet:
 - Schema
 - Predicate
 
-Requirements
-============
 
-- Scala 2.10.x
+Requirements
+------------
+- Scala >= 2.10
 - Java Virtual Machine >= 1.6
+
+
+Usage
+-----
+
+	$ scala org.sf.lang.Parser <sf-file>
+
+
+License
+-------
+BSD License

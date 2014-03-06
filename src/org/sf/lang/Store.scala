@@ -40,8 +40,8 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
     else Store(head, rest.put(id, v))
     
   def bind(r: Reference, v: Any): Store =
-    if (r == Reference.empty) throw new Exception("invalid reference: " + r + "=" + v)
-    else if (r.rest == Reference.empty) put(r.head, v)
+    if (r == Reference.Empty) throw new Exception("invalid reference: " + r + "=" + v)
+    else if (r.rest == Reference.Empty) put(r.head, v)
     else if (this == Empty) throw new Exception("invalid reference: " + r + "=" + v)
     else
       if (head._1.equals(r.head))
@@ -58,7 +58,7 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
    */
   def find(r: Reference): Any =
     if (this == Empty) Undefined
-    else if (r.rest == Reference.empty)
+    else if (r.rest == Reference.Empty)
       if (head._1.equals(r.head)) head._2
       else rest.find(r)
     else
@@ -83,7 +83,7 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
     )(resolve(ns, src))
   
   def resolve(ns: Reference, r: Reference): (Reference, Any) =
-    if (ns == Reference.empty) (ns, find(r))
+    if (ns == Reference.Empty) (ns, find(r))
     else
       ((v: Any) =>
         if (v == Undefined) resolve(ns.prefix, r)
@@ -105,7 +105,7 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
   }
   
   def accept(visitor: (Store, Reference, Cell) => Any): Store =
-    accept1(this, Reference.empty, visitor)
+    accept1(this, Reference.Empty, visitor)
     
   def accept1(root: Store, ns: Reference, visitor: (Store, Reference, Cell) => Any): Store = {
     if (this == Empty) root
