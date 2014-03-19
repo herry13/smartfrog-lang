@@ -6,7 +6,7 @@ import scala.io.Source
 object Parser extends Parser with App {
   val help = "Usage: scala org.sf.lang.Parser <sf-file>"
   if (args.length <= 0) Console.println(help)
-  else parseFile(args.head)
+  else println(parseFile(args.head))
 }
 
 class Parser extends JavaTokenParsers {
@@ -17,7 +17,8 @@ class Parser extends JavaTokenParsers {
       ((v: Any) =>
         if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
         else throw new Exception("sfConfig is not exist or a component")
-      )(b(Reference.Empty)(Store.Empty).accept(Store.replaceLink).find(sfConfig))
+      )(b(Reference.Empty)(Store.Empty).find(sfConfig)).accept(Store.replaceLink)
+      //)(b(Reference.Empty)(Store.Empty).accept(Store.replaceLink).find(sfConfig))
     )
 
   def Body: Parser[Reference => Store => Store] = AttributeList
@@ -58,7 +59,7 @@ class Parser extends JavaTokenParsers {
 
   def Value: Parser[Reference => Reference => Store => Store] =
     ( Component ^^ (c =>
-        (ns: Reference) => (r: Reference) => (s: Store) => ???
+        (ns: Reference) => (r: Reference) => (s: Store) => c(ns)(r)(s.bind(r, Store.Empty))
       )
     | SimpleValue <~ ";"  ^^ (sv =>
         (ns: Reference) => (r: Reference) => (s: Store) => s.bind(r, sv)
@@ -71,9 +72,9 @@ class Parser extends JavaTokenParsers {
 	
   def SimpleValue: Parser[Any] =
     ( Basic
-    | TBD
-    | Function
-    | Predicate
+    //| TBD
+    //| Function
+    //| Predicate
     )
 
   def Basic: Parser[Any] =

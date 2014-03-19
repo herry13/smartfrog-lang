@@ -29,7 +29,7 @@ Requirements
 Usage
 -----
 
-	$ scala org.sf.lang.Parser <sf-file>
+	$ ./sfParser <sf-file>
 
 
 License
