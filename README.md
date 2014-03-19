@@ -38,7 +38,11 @@ Usage
 
 Independent JAR file
 --------------------
-An independent JAR file is available at: `sbt/target/scala-2.10/sfParser-assembly-0.1.jar`. The JAR file can be executed with command:
+An independent JAR file is available at:
+
+https://github.com/herry13/smartfrog-lang/blob/master/sbt/target/scala-2.10/sfParser-assembly-0.1.jar
+
+The JAR file can be executed with command:
 
 	$ java -jar sbt/target/scala-2.10/sfParser-assembly-0.1.jar <sf-file>
 
