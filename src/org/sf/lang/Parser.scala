@@ -18,7 +18,6 @@ class Parser extends JavaTokenParsers {
         if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
         else throw new Exception("sfConfig is not exist or a component")
       )(b(Reference.Empty)(Store.Empty).find(sfConfig)).accept(Store.replaceLink)
-      //)(b(Reference.Empty)(Store.Empty).accept(Store.replaceLink).find(sfConfig))
     )
 
   def Body: Parser[Reference => Store => Store] = AttributeList
@@ -31,7 +30,6 @@ class Parser extends JavaTokenParsers {
         (ns: Reference) => (s: Store) =>
           al(ns)(parseIncludeFile(file, ns, s))
       }
-    | "#include?" ~> stringLiteral ~ AttributeList ^^ (x => ???) // TODO
     | ";" ~> AttributeList
     | (epsilon | "\\Z".r) ^^ (x => (ns: Reference) => (s: Store) => s)
     )
@@ -71,17 +69,12 @@ class Parser extends JavaTokenParsers {
     )
 	
   def SimpleValue: Parser[Any] =
-    ( Basic
-    //| TBD
-    //| Function
-    //| Predicate
-    )
+    Basic
 
   def Basic: Parser[Any] =
     ( stringLiteral
     | Number
     | Boolean
-    | ByteArray
     | ReferenceValue
     | BasicVector
     | Null
@@ -116,15 +109,6 @@ class Parser extends JavaTokenParsers {
     | "false" ^^ (x => false)
     )
 	
-  // TODO
-  def ByteArray: Parser[List[Any]] =
-    ( "#HEX#" ~> "([a-z][A-Z][0-9])+".r <~ "#"
-    | "#DEC#" ~> "([a-z][A-Z][0-9])+".r <~ "#"
-    | "#OCT#" ~> "([a-z][A-Z][0-9])+".r <~ "#"
-    | "#BIN#" ~> "([a-z][A-Z][0-9])+".r <~ "#"
-    | "#B64#" ~> "([a-z][A-Z][0-9])+".r <~ "#"
-    ) ^^ (x => ???)
-
   def ReferenceValue: Parser[Reference] =
     "DATA" ~> BaseReference
 
@@ -177,34 +161,6 @@ class Parser extends JavaTokenParsers {
       )
     )
   
-  // TODO
-  def Operator: Parser[List[Any]] =
-    ( UnaryOp ~ SimpleValue
-    | (SimpleValue ~ (BinaryOp ~ SimpleValue)?)
-    | (SimpleValue ~ (NaryOp ~ SimpleValue)*)
-    ) ^^ (x => ???)
-	  
-  // TODO
-  def UnaryOp: Parser[List[Any]] = "!" ^^ (x => ???)
-  
-  // TODO
-  def BinaryOp: Parser[List[Any]] =
-    ("-" | "/" | "==" | "!=" | ">=" | ">" | "<=" | "<") ^^ (x => ???)
-	
-  // TODO
-  def NaryOp: Parser[List[Any]] =
-    ("+" | "*" | "++" | "<>" | "&&" | "||") ^^ (x => ???)
-	
-  // TODO
-  def IfThenElse: Parser[List[Any]] =
-    "IF" ~> SimpleValue <~ "THEN" ~> SimpleValue <~ "ELSE" ~> SimpleValue <~ "FI" ^^ (x => ???)
-	  
-  // TODO
-  def Function: Parser[List[Any]] = ???
-
-  // TODO
-  def Predicate: Parser[List[Any]] = ???
-
   val epsilon: Parser[Any] = ""
   
   def parse(s: String): Any = {
