@@ -125,7 +125,12 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
     }
   }
 
-  override def toString =
-    "(" + head._1 + "," + head._2 + ")" + (if (rest == Empty) "" else "," + rest)
+  override def toString = {
+    def valueToString(v: Any): String =
+      if (v.isInstanceOf[Store]) "{" + v + "}"
+      else v.toString
+    
+    "(" + head._1 + "," + valueToString(head._2) + ")" + (if (rest == Empty) "" else "," + rest)
+  }
     
 }
