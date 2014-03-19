@@ -1,7 +1,12 @@
 #!/bin/bash
 
 HOME="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-SCALA="/usr/local/opt/scala/bin/scala"
 MAIN_CLASS="org.sf.lang.Parser"
 
-$SCALA -classpath "$HOME/bin" $MAIN_CLASS $@
+#BIN="/usr/local/opt/scala/bin/scala"
+#$BIN -classpath "$HOME/bin" $MAIN_CLASS $@
+
+JAVA="java"
+JAR="sbt/target/scala-2.10/sfParser-assembly-*.jar"
+
+$JAVA -jar $JAR $@
