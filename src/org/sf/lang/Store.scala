@@ -125,6 +125,17 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
     }
   }
 
+  def normalize: FlatStore =
+    normalize1(FlatStore.Empty, Reference.Empty)
+  
+  def normalize1(fs: FlatStore, ns: Reference): FlatStore =
+    if (this == Empty) fs
+    else
+      if (head._2.isInstanceOf[Store])
+        rest.normalize1(head._2.asInstanceOf[Store].normalize1(fs.bind(ns ++ head._1, Empty), ns ++ head._1), ns)
+      else
+        rest.normalize1(fs.bind(ns ++ head._1, head._2), ns)
+  
   override def toString = {
     def valueToString(v: Any): String =
       if (v.isInstanceOf[Store]) "{" + v + "}"
@@ -133,4 +144,41 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
     "(" + head._1 + "," + valueToString(head._2) + ")" + (if (rest == Empty) "" else "," + rest)
   }
     
+  def toJson: String = internalToJson(new StringBuffer("{")).append("}").toString
+    
+  protected def internalToJson(buffer: StringBuffer): StringBuffer = {
+    def valueToJson: StringBuffer =
+      if (head._2.isInstanceOf[Store])
+        head._2.asInstanceOf[Store].internalToJson(buffer.append("{")).append("}")
+      else if (head._2.isInstanceOf[Reference])
+        buffer.append(head._2.asInstanceOf[Reference].toJson)
+      else
+        buffer.append(head._2.toString)
+    
+    buffer.append("\"").append(head._1).append("\":")
+    valueToJson
+    if (rest != Empty)
+      rest.internalToJson(buffer.append(","))
+    buffer
+  }
+  
+  def toYaml: String = {
+    internalToYaml(new StringBuffer("---"), "").toString
+  }
+  
+  protected def internalToYaml(buffer: StringBuffer, tab: String): StringBuffer = {
+    def valueToYaml: StringBuffer =
+      if (head._2.isInstanceOf[Store])
+        head._2.asInstanceOf[Store].internalToYaml(buffer, tab + "  ")
+      else if (head._2.isInstanceOf[Reference])
+        buffer.append(head._2.asInstanceOf[Reference].toYaml)
+      else
+        buffer.append(head._2.toString)
+
+    buffer.append("\n").append(tab).append(head._1).append(": ")
+    valueToYaml
+    if (rest != Empty)
+      rest.internalToYaml(buffer, tab)
+    buffer
+  }
 }

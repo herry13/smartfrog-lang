@@ -79,4 +79,8 @@ class Reference(val head: String, val _rest: Reference = Reference.Empty) {
     else new Reference(head, rest.delete(id))
     
   override def toString = if (rest == Empty) head else head + ":" + rest
+  
+  def toJson: String = "\"$." + toString + "\""
+  
+  def toYaml: String = toJson
 }

@@ -4,9 +4,24 @@ import scala.util.parsing.combinator.JavaTokenParsers
 import scala.io.Source
 
 object Parser extends Parser with App {
-  val help = "Usage: scala org.sf.lang.Parser <sf-file>"
+  val help = """Usage: scala org.sf.lang.Parser [option] <sf-file>
+
+where [option] is:
+  -json     print output in JSON
+  -yaml     print output in YAML
+"""
+    
   if (args.length <= 0) Console.println(help)
-  else println(parseFile(args.head))
+  else
+    if (inJson(args)) println(parseFile(args.tail.head).toJson)
+    else if (inYaml(args)) println(parseFile(args.tail.head).toYaml)
+    else println(parseFile(args.head))
+    
+  def inJson(args: Array[String]): Boolean =
+    (args.length >= 2 && args.head.equals("-json"))
+    
+  def inYaml(args: Array[String]): Boolean =
+    (args.length >= 2 && args.head.equals("-yaml"))
 }
 
 class Parser extends JavaTokenParsers {
@@ -163,7 +178,7 @@ class Parser extends JavaTokenParsers {
   
   val epsilon: Parser[Any] = ""
   
-  def parse(s: String): Any = {
+  def parse(s: String): Store = {
     parseAll(Sf, s) match {
       case Success(root, _) => root
       case NoSuccess(msg, next) => throw new Exception("at " + next.pos)
@@ -177,5 +192,5 @@ class Parser extends JavaTokenParsers {
     }
   }
     
-  def parseFile(filePath: String) = parse(Source.fromFile(filePath).mkString)
+  def parseFile(filePath: String): Store = parse(Source.fromFile(filePath).mkString)
 }

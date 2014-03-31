@@ -1,5 +1,5 @@
-smartfrog-lang
-==============
+SmartFrog Language Semantics
+============================
 This is the implementation of the formal semantic of SmartFrog (SF) language in Scala. The supported features are:
 
 - Primitive Value
@@ -33,18 +33,40 @@ To build:
 Usage
 -----
 
-	$ ./sfParser <sf-file>
+	$ ./sfParser [option] <sf-file>
+
+To generate standard output for input file: test.sf
+
+	$ ./sfParser test.sf
+
+To generate JSON output
+
+	$ ./sfParser -json test.sf
+
+To generate YAML output
+
+	$ ./sfParser -yaml test.sf
+
+Note that every value is converted as it is to JSON and YAML.
+But the data-reference will be converted to string preceeded with
+characters: `$.`. For example, data-reference `x:y:z` in JSON and
+YAML is `$.x:y:z`.
 
 
 Independent JAR file
 --------------------
 An independent JAR file is available at:
 
-https://github.com/herry13/smartfrog-lang/blob/master/sbt/target/scala-2.10/sfParser-assembly-0.1.jar
+https://github.com/herry13/smartfrog-lang/blob/master/sbt/target/scala-2.10/sfParser-assembly-0.2.jar
 
 The JAR file can be executed with command:
 
-	$ java -jar sbt/target/scala-2.10/sfParser-assembly-0.1.jar <sf-file>
+	$ java -jar sbt/target/scala-2.10/sfParser-assembly-0.2.jar <sf-file>
+
+To build an independent JAR file:
+
+	$ cd sbt
+	$ sbt assembly
 
 
 Output
