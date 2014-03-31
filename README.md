@@ -3,12 +3,18 @@ SmartFrog Language Semantics
 This is the implementation of the formal semantic of SmartFrog (SF) language in Scala. The supported features are:
 
 - Primitive Value
-- Data and Link Reference + late-binding of link reference
+- Data and Link Reference (late-binding for link reference)
 - Vector
 - Prototype
 - Placement (no late-binding)
 
-Note that the _lazy reference_ is treated same as data reference.
+Note that the _lazy reference_ is treated same as data reference. _late binding_ of link reference is for supporting commutative property. Without late binding then the following specification will produce an error:
+
+	sfConfig extends {
+	   x y;
+	   y 1;
+	   z x;
+	}
 
 Not yet supported:
 
