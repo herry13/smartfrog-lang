@@ -2,13 +2,12 @@ SmartFrog Language Semantics
 ============================
 This is the implementation of the formal semantic of SmartFrog (SF) language in Scala. The supported features are:
 
-- Primitive Value
-- Data and Link Reference (late-binding for link reference)
-- Vector
+- Basic Value (Boolean, Number, String, Null, Vector)
+- Data and Link Reference (_forward link reference_ is supported)
 - Prototype
-- Placement (no late-binding)
+- Placement (_forward placement_ is not supported)
 
-Note that the _lazy reference_ is treated same as data reference. _late binding_ of link reference is for supporting commutative property. Without late binding then the following specification will produce an error:
+Note that the _lazy reference_ is treated same as data reference. _forward link reference_ is for supporting commutative property, for example:
 
 	sfConfig extends {
 	   x y;
@@ -61,10 +60,7 @@ YAML is `$.x:y:z`.
 
 Independent JAR file
 --------------------
-An independent JAR file is available at:
-
-https://github.com/herry13/smartfrog-lang/blob/master/sbt/target/scala-2.10/sfParser-assembly-0.2.jar
-
+An independent JAR file is available at [here](https://github.com/herry13/smartfrog-lang/blob/master/sbt/target/scala-2.10/sfParser-assembly-0.2.jar).
 The JAR file can be executed with command:
 
 	$ java -jar sbt/target/scala-2.10/sfParser-assembly-0.2.jar <sf-file>
@@ -96,8 +92,8 @@ then the output will be:
 
 	(test,{(bar,1),(a1,{(foo,1)})}),(bar,2),(a2,{(foo,1)})
 
-`(x,y)` means that variable `x` has primitive value `y`, and
-`(x,{...})` means that variable `x` is a component.
+`(x,y)` means that variable `x` has a basic value `y`, and
+`(x,{...})` means that variable `x` is a component (object).
 
 
 License
