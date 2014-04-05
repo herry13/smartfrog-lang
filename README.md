@@ -1,6 +1,6 @@
-SmartFrog Language Semantics
+[SmartFrog](http://smartfrog.org) Language Semantics
 ============================
-This is the implementation of the formal semantic of SmartFrog (SF) language in Scala. The supported features are:
+This is the implementation of the formal semantic of [SmartFrog](http://smartfrog.org) (SF) language in Scala. The supported features are:
 
 - Basic Value (Boolean, Number, String, Null, Vector)
 - Data and Link Reference (_forward link reference_ is supported)
@@ -98,4 +98,4 @@ then the output will be:
 
 License
 -------
-BSD License
+[BSD License](https://raw.githubusercontent.com/herry13/smartfrog-lang/master/LICENSE)
