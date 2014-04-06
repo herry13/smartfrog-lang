@@ -10,7 +10,8 @@ where [option] is:
   -json     print output in JSON
   -yaml     print output in YAML
 """
-    
+
+  /*  
   if (args.length <= 0) Console.println(help)
   else
     if (inJson(args)) println(parseFile(args.tail.head).toJson)
@@ -22,65 +23,73 @@ where [option] is:
     
   def inYaml(args: Array[String]): Boolean =
     (args.length >= 2 && args.head.equals("-yaml"))
+  */
 }
 
 class Parser extends JavaTokenParsers {
+  import Domain._
+  
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
-  protected val sfConfig = Reference("sfConfig")
+  protected val sfConfig = List("sfConfig")
   
   def Sf: Parser[Store] = Body ^^ (b =>
       ((v: Any) =>
-        if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
+        if (v.isInstanceOf[Store]) replaceLink(v.asInstanceOf[Store])
         else throw new Exception("sfConfig is not exist or a component")
-      )(b(Reference.Empty)(Store.Empty).find(sfConfig)).accept(Store.replaceLink)
+      )(
+        find(b(List(), Empty), sfConfig)
+      )
     )
 
-  def Body: Parser[Reference => Store => Store] = AttributeList
+  def Body: Parser[(Reference, Store) => Store] = AttributeList
   
-  def AttributeList: Parser[Reference => Store => Store] =
+  def AttributeList: Parser[(Reference, Store) => Store] =
     ( Attribute ~ AttributeList ^^ { case a ~ al =>
-        (ns: Reference) => (s: Store) => al(ns)(a(ns)(s))
+        (ns: Reference, s: Store) => al(ns, a(ns, s))
       }
     | "#include" ~> stringLiteral ~ AttributeList ^^ { case file ~ al =>
-        (ns: Reference) => (s: Store) =>
-          al(ns)(parseIncludeFile(file, ns, s))
+        (ns: Reference, s: Store) => al(ns, parseIncludeFile(file, ns, s))
       }
     | ";" ~> AttributeList
-    | (epsilon | "\\Z".r) ^^ (x => (ns: Reference) => (s: Store) => s)
+    | (epsilon | "\\Z".r) ^^ (x =>
+        (ns: Reference, s: Store) => s
+      )
     )
 
-  def Attribute: Parser[Reference => Store => Store] =
+  def Attribute: Parser[(Reference, Store) => Store] =
     Name ~ Value ^^ { case name ~ value =>
-      (ns: Reference) => (s: Store) =>
-        if (name.length == 1) value(ns)(ns ++ name)(s)
+      (ns: Reference, s: Store) =>
+        if (name.length == 1) value(ns, ns ++ name, s)
         else
           ((l: (Reference, Any)) =>
-          	if (l._2.isInstanceOf[Store]) value(ns)(l._1 ++ name)(s)
+          	if (l._2.isInstanceOf[Store]) value(ns, l._1 ++ name, s)
           	else throw new Exception("prefix of " + name + " is not a component")
-          )(s.resolve(ns, name.prefix))
+          )(resolve(s, ns, prefix(name)))
     }
 	
   def Name: Parser[Reference] =
-    ( "--" ^^ (x => Reference("x" + scala.util.Random.alphanumeric.take(5).mkString))
+    ( "--" ^^ (x =>
+        List("x" + scala.util.Random.alphanumeric.take(5).mkString)
+      )
     | Word ~ (":" ~> Name).? ^^ { case word ~ name =>
-      	if (name.isEmpty) Reference(word)
-      	else Reference(word, name.last)
+      	if (name.isEmpty) List(word)
+      	else word :: name.last
       }
     )
 
   def Word: Parser[String] = ident
 
-  def Value: Parser[Reference => Reference => Store => Store] =
+  def Value: Parser[(Reference, Reference, Store) => Store] =
     ( Component ^^ (c =>
-        (ns: Reference) => (r: Reference) => (s: Store) => c(ns)(r)(s.bind(r, Store.Empty))
+        (ns: Reference, r: Reference, s: Store) => c(ns, r, bind(s, r, Empty))
       )
     | SimpleValue <~ ";"  ^^ (sv =>
-        (ns: Reference) => (r: Reference) => (s: Store) => s.bind(r, sv)
+        (ns: Reference, r: Reference, s: Store) => bind(s, r, sv)
       )
     | LinkReference <~ ";"  ^^ (lr =>
-        (ns: Reference) => (r: Reference) => (s: Store) => s.bind(r, lr(r))
+        (ns: Reference, r: Reference, s: Store) => bind(s, r, lr(r))
       )
-    | ";" ^^ { x => (ns: Reference) => (r: Reference) => (s: Store) => s } 
+    | ";" ^^ { x => (ns: Reference, r: Reference, s: Store) => s } 
     )
 	
   def SimpleValue: Parser[Any] =
@@ -95,7 +104,7 @@ class Parser extends JavaTokenParsers {
     | Null
     )
 
-  val TBD: Parser[Any] = "TBD" ^^ (x => Store.TBD)
+  val TBD: Parser[Any] = "TBD" ^^ (x => TBD)
     
   protected val intRegex = """\-?[0-9]+(?!\.)""".r
   
@@ -105,7 +114,7 @@ class Parser extends JavaTokenParsers {
       else n.toInt
     )
 
-  def BasicVector: Parser[List[Any]] =
+  def BasicVector: Parser[Vector] =
     "[|" ~>
     ( Basic ~ ("," ~> Basic).* ^^ { case x ~ xs => x :: xs }
     | epsilon ^^ (x => List())
@@ -113,7 +122,7 @@ class Parser extends JavaTokenParsers {
 
   def Null: Parser[Any] = "NULL" ^^ (x => null)
     
-  def Vector: Parser[List[Any]] =
+  def Vector: Parser[Vector] =
     "[" ~>
     ( SimpleValue ~ ("," ~> SimpleValue).* ^^ { case x ~ xs => x :: xs }
     | epsilon ^^ (x => List())
@@ -129,7 +138,7 @@ class Parser extends JavaTokenParsers {
 
   def BaseReference: Parser[Reference] =
     ReferencePart ~ (":" ~> ReferencePart).* ^^ {
-      case r ~ rs => Reference(r, Reference(rs))
+      case r ~ rs => r :: rs
     }
 	
   def ReferencePart: Parser[String] =
@@ -145,34 +154,34 @@ class Parser extends JavaTokenParsers {
     OptionalValueLinkReference.? ~ BaseReference ^^ { case opt ~ lr =>
       (r: Reference) =>
         if (opt.isEmpty)
-          if (lr.subseteqof(r)) throw new Exception("link reference is referring the parent")
-          else new LinkReference(lr)
-        else new LinkReference(lr, opt.head)
+          if (subseteq(lr, r)) throw new Exception("link reference is referring the parent")
+          else (lr, null)
+        else (lr, opt.head)
     }
 
   def OptionalValueLinkReference: Parser[Any] =
     "OPTIONAL" ~> SimpleValue
         
-  def Component: Parser[Reference => Reference => Store => Store] =
+  def Component: Parser[(Reference, Reference, Store) => Store] =
     "extends" ~> Prototypes
 
-  def Prototypes: Parser[Reference => Reference => Store => Store] =
+  def Prototypes: Parser[(Reference, Reference, Store) => Store] =
     ( Prototype ~ ("," ~> Prototype).* ^^ { case p ~ ps =>
-        (ns: Reference) => (r: Reference) => (s: Store) =>
-          ps.foldRight(p(ns)(r)(s))(
-            (p1: Reference => Reference => Store => Store, s1: Store) =>
-              p1(ns)(r)(s1)
+        (ns: Reference, r: Reference, s: Store) =>
+          ps.foldRight(p(ns, r, s))(
+            (p1: (Reference, Reference, Store) => Store, s1: Store) =>
+              p1(ns, r, s1)
           )
       }
-    | epsilon ^^ (x => (ns: Reference) => (r: Reference) => (s: Store) => s)
+    | epsilon ^^ (x => (ns: Reference, r: Reference, s: Store) => s)
     )
     
-  def Prototype: Parser[Reference => Reference => Store => Store] =
+  def Prototype: Parser[(Reference, Reference, Store) => Store] =
     ( BaseReference ^^ (br =>
-        (ns: Reference) => (r: Reference) => (s: Store) => s.inherit(ns, br, r)
+        (ns: Reference, r: Reference, s: Store) => inherit(s, ns, br ,r)
       )
     | "{" ~> AttributeList <~ "}" ^^ (attrs =>
-        (ns: Reference) => (r: Reference) => (s: Store) => attrs(r)(s)
+        (ns: Reference, r: Reference, s: Store) => attrs(r, s)
       )
     )
   
@@ -187,7 +196,7 @@ class Parser extends JavaTokenParsers {
     
   def parseIncludeFile(filePath: String, ns: Reference, s: Store): Store = {
     parseAll(Body, Source.fromFile(filePath).mkString) match {
-      case Success(body, _) => body(ns)(s)
+      case Success(body, _) => body(ns, s)
       case NoSuccess(msg, next) => throw new Exception("at " + next.pos)
     }
   }
