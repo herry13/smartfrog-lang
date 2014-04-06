@@ -124,17 +124,6 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
       )(visitor(root, ns, head))
     }
   }
-
-  def normalize: FlatStore =
-    normalize1(FlatStore.Empty, Reference.Empty)
-  
-  def normalize1(fs: FlatStore, ns: Reference): FlatStore =
-    if (this == Empty) fs
-    else
-      if (head._2.isInstanceOf[Store])
-        rest.normalize1(head._2.asInstanceOf[Store].normalize1(fs.bind(ns ++ head._1, Empty), ns ++ head._1), ns)
-      else
-        rest.normalize1(fs.bind(ns ++ head._1, head._2), ns)
   
   override def toString = {
     def valueToString(v: Any): String =
