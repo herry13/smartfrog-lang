@@ -1,6 +1,6 @@
 package org.sf.lang
 
-object Store {
+object Store {  
   type Cell = (String, Any)
   
   object Empty extends Store(("", null)) {
@@ -67,6 +67,14 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
         else Undefined
       else rest.find(r)
   
+  def resolve(ns: Reference, r: Reference): (Reference, Any) =
+    if (ns == Reference.Empty) (ns, find(r))
+    else
+      ((v: Any) =>
+        if (v == Undefined) resolve(ns.prefix, r)
+        else (ns, v)
+      )( find(ns ++ r) )
+      
   def copy(src: Store, r: Reference): Store =
     if (src == Empty) this
     else bind(r ++ src.head._1, src.head._2).copy(src.rest, r)
@@ -82,14 +90,6 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
       else throw new Exception("invalid prototype reference: " + src)
     )(resolve(ns, src))
   
-  def resolve(ns: Reference, r: Reference): (Reference, Any) =
-    if (ns == Reference.Empty) (ns, find(r))
-    else
-      ((v: Any) =>
-        if (v == Undefined) resolve(ns.prefix, r)
-        else (ns, v)
-      )( find(ns ++ r) )
-      
   def resolvelink(ns: Reference, lr: LinkReference): Any = {
     def getlink1(ns: Reference, lr: LinkReference, acc: Set[LinkReference]): Any = {
       if (acc.contains(lr)) throw new Exception("cyclic link reference is detected: " + lr + ", visited: " + acc)
