@@ -21,7 +21,9 @@ object Reference {
   
   def apply(s: String, rest: Reference): Reference = new Reference(s, rest)
   
-  def apply(rs: List[String]): Reference = rs.foldLeft[Reference](Reference.Empty)((r: Reference, s: String) => r ++ s)  
+  def apply(rs: List[String]): Reference = rs.foldLeft[Reference](Reference.Empty)((r: Reference, s: String) => r ++ s)
+  
+  def isReference(r: Any): Boolean = (r.isInstanceOf[Reference] && r != Undefined)
 }
 
 class Reference(val head: String, val _rest: Reference = Reference.Empty) {

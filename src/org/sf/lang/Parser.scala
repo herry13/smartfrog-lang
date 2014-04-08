@@ -30,7 +30,7 @@ class Parser extends JavaTokenParsers {
   
   def Sf: Parser[Store] = Body ^^ (b =>
       ((v: Any) =>
-        if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
+        if (Store.isStore(v)) v.asInstanceOf[Store]
         else throw new Exception("sfConfig is not exist or a component")
       )(b(Reference.Empty)(Store.Empty).find(sfConfig)).accept(Store.replaceLink)
     )
@@ -55,7 +55,7 @@ class Parser extends JavaTokenParsers {
         if (name.length == 1) value(ns)(ns ++ name)(s)
         else
           ((l: (Reference, Any)) =>
-          	if (l._2.isInstanceOf[Store]) value(ns)(l._1 ++ name)(s)
+          	if (Store.isStore(l._2)) value(ns)(l._1 ++ name)(s)
           	else throw new Exception("prefix of " + name + " is not a component")
           )(s.resolve(ns, name.prefix))
     }

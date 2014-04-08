@@ -29,6 +29,8 @@ object Store {
         else v
       )(s.resolvelink(ns, c._2.asInstanceOf[LinkReference]))
     else c._2
+    
+  def isStore(v: Any): Boolean = (v.isInstanceOf[Store] && v != Undefined)
 }
 
 class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
@@ -45,7 +47,7 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
     else if (this == Empty) throw new Exception("invalid reference: " + r + "=" + v)
     else
       if (head._1.equals(r.head))
-        if (head._2.isInstanceOf[Store]) Store(head._1, head._2.asInstanceOf[Store].bind(r.rest, v), rest)
+        if (isStore(head._2)) Store(head._1, head._2.asInstanceOf[Store].bind(r.rest, v), rest)
         else throw new Exception
       else Store(head, rest.bind(r, v))
   
@@ -63,7 +65,7 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
       else rest.find(r)
     else
       if (head._1.equals(r.head))
-        if (head._2.isInstanceOf[Store]) head._2.asInstanceOf[Store].find(r.rest)
+        if (isStore(head._2)) head._2.asInstanceOf[Store].find(r.rest)
         else Undefined
       else rest.find(r)
   
@@ -79,16 +81,17 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
     if (src == Empty) this
     else bind(r ++ src.head._1, src.head._2).copy(src.rest, r)
 
-  def inherit(ns: Reference, src: Reference, dest: Reference): Store =
+  def inherit(ns: Reference, src: Reference, dest: Reference): Store = {
     ((l: (Reference, Any)) =>
-      if (l._2.isInstanceOf[Store]) copy(l._2.asInstanceOf[Store], dest)
+      if (isStore(l._2)) copy(l._2.asInstanceOf[Store], dest)
       else if (l._2.isInstanceOf[LinkReference])
         ((v: Any) =>
-          if (v.isInstanceOf[Store]) copy(v.asInstanceOf[Store], dest)
+          if (isStore(v)) copy(v.asInstanceOf[Store], dest)
           else throw new Exception("invalid prototype reference: " + src)
         )(resolvelink(ns, new LinkReference(src)))
       else throw new Exception("invalid prototype reference: " + src)
     )(resolve(ns, src))
+  }
   
   def resolvelink(ns: Reference, lr: LinkReference): Any = {
     def getlink1(ns: Reference, lr: LinkReference, acc: Set[LinkReference]): Any = {
@@ -109,12 +112,12 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
     
   def accept1(root: Store, ns: Reference, visitor: (Store, Reference, Cell) => Any): Store = {
     if (this == Empty) root
-    else if (head._2.isInstanceOf[Store])
+    else if (isStore(head._2))
       rest.accept1(head._2.asInstanceOf[Store].accept1(root, ns ++ head._1, visitor) , ns, visitor)
     else {
       ((v: Any) =>
         ((root1: Store) =>
-          if (v.isInstanceOf[Store])
+          if (isStore(v))
             rest.accept1(
                 v.asInstanceOf[Store].accept1(root1, ns ++ head._1, visitor)
                 ,ns, visitor
@@ -127,7 +130,7 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
   
   override def toString = {
     def valueToString(v: Any): String =
-      if (v.isInstanceOf[Store]) "{" + v + "}"
+      if (isStore(v)) "{" + v + "}"
       else v.toString
     
     "(" + head._1 + "," + valueToString(head._2) + ")" + (if (rest == Empty) "" else "," + rest)
@@ -137,9 +140,9 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
     
   protected def internalToJson(buffer: StringBuffer): StringBuffer = {
     def valueToJson: StringBuffer =
-      if (head._2.isInstanceOf[Store])
+      if (isStore(head._2))
         head._2.asInstanceOf[Store].internalToJson(buffer.append("{")).append("}")
-      else if (head._2.isInstanceOf[Reference])
+      else if (Reference.isReference(head._2))
         buffer.append(head._2.asInstanceOf[Reference].toJson)
       else
         buffer.append(head._2.toString)
@@ -157,9 +160,9 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
   
   protected def internalToYaml(buffer: StringBuffer, tab: String): StringBuffer = {
     def valueToYaml: StringBuffer =
-      if (head._2.isInstanceOf[Store])
+      if (isStore(head._2))
         head._2.asInstanceOf[Store].internalToYaml(buffer, tab + "  ")
-      else if (head._2.isInstanceOf[Reference])
+      else if (Reference.isReference(head._2))
         buffer.append(head._2.asInstanceOf[Reference].toYaml)
       else
         buffer.append(head._2.toString)
