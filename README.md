@@ -62,10 +62,10 @@ YAML is `$.x:y:z`.
 
 Independent JAR file
 --------------------
-An independent JAR file is available at [here](https://github.com/herry13/smartfrog-lang/blob/master/sbt/target/scala-2.10/sfParser-assembly-0.2.jar).
+An independent JAR file is available at [here](https://github.com/herry13/smartfrog-lang/blob/master/sbt/target/scala-2.10/sfParser-assembly-0.3.jar).
 The JAR file can be executed with command:
 
-	$ java -jar sbt/target/scala-2.10/sfParser-assembly-0.2.jar <sf-file>
+	$ java -jar sbt/target/scala-2.10/sfParser-assembly-0.3.jar <sf-file>
 
 To build an independent JAR file:
 
