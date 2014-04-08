@@ -6,8 +6,9 @@ This is the implementation of the formal semantic of [SmartFrog](http://smartfro
 - Data and Link Reference (_forward link reference_ is supported)
 - Prototype
 - Placement (_forward placement_ is not supported)
+- Include file
 
-Note that the _lazy reference_ is treated same as data reference. _forward link reference_ is for supporting commutative property, for example:
+_forward link reference_ is for supporting commutative property, for example:
 
 	sfConfig extends {
 	   x y;
@@ -19,6 +20,7 @@ Not yet supported:
 
 - TBD
 - Optional value of link reference
+- Lazy reference
 - Keywords in reference: ROOT, PARENT, ATTRIB, HERE, THIS
 - Function
 - Schema
@@ -82,7 +84,7 @@ If you have the following input:
 	sfConfig extends {
 		test extends {
 			bar 1;
-			a1 extends A;
+			a1 extends A
 		}
 		bar 2;
 		a2 test:a1;

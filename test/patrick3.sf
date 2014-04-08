@@ -7,7 +7,7 @@ sfConfig extends {
 	a2 test:a1;
 	test extends {
 		bar 1;
-		a1 extends A;
+		a1 extends A
 	}
 }
 

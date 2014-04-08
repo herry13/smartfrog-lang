@@ -26,77 +26,88 @@ where [option] is:
 
 class Parser extends JavaTokenParsers {
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
-  protected val sfConfig = Reference("sfConfig")
-  
+  protected val sfConfig = new Reference("sfConfig")
+
   def Sf: Parser[Store] = Body ^^ (b =>
       ((v: Any) =>
         if (Store.isStore(v)) v.asInstanceOf[Store]
         else throw new Exception("sfConfig is not exist or a component")
-      )(b(Reference.Empty, Store.Empty).find(sfConfig)).accept(Store.replaceLink)
+      )(
+        b(org.sf.lang.Reference.Empty, Store.Empty).find(sfConfig)
+      ).accept(Store.replaceLink)
     )
 
-  def Body: Parser[(Reference, Store) => Store] = AttributeList
-  
-  def AttributeList: Parser[(Reference, Store) => Store] =
-    ( Attribute ~ AttributeList ^^ { case a ~ al =>
-        (ns: Reference, s: Store) => al(ns, a(ns, s))
+  def Body: Parser[(Reference, Store) => Store] =
+    ( Assignment ~ Body ^^ { case a ~ b =>
+        (ns: Reference, s: Store) => b(ns, a(ns, s))
       }
-    | "#include" ~> stringLiteral ~ AttributeList ^^ { case file ~ al =>
-        (ns: Reference, s: Store) =>
-          al(ns, parseIncludeFile(file, ns, s))
+    | "#include" ~> stringLiteral ~ ";" ~ Body ^^ { case file ~ _ ~ b =>
+      	(ns: Reference, s: Store) => b(ns, parseIncludeFile(file.substring(1, file.length-1), ns, s))
       }
-    | ";" ~> AttributeList
-    | (epsilon | "\\Z".r) ^^ (x => (ns: Reference, s: Store) => s)
+    | epsilon ^^ { x => (ns: Reference, s: Store) => s }
     )
-
-  def Attribute: Parser[(Reference, Store) => Store] =
-    Name ~ Value ^^ { case name ~ value =>
+    
+  def Assignment: Parser[(Reference, Store) => Store] =
+    Reference ~ Value ^^ { case r ~ v =>
       (ns: Reference, s: Store) =>
-        if (name.length == 1) value(ns, ns ++ name, s)
+        if (r.length == 1) v(ns, ns ++ r, s)
         else
           ((l: (Reference, Any)) =>
-          	if (Store.isStore(l._2)) value(ns, l._1 ++ name, s)
-          	else throw new Exception("prefix of " + name + " is not a component")
-          )(s.resolve(ns, name.prefix))
+          	if (Store.isStore(l._2)) v(ns, l._1 ++ r, s)
+          	else throw new Exception("prefix of " + r + " is not a component")
+          )(s.resolve(ns, r.prefix))
     }
-	
-  def Name: Parser[Reference] =
-    ( "--" ^^ (x => Reference("x" + scala.util.Random.alphanumeric.take(5).mkString))
-    | Word ~ (":" ~> Name).? ^^ { case word ~ name =>
-      	if (name.isEmpty) Reference(word)
-      	else Reference(word, name.last)
+
+  def Prototype: Parser[(Reference, Reference, Store) => Store] =
+    ( "extends" ~> Reference ~ Prototype ^^ { case r1 ~ p =>
+        (ns: Reference, r: Reference, s: Store) =>
+          p(ns, r, s.inherit(ns, r1, r))
+      }
+    | "extends" ~> "{" ~> Body ~ "}" ~ Prototype ^^ { case b ~ _ ~ p =>
+        (ns: Reference, r: Reference, s: Store) =>
+          p(ns, r, b(r, s))
+      }
+    | epsilon ^^ { x =>
+        (ns: Reference, r: Reference, s: Store) => s
       }
     )
-
-  def Word: Parser[String] = ident
-
+  
   def Value: Parser[(Reference, Reference, Store) => Store] =
-    ( Component ^^ (c =>
-        (ns: Reference, r: Reference, s: Store) => c(ns, r, s.bind(r, Store.Empty))
-      )
-    | SimpleValue <~ ";"  ^^ (sv =>
+    ( BasicValue <~ ";"  ^^ (sv =>
         (ns: Reference, r: Reference, s: Store) => s.bind(r, sv)
       )
     | LinkReference <~ ";"  ^^ (lr =>
         (ns: Reference, r: Reference, s: Store) => s.bind(r, lr(r))
       )
-    | ";" ^^ { x => (ns: Reference, r: Reference, s: Store) => s } 
+    | Prototype ^^ (p =>
+        (ns: Reference, r: Reference, s: Store) => p(ns, r, s.bind(r, Store.Empty))
+      )
     )
 	
-  def SimpleValue: Parser[Any] =
-    Basic
+  def Reference: Parser[Reference] =
+    ident ~ (":" ~> ident).* ^^ {
+      case id ~ ids => new Reference(id, org.sf.lang.Reference(ids))
+    }
+	
+  def DataReference: Parser[Reference] =
+    "DATA" ~> Reference
 
-  def Basic: Parser[Any] =
-    ( stringLiteral
+  def LinkReference: Parser[Reference => LinkReference] =
+    Reference ^^ { case lr =>
+      (r: Reference) =>
+      	if (lr.subseteqof(r)) throw new Exception("link reference is referring the parent")
+      	else new LinkReference(lr)
+    }
+    
+  def BasicValue: Parser[Any] =
+    ( Boolean
     | Number
-    | Boolean
-    | ReferenceValue
-    | BasicVector
+    | stringLiteral
+    | DataReference
+    | Vector
     | Null
     )
 
-  val TBD: Parser[Any] = "TBD" ^^ (x => Store.TBD)
-    
   protected val intRegex = """\-?[0-9]+(?!\.)""".r
   
   def Number: Parser[Any] =
@@ -105,77 +116,19 @@ class Parser extends JavaTokenParsers {
       else n.toInt
     )
 
-  def BasicVector: Parser[List[Any]] =
-    "[|" ~>
-    ( Basic ~ ("," ~> Basic).* ^^ { case x ~ xs => x :: xs }
-    | epsilon ^^ (x => List())
-    ) <~ "|]"
-
-  def Null: Parser[Any] = "NULL" ^^ (x => null)
-    
   def Vector: Parser[List[Any]] =
     "[" ~>
-    ( SimpleValue ~ ("," ~> SimpleValue).* ^^ { case x ~ xs => x :: xs }
+    ( BasicValue ~ ("," ~> BasicValue).* ^^ { case x ~ xs => x :: xs }
     | epsilon ^^ (x => List())
     ) <~ "]"
+
+  def Null: Parser[Any] = "NULL" ^^ (x => null)
     
   def Boolean: Parser[Boolean] =
     ( "true" ^^ (x => true)
     | "false" ^^ (x => false)
     )
 	
-  def ReferenceValue: Parser[Reference] =
-    "DATA" ~> BaseReference
-
-  def BaseReference: Parser[Reference] =
-    ReferencePart ~ (":" ~> ReferencePart).* ^^ {
-      case r ~ rs => Reference(r, Reference(rs))
-    }
-	
-  def ReferencePart: Parser[String] =
-    ( "ROOT"
-    | "PARENT"
-    | "ATTRIB"
-    | "HERE"
-    | "THIS"
-    | Word
-    )
-	
-  def LinkReference: Parser[Reference => LinkReference] =
-    OptionalValueLinkReference.? ~ BaseReference ^^ { case opt ~ lr =>
-      (r: Reference) =>
-        if (opt.isEmpty)
-          if (lr.subseteqof(r)) throw new Exception("link reference is referring the parent")
-          else new LinkReference(lr)
-        else new LinkReference(lr, opt.head)
-    }
-
-  def OptionalValueLinkReference: Parser[Any] =
-    "OPTIONAL" ~> SimpleValue
-        
-  def Component: Parser[(Reference, Reference, Store) => Store] =
-    "extends" ~> Prototypes
-
-  def Prototypes: Parser[(Reference, Reference, Store) => Store] =
-    ( Prototype ~ ("," ~> Prototype).* ^^ { case p ~ ps =>
-        (ns: Reference, r: Reference, s: Store) =>
-          ps.foldRight(p(ns, r, s))(
-            (p1: (Reference, Reference, Store) => Store, s1: Store) =>
-              p1(ns, r, s1)
-          )
-      }
-    | epsilon ^^ (x => (ns: Reference, r: Reference, s: Store) => s)
-    )
-    
-  def Prototype: Parser[(Reference, Reference, Store) => Store] =
-    ( BaseReference ^^ (br =>
-        (ns: Reference, r: Reference, s: Store) => s.inherit(ns, br, r)
-      )
-    | "{" ~> AttributeList <~ "}" ^^ (attrs =>
-        (ns: Reference, r: Reference, s: Store) => attrs(r, s)
-      )
-    )
-  
   val epsilon: Parser[Any] = ""
   
   def parse(s: String): Store = {

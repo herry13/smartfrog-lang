@@ -8,5 +8,4 @@ MAIN_CLASS="org.sf.lang.Parser"
 
 JAVA="java"
 JAR="sbt/target/scala-2.10/sfParser-assembly-$(<$HOME/VERSION).jar"
-
 $JAVA -jar $JAR $@
