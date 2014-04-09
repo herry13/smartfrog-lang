@@ -1,0 +1,19 @@
+Machine extends {
+	dns "ns.foo";
+}
+Service extends {
+	running true;
+	port 80;
+}
+sfConfig extends {
+	s1 extends Machine, {
+		web extends Service
+	}
+	s2 extends s1, {
+		web:running false;
+	}
+	pc1 extends Machine, {
+		refer DATA s1:web;
+	}
+	pc2 pc1;
+}

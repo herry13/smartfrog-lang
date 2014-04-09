@@ -1,0 +1,3 @@
+sfConfig extends {
+	myvector [ true, 1, DATA a:b:c, [ false, 0 ] ];
+}

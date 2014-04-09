@@ -1,0 +1,5 @@
+sfConfig extends {
+	comp1 extends {
+		comp2 comp1;
+	}
+}

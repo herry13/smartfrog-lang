@@ -58,17 +58,23 @@ class Parser extends JavaTokenParsers {
           )(s.resolve(ns, r.prefix))
     }
 
+  def Prototypes: Parser[(Reference, Reference, Store) => Store] =
+    ( Prototype ~ ("," ~> Prototype).* ^^ { case p ~ ps =>
+        (ns: Reference, r: Reference, s: Store) =>
+          ps.foldRight(p(ns, r, s))(
+            (p1: (Reference, Reference, Store) => Store, s1: Store) =>
+              p1(ns, r, s1)
+          )
+      }
+    | epsilon ^^ { x => (ns: Reference, r: Reference, s: Store) => s }
+    )
+  
   def Prototype: Parser[(Reference, Reference, Store) => Store] =
-    ( "extends" ~> Reference ~ Prototype ^^ { case r1 ~ p =>
-        (ns: Reference, r: Reference, s: Store) =>
-          p(ns, r, s.inherit(ns, r1, r))
+    ( Reference ^^ { case r1 =>
+        (ns: Reference, r: Reference, s: Store) => s.inherit(ns, r1, r)
       }
-    | "extends" ~> "{" ~> Body ~ "}" ~ Prototype ^^ { case b ~ _ ~ p =>
-        (ns: Reference, r: Reference, s: Store) =>
-          p(ns, r, b(r, s))
-      }
-    | epsilon ^^ { x =>
-        (ns: Reference, r: Reference, s: Store) => s
+    | "{" ~> Body <~ "}" ^^ { case b =>
+        (ns: Reference, r: Reference, s: Store) => b(r, s)
       }
     )
   
@@ -79,7 +85,7 @@ class Parser extends JavaTokenParsers {
     | LinkReference <~ ";"  ^^ (lr =>
         (ns: Reference, r: Reference, s: Store) => s.bind(r, lr(r))
       )
-    | Prototype ^^ (p =>
+    | "extends" ~> Prototypes ^^ (p =>
         (ns: Reference, r: Reference, s: Store) => p(ns, r, s.bind(r, Store.Empty))
       )
     )
@@ -94,9 +100,7 @@ class Parser extends JavaTokenParsers {
 
   def LinkReference: Parser[Reference => LinkReference] =
     Reference ^^ { case lr =>
-      (r: Reference) =>
-      	if (lr.subseteqof(r)) throw new Exception("link reference is referring the parent")
-      	else new LinkReference(lr)
+      (r: Reference) => new LinkReference(lr)
     }
     
   def BasicValue: Parser[Any] =

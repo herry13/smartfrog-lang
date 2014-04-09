@@ -27,7 +27,7 @@ object Store {
       ((v: Any) =>
         if (v == Undefined) throw new Exception("invalid link reference: " + c._2)
         else v
-      )(s.resolvelink(ns, c._2.asInstanceOf[LinkReference]))
+      )(s.resolvelink(ns, ns ++ c._1, c._2.asInstanceOf[LinkReference]))
     else c._2
     
   def isStore(v: Any): Boolean = (v.isInstanceOf[Store] && v != Undefined)
@@ -88,23 +88,24 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
         ((v: Any) =>
           if (isStore(v)) copy(v.asInstanceOf[Store], dest)
           else throw new Exception("invalid prototype reference: " + src)
-        )(resolvelink(ns, new LinkReference(src)))
+        )(resolvelink(ns, dest, new LinkReference(src)))
       else throw new Exception("invalid prototype reference: " + src)
     )(resolve(ns, src))
   }
   
-  def resolvelink(ns: Reference, lr: LinkReference): Any = {
-    def getlink1(ns: Reference, lr: LinkReference, acc: Set[LinkReference]): Any = {
+  def resolvelink(ns: Reference, r: Reference, lr: LinkReference): Any = {
+    def getlink(ns: Reference, lr: LinkReference, acc: Set[LinkReference]): Any = {
       if (acc.contains(lr)) throw new Exception("cyclic link reference is detected: " + lr + ", visited: " + acc)
       else {
         ((l: (Reference, Any)) =>
           if (l._2.isInstanceOf[LinkReference])
-            getlink1((l._1 ++ lr.ref).prefix, l._2.asInstanceOf[LinkReference], acc + lr)
+            getlink((l._1 ++ lr.ref).prefix, l._2.asInstanceOf[LinkReference], acc + lr)
+          else if ((l._1 ++ lr.ref).subseteqof(r)) throw new Exception("implicit cyclic link reference")
           else l._2
         )(resolve(ns, lr.ref))
       }
     }
-    getlink1(ns, lr, Set())
+    getlink(ns, lr, Set())
   }
   
   def accept(visitor: (Store, Reference, Cell) => Any): Store =
@@ -144,13 +145,17 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
         head._2.asInstanceOf[Store].internalToJson(buffer.append("{")).append("}")
       else if (Reference.isReference(head._2))
         buffer.append(head._2.asInstanceOf[Reference].toJson)
-      else
+      else {
+        println(head)
         buffer.append(head._2.toString)
+      }
     
-    buffer.append("\"").append(head._1).append("\":")
-    valueToJson
-    if (rest != Empty)
-      rest.internalToJson(buffer.append(","))
+    if (this != Empty) {
+      buffer.append("\"").append(head._1).append("\":")
+      valueToJson
+      if (rest != Empty)
+        rest.internalToJson(buffer.append(","))
+    }
     buffer
   }
   
@@ -167,10 +172,12 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
       else
         buffer.append(head._2.toString)
 
-    buffer.append("\n").append(tab).append(head._1).append(": ")
-    valueToYaml
-    if (rest != Empty)
-      rest.internalToYaml(buffer, tab)
+    if (this != Empty) {
+      buffer.append("\n").append(tab).append(head._1).append(": ")
+      valueToYaml
+      if (rest != Empty)
+        rest.internalToYaml(buffer, tab)
+    }
     buffer
   }
 }
