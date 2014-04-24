@@ -1,13 +1,13 @@
 A extends {
-	foo bar;
+	foo 1;
 }
 
 sfConfig extends {
-	bar 2;
-	a2 test:a1;
 	test extends {
 		bar 1;
 		a1 extends A
 	}
+	bar 2;
+	a2 test:a1;
 }
 

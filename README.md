@@ -3,18 +3,10 @@
 This is the implementation of the formal semantic of [SmartFrog](http://smartfrog.org) (SF) language in Scala. The supported features are:
 
 - Basic Value (Boolean, Number, String, Null, Vector)
-- Data and Link Reference (_forward link reference_ is supported)
+- Data and Link Reference (_forward link reference_ is not supported)
 - Prototype
 - Placement (_forward placement_ is not supported)
 - Include file
-
-_forward link reference_ is for supporting commutative property, for example:
-
-	sfConfig extends {
-	   x y;
-	   y 1;
-	   z x;
-	}
 
 Not yet supported:
 
@@ -26,6 +18,7 @@ Not yet supported:
 - Schema
 - Predicate
 
+Note: forward link-reference is supported in branch `forward-link-reference`.
 
 Requirements
 ------------
@@ -78,7 +71,7 @@ Output
 If you have the following input:
 
 	A extends {
-		foo bar;
+		foo 1;
 	}
 	
 	sfConfig extends {
