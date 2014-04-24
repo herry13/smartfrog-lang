@@ -29,12 +29,12 @@ class Parser extends JavaTokenParsers {
   protected val sfConfig = new Reference("sfConfig")
 
   def Sf: Parser[Store] = Body ^^ (b =>
-      ((v: Any) =>
-        if (Store.isStore(v)) v.asInstanceOf[Store]
-        else throw new Exception("sfConfig is not exist or a component")
-      )(
-        b(org.sf.lang.Reference.Empty, Store.Empty).find(sfConfig)
-      ).accept(Store.replaceLink)
+      ((s: Store) =>
+        ((v: Any) =>
+          if (Store.isStore(v)) v.asInstanceOf[Store].accept1(s, sfConfig, Store.replaceLink)
+          else throw new Exception("sfConfig is not exist or a component")
+        )(s.find(sfConfig))
+      )(b(org.sf.lang.Reference.Empty, Store.Empty))
     )
 
   def Body: Parser[(Reference, Store) => Store] =
