@@ -130,8 +130,14 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
   }
   
   override def toString = {
+    def vectorToString(v: List[Any]): String =
+      if (v.length == 0) ""
+      else if (v.tail.isEmpty) valueToString(v.head)
+      else valueToString(v.head) + "," + vectorToString(v.tail)
+    
     def valueToString(v: Any): String =
       if (isStore(v)) "{" + v + "}"
+      else if (v.isInstanceOf[List[Any]]) "[" + vectorToString(v.asInstanceOf[List[Any]]) + "]"
       else v.toString
     
     "(" + head._1 + "," + valueToString(head._2) + ")" + (if (rest == Empty) "" else "," + rest)
