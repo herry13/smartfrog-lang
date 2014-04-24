@@ -143,47 +143,59 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
     "(" + head._1 + "," + valueToString(head._2) + ")" + (if (rest == Empty) "" else "," + rest)
   }
     
-  def toJson: String = internalToJson(new StringBuffer("{")).append("}").toString
-    
-  protected def internalToJson(buffer: StringBuffer): StringBuffer = {
-    def valueToJson: StringBuffer =
-      if (isStore(head._2))
-        head._2.asInstanceOf[Store].internalToJson(buffer.append("{")).append("}")
-      else if (Reference.isReference(head._2))
-        buffer.append(head._2.asInstanceOf[Reference].toJson)
-      else {
-        println(head)
-        buffer.append(head._2.toString)
-      }
-    
-    if (this != Empty) {
-      buffer.append("\"").append(head._1).append("\":")
-      valueToJson
-      if (rest != Empty)
-        rest.internalToJson(buffer.append(","))
-    }
-    buffer
-  }
-  
-  def toYaml: String = {
-    internalToYaml(new StringBuffer("---"), "").toString
-  }
-  
-  protected def internalToYaml(buffer: StringBuffer, tab: String): StringBuffer = {
-    def valueToYaml: StringBuffer =
-      if (isStore(head._2))
-        head._2.asInstanceOf[Store].internalToYaml(buffer, tab + "  ")
-      else if (Reference.isReference(head._2))
-        buffer.append(head._2.asInstanceOf[Reference].toYaml)
-      else
-        buffer.append(head._2.toString)
+  def toJson: String = _toJson(new StringBuffer("{")).append("}").toString
 
-    if (this != Empty) {
-      buffer.append("\n").append(tab).append(head._1).append(": ")
-      valueToYaml
-      if (rest != Empty)
-        rest.internalToYaml(buffer, tab)
-    }
-    buffer
+  protected def _toJson(buffer: StringBuffer): StringBuffer = {
+    def value(v: Any, buffer: StringBuffer): StringBuffer =
+      if (v.isInstanceOf[List[Any]]) vector(v.asInstanceOf[List[Any]], buffer.append("[")).append("]")
+      else if (Reference.isReference(v)) buffer.append(v.asInstanceOf[Reference].toJson)
+      else buffer.append(v)
+    
+    def vector(v: List[Any], buffer: StringBuffer): StringBuffer =
+      if (v.length == 0) buffer
+      else if (v.tail.isEmpty) value(v.head, buffer)
+      else vector(v.tail, value(v.head, buffer).append(","))
+    
+    def ident = buffer.append("\"").append(head._1).append("\":")
+    
+    def _this =
+      if (this == Empty)
+        buffer
+      else if (isStore(head._2))
+        head._2.asInstanceOf[Store]._toJson(ident.append("{")).append("}")
+      else
+        value(head._2, ident)
+    
+    if (rest != Empty)
+      rest._toJson(_this.append(","))
+    else
+      _this
+  }
+  
+  def toYaml: String = _toYaml(new StringBuffer("---\n"), "").toString
+  
+  protected def _toYaml(buffer: StringBuffer, tab: String): StringBuffer = {
+    def value(v: Any, buffer: StringBuffer): StringBuffer =
+      if (v.isInstanceOf[List[Any]]) vector(v.asInstanceOf[List[Any]], buffer.append("[")).append("]")
+      else if (Reference.isReference(v)) buffer.append(v.asInstanceOf[Reference].toYaml)
+      else buffer.append(v)
+    
+    def vector(v: List[Any], buffer: StringBuffer): StringBuffer =
+      if (v.length == 0) buffer
+      else if (v.tail.isEmpty) value(v.head, buffer)
+      else vector(v.tail, value(v.head, buffer).append(","))
+    
+    def ident = buffer.append(tab).append(head._1).append(": ")
+    
+    def _this =
+      if (this == Empty) buffer
+      else if (isStore(head._2))
+        head._2.asInstanceOf[Store]._toYaml(ident.append("\n"), tab + "  ")
+      else value(head._2, ident)
+    
+    if (rest != Empty)
+      rest._toYaml(_this.append("\n"), tab)
+    else
+      _this
   }
 }

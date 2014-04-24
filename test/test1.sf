@@ -3,4 +3,5 @@ sfConfig extends {
 	b 1;
 	c true;
 	d DATA x:y:z;
+	e [1, true, "a string", DATA a:b:c, [2, false]];
 }
