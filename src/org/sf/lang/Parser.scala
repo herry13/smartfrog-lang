@@ -63,12 +63,10 @@ class Parser extends JavaTokenParsers {
     }
 
   def Prototypes: Parser[(Reference, Reference, Store) => Store] =
-    ( Prototype ~ ("," ~> Prototype).* ^^ { case p ~ ps =>
+    ( Prototype ~ ("," ~> Prototypes).? ^^ { case p ~ ps =>
         (ns: Reference, r: Reference, s: Store) =>
-          ps.foldRight(p(ns, r, s))(
-            (p1: (Reference, Reference, Store) => Store, s1: Store) =>
-              p1(ns, r, s1)
-          )
+          if (ps.isEmpty) p(ns, r, s)
+          else ps.get(ns, r, p(ns, r, s))
       }
     | epsilon ^^ { x => (ns: Reference, r: Reference, s: Store) => s }
     )
