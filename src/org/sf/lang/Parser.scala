@@ -12,10 +12,16 @@ where [option] is:
 """
     
   if (args.length <= 0) Console.println(help)
-  else
-    if (inJson(args)) println(parseFile(args.tail.head).toJson)
-    else if (inYaml(args)) println(parseFile(args.tail.head).toYaml)
-    else println(parseFile(args.head))
+  else {
+    try {
+      if (inJson(args)) println(parseFile(args.tail.head).toJson)
+      else if (inYaml(args)) println(parseFile(args.tail.head).toYaml)
+      else println(parseFile(args.head))
+    } catch {
+      case se: SemanticsException => println(se.msg)
+      case e: Exception => println(e)
+    }
+  }
     
   def inJson(args: Array[String]): Boolean =
     (args.length >= 2 && args.head.equals("-json"))
@@ -31,7 +37,7 @@ class Parser extends JavaTokenParsers {
   def Sf: Parser[Store] = Body ^^ (b =>
       ((v: Any) =>
         if (Store.isStore(v)) v.asInstanceOf[Store]
-        else throw new Exception("sfConfig is not exist or a component")
+        else throw new SemanticsException("[err7] sfConfig is not exist or a component")
       )(b(org.sf.lang.Reference.Empty, Store.Empty).find(sfConfig))
     )
 
@@ -52,7 +58,7 @@ class Parser extends JavaTokenParsers {
         else
           ((l: (Reference, Any)) =>
           	if (Store.isStore(l._2)) v(ns, l._1 ++ r, s)
-          	else throw new Exception("prefix of " + r + " is not a component")
+          	else throw new SemanticsException("[err6] prefix of " + r + " is not a component")
           )(s.resolve(ns, r.prefix))
     }
 
@@ -83,7 +89,7 @@ class Parser extends JavaTokenParsers {
     | LinkReference <~ ";"  ^^ (lr =>
         (ns: Reference, r: Reference, s: Store) =>
           ((l: (Reference, Any)) =>
-            if (l._2 == Store.Undefined) throw new Exception("cannot find link reference " + lr)
+            if (l._2 == Store.Undefined) throw new SemanticsException("[err5] cannot find link reference " + lr)
             else s.bind(r, l._2)
           )(s.resolve(ns, lr))
       )
@@ -138,14 +144,14 @@ class Parser extends JavaTokenParsers {
   def parse(s: String): Store = {
     parseAll(Sf, s) match {
       case Success(root, _) => root
-      case NoSuccess(msg, next) => throw new Exception("at " + next.pos)
+      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos)
     }
   }
     
   def parseIncludeFile(filePath: String, ns: Reference, s: Store): Store = {
     parseAll(Body, Source.fromFile(filePath).mkString) match {
       case Success(body, _) => body(ns, s)
-      case NoSuccess(msg, next) => throw new Exception("at " + next.pos)
+      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos)
     }
   }
     

@@ -22,33 +22,26 @@ object Store {
   
   def apply(head: Cell, rest: Store): Store = new Store(head, rest)
 
-  def replaceLink(s: Store, ns: Reference, c: Cell): Any =
-    if (c._2.isInstanceOf[LinkReference])
-      ((v: Any) =>
-        if (v == Undefined) throw new Exception("invalid link reference: " + c._2)
-        else v
-      )(s.resolvelink(ns, ns ++ c._1, c._2.asInstanceOf[LinkReference]))
-    else c._2
-    
   def isStore(v: Any): Boolean = (v.isInstanceOf[Store] && v != Undefined)
 }
 
 class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
   import Store._
   
+  //--- start of semantics functions ---//
   def put(id: String, v: Any): Store =
     if (this == Empty) Store(id, v, Empty)
     else if (head._1.equals(id)) Store(id, v, rest)
     else Store(head, rest.put(id, v))
     
   def bind(r: Reference, v: Any): Store =
-    if (r == Reference.Empty) throw new Exception("invalid reference: " + r + "=" + v)
+    if (r == Reference.Empty) throw new SemanticsException("[err3] invalid reference " + r + "=" + v)
     else if (r.rest == Reference.Empty) put(r.head, v)
-    else if (this == Empty) throw new Exception("invalid reference: " + r + "=" + v)
+    else if (this == Empty) throw new SemanticsException("[err2] invalid reference " + r + "=" + v)
     else
       if (head._1.equals(r.head))
         if (isStore(head._2)) Store(head._1, head._2.asInstanceOf[Store].bind(r.rest, v), rest)
-        else throw new Exception
+        else throw new SemanticsException("[err1]")
       else Store(head, rest.bind(r, v))
   
   /**
@@ -84,51 +77,12 @@ class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
   def inherit(ns: Reference, src: Reference, dest: Reference): Store = {
     ((l: (Reference, Any)) =>
       if (isStore(l._2)) copy(l._2.asInstanceOf[Store], dest)
-      else if (l._2.isInstanceOf[LinkReference])
-        ((v: Any) =>
-          if (isStore(v)) copy(v.asInstanceOf[Store], dest)
-          else throw new Exception("invalid prototype reference: " + src)
-        )(resolvelink(ns, dest, new LinkReference(src)))
-      else throw new Exception("invalid prototype reference: " + src)
+      else throw new SemanticsException("[err4] invalid prototype reference: " + src)
     )(resolve(ns, src))
   }
+  //--- end of semantics functions ---//
   
-  def resolvelink(ns: Reference, r: Reference, lr: LinkReference): Any = {
-    def getlink(ns: Reference, lr: LinkReference, acc: Set[LinkReference]): Any = {
-      if (acc.contains(lr)) throw new Exception("cyclic link reference is detected: " + lr + ", visited: " + acc)
-      else {
-        ((l: (Reference, Any)) =>
-          if (l._2.isInstanceOf[LinkReference])
-            getlink((l._1 ++ lr.ref).prefix, l._2.asInstanceOf[LinkReference], acc + lr)
-          else if ((l._1 ++ lr.ref).subseteqof(r)) throw new Exception("implicit cyclic link reference")
-          else l._2
-        )(resolve(ns, lr.ref))
-      }
-    }
-    getlink(ns, lr, Set())
-  }
-  
-  def accept(visitor: (Store, Reference, Cell) => Any): Store =
-    accept1(this, Reference.Empty, visitor)
-    
-  def accept1(root: Store, ns: Reference, visitor: (Store, Reference, Cell) => Any): Store = {
-    if (this == Empty) root
-    else if (isStore(head._2))
-      rest.accept1(head._2.asInstanceOf[Store].accept1(root, ns ++ head._1, visitor) , ns, visitor)
-    else {
-      ((v: Any) =>
-        ((root1: Store) =>
-          if (isStore(v))
-            rest.accept1(
-                v.asInstanceOf[Store].accept1(root1, ns ++ head._1, visitor)
-                ,ns, visitor
-              )
-          else rest.accept1(root1, ns, visitor)
-        )(root.bind(ns ++ head._1, v))
-      )(visitor(root, ns, head))
-    }
-  }
-  
+  //--- helper functions (not part of semantics) ---//
   override def toString = {
     def vectorToString(v: List[Any]): String =
       if (v.length == 0) ""
