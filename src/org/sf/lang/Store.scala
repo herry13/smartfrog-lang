@@ -27,7 +27,39 @@ object Store {
 
 class Store(val head: Store.Cell, val rest: Store = Store.Empty) {
   import Store._
+
+  //--- start of partial identifier ordering ---//    
+  def delete(id: String): Store =
+    if (this == Empty) this
+    else if (head._1.equals(id)) rest
+    else Store(head, rest.delete(id))
+
+  def putBefore(pivot: String, id: String, v: Any): Store =
+    if (this == Empty) Store(id, v, Empty)
+    else if (head._1.equals(pivot)) Store(id, v, this)
+    else Store(head, rest.putBefore(pivot, id, v))
   
+  def putAfter(pivot: String, id: String, v: Any): Store =
+    if (this == Empty) Store(id, v, Empty)
+    else if (head._1.equals(pivot)) Store(head, Store(id, v, rest))
+    else Store(head, rest.putAfter(pivot, id, v))
+    
+  def bindBefore(pivot: String)(r: Reference, v: Any): Store =
+    ((v1: Any, s: Any) =>
+      if (v1 == Undefined) bind(r, v)
+      else if (isStore(s)) bind(r.prefix, s.asInstanceOf[Store].delete(r.last).putBefore(pivot, r.last, v))
+      else throw new SemanticsException()
+    )(find(r.prefix ++ pivot), find(r.prefix))
+  
+  def bindAfter(pivot: String)(r: Reference, v: Any): Store =
+    ((v1: Any, s: Any) =>
+      if (v1 == Undefined) bind(r, v)
+      else if (isStore(s)) bind(r.prefix, s.asInstanceOf[Store].delete(r.last).putAfter(pivot, r.last, v))
+      else throw new SemanticsException()
+    )(find(r.prefix ++ pivot), find(r.prefix))
+    
+  //--- end of partial identifier ordering ---//    
+    
   //--- start of semantics functions ---//
   def put(id: String, v: Any): Store =
     if (this == Empty) Store(id, v, Empty)

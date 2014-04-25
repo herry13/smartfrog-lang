@@ -81,9 +81,9 @@ class Parser extends JavaTokenParsers {
     )
   
   def Value: Parser[(Reference, Reference, Store) => Store] =
-    ( BasicValue <~ ";"  ^^ (sv =>
-        (ns: Reference, r: Reference, s: Store) => s.bind(r, sv)
-      )
+    ( BasicValue ~ Ordering <~ ";" ^^ { case sv ~ b =>
+        (ns: Reference, r: Reference, s: Store) => b(s)(r, sv)
+      }
     | LinkReference <~ ";"  ^^ (lr =>
         (ns: Reference, r: Reference, s: Store) =>
           ((l: (Reference, Any)) =>
@@ -94,8 +94,14 @@ class Parser extends JavaTokenParsers {
     | "extends" ~> Prototypes ^^ (p =>
         (ns: Reference, r: Reference, s: Store) => p(ns, r, s.bind(r, Store.Empty))
       )
+    ) 
+
+  def Ordering: Parser[Store => (Reference, Any) => Store] =
+    ( "before" ~> ident ^^ { id => (s: Store) => s.bindBefore(id)_ }
+    | "after" ~> ident ^^ { id => (s: Store) => s.bindAfter(id)_ }
+    | epsilon ^^ { id => (s: Store) => s.bind }
     )
-	
+    
   def Reference: Parser[Reference] =
     ident ~ (":" ~> ident).* ^^ {
       case id ~ ids => new Reference(id, org.sf.lang.Reference(ids))
