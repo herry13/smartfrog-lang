@@ -2,4 +2,5 @@ sfConfig extends {
 	a 1;
 	b 2 before a;
 	c 3 before b;
+	d 4 after b;
 }
