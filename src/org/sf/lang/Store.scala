@@ -7,15 +7,10 @@ object Store {
     override val rest = this
     override def toString = "[Empty]"
   }
-  
+
   object Undefined extends Store(("", null)) {
     override val rest = this
     override def toString = "[Undefined]"
-  }
-  
-  object TBD extends Store(("", null)) {
-    override val rest = this
-    override def toString = "[TBD]"
   }
   
   def apply(id: String, v: Any, rest: Store): Store = new Store((id, v), rest)
