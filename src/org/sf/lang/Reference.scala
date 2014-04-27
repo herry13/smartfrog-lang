@@ -80,7 +80,7 @@ class Reference(val head: String, val _rest: Reference = Reference.Empty) {
     else if (head.equals(id)) rest.delete(id)
     else new Reference(head, rest.delete(id))
     
-  override def toString = if (rest == Empty) head else head + ":" + rest
+  override def toString = if (rest == Empty) head else head + "." + rest
   
   def toJson: String = "\"$." + toString + "\""
   

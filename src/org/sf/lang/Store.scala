@@ -5,12 +5,12 @@ object Store {
   
   object Empty extends Store(("", null)) {
     override val rest = this
-    override def toString = "[Empty]"
+    override def toString = "<Empty>"
   }
 
   object Undefined extends Store(("", null)) {
     override val rest = this
-    override def toString = "[Undefined]"
+    override def toString = "<Undefined>"
   }
   
   def apply(id: String, v: Any, rest: Store): Store = new Store((id, v), rest)

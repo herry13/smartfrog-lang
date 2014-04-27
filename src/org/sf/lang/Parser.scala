@@ -34,32 +34,32 @@ class Parser extends JavaTokenParsers {
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
   protected val sfConfig = new Reference("sfConfig")
 
-  def Sf: Parser[Store] = Body ^^ (b =>
-      ((v: Any) =>
-        if (Store.isStore(v)) v.asInstanceOf[Store]
+  def Sf: Parser[Store] = Body ^^ (b => {
+        val sfconfig = b(org.sf.lang.Reference.Empty, Store.Empty).find(sfConfig)
+        if (Store.isStore(sfConfig)) sfConfig.asInstanceOf[Store]
         else throw new SemanticsException("[err7] sfConfig is not exist or a component")
-      )(b(org.sf.lang.Reference.Empty, Store.Empty).find(sfConfig))
+      }
     )
 
   def Body: Parser[(Reference, Store) => Store] =
-    ( Assignment ~ Body ^^ { case a ~ b =>
-        (ns: Reference, s: Store) => b(ns, a(ns, s))
-      }
-    | "#include" ~> stringLiteral ~ ";" ~ Body ^^ { case file ~ _ ~ b =>
+    ( include ~> stringLiteral ~ eos ~ Body ^^ { case file ~ _ ~ b =>
       	(ns: Reference, s: Store) => b(ns, parseIncludeFile(file.substring(1, file.length-1), ns, s))
+      }
+    | Assignment ~ Body ^^ { case a ~ b =>
+        (ns: Reference, s: Store) => b(ns, a(ns, s))
       }
     | epsilon ^^ { x => (ns: Reference, s: Store) => s }
     )
     
   def Assignment: Parser[(Reference, Store) => Store] =
-    Reference ~ Value ^^ { case r ~ v =>
+    Reference ~ Value <~ eos.* ^^ { case r ~ v =>
       (ns: Reference, s: Store) =>
         if (r.length == 1) v(ns, ns ++ r, s)
-        else
-          ((l: (Reference, Any)) =>
-          	if (Store.isStore(l._2)) v(ns, l._1 ++ r, s)
-          	else throw new SemanticsException("[err6] prefix of " + r + " is not a component")
-          )(s.resolve(ns, r.prefix))
+        else {
+          val l = s.resolve(ns, r.prefix)
+          if (Store.isStore(l._2)) v(ns, l._1 ++ r, s)
+          else throw new SemanticsException("[err6] prefix of " + r + " is not a component")
+        }
     }
 
   def Prototypes: Parser[(Reference, Reference, Store) => Store] =
@@ -81,17 +81,17 @@ class Parser extends JavaTokenParsers {
     )
   
   def Value: Parser[(Reference, Reference, Store) => Store] =
-    ( BasicValue <~ ";"  ^^ (sv =>
+    ( BasicValue <~ eos ^^ (sv =>
         (ns: Reference, r: Reference, s: Store) => s.bind(r, sv)
       )
-    | LinkReference <~ ";"  ^^ (lr =>
-        (ns: Reference, r: Reference, s: Store) =>
-          ((l: (Reference, Any)) =>
-            if (l._2 == Store.Undefined) throw new SemanticsException("[err5] cannot find link reference " + lr)
-            else s.bind(r, l._2)
-          )(s.resolve(ns, lr))
+    | LinkReference <~ eos  ^^ (lr =>
+        (ns: Reference, r: Reference, s: Store) => {
+          val l = s.resolve(ns, lr)
+          if (l._2 == Store.Undefined) throw new SemanticsException("[err5] cannot find link reference " + lr)
+          else s.bind(r, l._2)          
+        }
       )
-    | "extends" ~> Prototypes ^^ (p =>
+    | _extends ~> Prototypes ^^ (p =>
         (ns: Reference, r: Reference, s: Store) => p(ns, r, s.bind(r, Store.Empty))
       )
     )
@@ -102,7 +102,7 @@ class Parser extends JavaTokenParsers {
     }
 	
   def DataReference: Parser[Reference] =
-    "DATA" ~> Reference
+    data ~> Reference
 
   def LinkReference: Parser[Reference] =
     Reference
@@ -133,11 +133,18 @@ class Parser extends JavaTokenParsers {
   def Null: Parser[Any] = "NULL" ^^ (x => null)
     
   def Boolean: Parser[Boolean] =
-    ( "true" ^^ (x => true)
-    | "false" ^^ (x => false)
+    ( _true ^^ (x => true)
+    | _false ^^ (x => false)
     )
 	
-  val epsilon: Parser[Any] = ""
+  //--- helpers ---//
+  val epsilon = ""
+  val include: Parser[Any] = "#include"
+  val data: Parser[Any] = "DATA"
+  val _true: Parser[Any] = "true"
+  val _false: Parser[Any] = "false"
+  val _extends: Parser[Any] = "extends"
+  val eos: Parser[Any] = ";"
   
   def parse(s: String): Store = {
     parseAll(Sf, s) match {
@@ -149,7 +156,7 @@ class Parser extends JavaTokenParsers {
   def parseIncludeFile(filePath: String, ns: Reference, s: Store): Store = {
     parseAll(Body, Source.fromFile(filePath).mkString) match {
       case Success(body, _) => body(ns, s)
-      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos)
+      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos + " in included file " + filePath)
     }
   }
     

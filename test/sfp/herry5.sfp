@@ -1,0 +1,5 @@
+import "include2.sfp";
+
+main extends {
+	include "include1.sfp";
+}

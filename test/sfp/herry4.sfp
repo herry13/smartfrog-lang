@@ -1,0 +1,14 @@
+main extends {
+	a extends {
+		a = 1;
+	}
+
+	c extends {
+		b = 2;
+	}
+
+	b extends a, {
+	}, c, {
+		c = 3;
+	}
+}

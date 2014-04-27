@@ -1,0 +1,14 @@
+schema X {
+	a = 1;
+}
+
+schema Y extends X {
+	a = 2;
+}
+
+main extends {
+	b isa X extends { }
+	c isa Y extends {
+		d = 4;
+	}
+}

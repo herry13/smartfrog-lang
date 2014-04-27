@@ -1,0 +1,3 @@
+main extends {
+	a = 1;
+}
