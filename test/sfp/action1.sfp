@@ -1,0 +1,21 @@
+main extends {
+	a = 1;
+	b = x.y;
+
+	def act (p: X) {
+		cost = 1;
+		conditions {
+			a = 1;
+		}
+		effects {
+			b = 2;
+		}
+	}
+}
+
+global {
+	a = 2;
+	b != 3;
+	c in [1,2,3];
+	if { d = x; } then { e = y; }
+}

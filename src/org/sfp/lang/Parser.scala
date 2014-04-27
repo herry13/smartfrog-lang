@@ -37,9 +37,10 @@ class Parser extends org.sf.lang.Parser {
   
   def Sfp: Parser[Store] =
     Statement ^^ (st => {
-        val m = st(org.sf.lang.Reference.Empty, Store.Empty).find(_main)
+        /*val m = st(org.sf.lang.Reference.Empty, Store.Empty).find(_main)
         if (Store.isStore(m)) m.asInstanceOf[Store]
-        else throw new SemanticsException("[err101] main is not exist or a component")
+        else throw new SemanticsException("[err101] main is not exist or a component")*/
+        st(org.sf.lang.Reference.Empty, Store.Empty)
       }
     )
   
@@ -136,65 +137,65 @@ class Parser extends org.sf.lang.Parser {
     }
 
   //--- constraints ---//
-  // TODO
+  val global = new Reference("global")
   def GlobalConstraint: Parser[Store => Store] =
-    "{" ~ Conjunction ~ "}" ^^ (x => ???)
+    "{" ~> Conjunction <~ "}" ^^ (c =>
+      (s: Store) => {
+        val g = s.find(global)
+        if (g.isInstanceOf[Expression]) s.bind(global, c.addParams(g.asInstanceOf[Expression].params))
+        else s.bind(global, c)
+      }
+    )
     
-  // TODO
-  def Conjunction: Parser[Any] =
-    ( CStatement ~ Conjunction
-    | ""
-    ) ^^ (x => ???)
+  def Conjunction: Parser[Expression] =
+    CStatement.* ^^ (cs => new Expression(Expression.and, cs))
     
   def CStatement: Parser[Any] = Eq | Neq | In | Imply
   
-  // TODO
   def Eq: Parser[Any] =
-    Reference ~ eq ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv => ??? }
+    Reference ~ eq ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv => new PairExpression(Expression.eq, r, bv) }
   
-  // TODO
   def Neq: Parser[Any] =
-    Reference ~ eq ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv => ??? }
+    Reference ~ neq ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv => new PairExpression(Expression.neq, r, bv) }
   
-  // TODO
   def In: Parser[Any] =
-    Reference ~ "in" ~ Vector <~ eos ^^ { case r ~ _ ~ vec => ??? }
+    Reference ~ "in" ~ Vector <~ eos ^^ { case r ~ _ ~ vec => new PairExpression(Expression.in, r, vec) }
   
-  // TODO
   def Imply: Parser[Any] =
     "if" ~> "{" ~> Conjunction ~ ("}" ~ "then" ~ "{") ~ Conjunction <~ "}" ^^ {
-      case premise ~ _ ~ conclusion => ???
+      case premise ~ _ ~ conclusion => new Expression(Expression.imply, List(premise, conclusion))
     } 
   
   //--- action ---//
-  // TODO
   def Action: Parser[(Reference, Reference, Store) => Store] =
-    Parameters ~ "{" ~ Cost ~ Conditions ~ Effects <~ "}" ^^ (x => ???)
+    Parameters ~ "{" ~ Cost ~ Conditions ~ Effects <~ "}" ^^ {
+      case pars ~ _ ~ c ~ cond ~ eff =>
+        (ns: Reference, r: Reference, s: Store) => s.bind(r, new Action(pars, c, cond, eff))
+    }
     
-  // TODO
-  def Parameters: Parser[Any] =
-    ( "(" ~> Parameter.+ <~ ")"
-    | epsilon
-    ) ^^ (x => ???)
+  def Parameters: Parser[Map[String, Reference]] =
+    ( "(" ~> Parameter.+ <~ ")" ^^ (pars =>
+        pars.foldRight[Map[String, Reference]](Map())(
+          (p: (String, Reference), m: Map[String, Reference]) => m + p
+        )
+      )
+    | epsilon ^^ (x => Map())
+    )
     
-  // TODO
-  def Parameter: Parser[Any] =
-    ident ~ ":" ~ Type ^^ { case id ~ _ ~ t => ??? }
+  def Parameter: Parser[(String, Reference)] =
+    ident ~ ":" ~ ident ^^ { case id ~ _ ~ t => (id, new Reference(t)) }
   
   def Cost: Parser[Integer] =
-    "cost" ~> """[0-9]+""".r <~ eos ^^ (n => n.toInt)
+    "cost" ~> eq ~> """[0-9]+""".r <~ eos ^^ (n => n.toInt)
     
-  // TODO
-  def Conditions: Parser[Any] =
-    "condition" ~> "{" ~> Conjunction <~ "}" ^^ (c => ???)
+  def Conditions: Parser[Expression] =
+    "condition" ~> "s".? ~> "{" ~> Conjunction <~ "}"
     
-  // TODO
-  def Effects: Parser[Any] =
-    "effects" ~> "{" ~> Effect.+ <~ "}" ^^ (eff => ???)
+  def Effects: Parser[Expression] =
+    "effect" ~> "s".? ~> "{" ~> Effect.+ <~ "}" ^^ (eff => new Expression(Expression.and, eff))
     
-  // TODO
-  def Effect: Parser[Any] =
-    Reference ~ eq ~ BasicValue <~ eos ^^ { case r ~ _ ~ v => ??? }
+  def Effect: Parser[Expression] =
+    Reference ~ eq ~ BasicValue <~ eos ^^ { case r ~ _ ~ v => new PairExpression(Expression.eq, r, v) }
     
   //--- helpers ---//
   val eq = "=" | "is"
