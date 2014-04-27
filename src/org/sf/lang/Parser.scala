@@ -18,8 +18,8 @@ where [option] is:
       else if (inYaml(args)) println(parseFile(args.tail.head).toYaml)
       else println(parseFile(args.head))
     } catch {
-      case se: SemanticsException => println(se.msg)
-      case e: Exception => println(e)
+      case se: SemanticsException => System.err.println(se.msg)
+      case e: Exception => System.err.println(e)
     }
   }
     
@@ -35,8 +35,8 @@ class Parser extends JavaTokenParsers {
   protected val sfConfig = new Reference("sfConfig")
 
   def Sf: Parser[Store] = Body ^^ (b => {
-        val sfconfig = b(org.sf.lang.Reference.Empty, Store.Empty).find(sfConfig)
-        if (Store.isStore(sfConfig)) sfConfig.asInstanceOf[Store]
+        val v = b(org.sf.lang.Reference.Empty, Store.Empty).find(sfConfig)
+        if (Store.isStore(v)) v.asInstanceOf[Store]
         else throw new SemanticsException("[err7] sfConfig is not exist or a component")
       }
     )

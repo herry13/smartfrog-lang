@@ -20,8 +20,8 @@ where [option] is:
       else if (inYaml(args)) println(parseFile(args.tail.head).toYaml)
       else println(parseFile(args.head))
     } catch {
-      case se: SemanticsException => println(se.msg)
-      case e: Exception => println(e)
+      case se: SemanticsException => System.err.println(se.msg)
+      case e: Exception => System.err.println(e)
     }
   }
     
