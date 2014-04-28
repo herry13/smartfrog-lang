@@ -3,6 +3,7 @@
 This parser is the implementation of the formal semantic of core subset of [SmartFrog](http://smartfrog.org) (SF) language in Scala. The supported features are:
 
 - Basic values (Boolean, Number, String, Null, Vector)
+- Component (object)
 - Data and Link Reference (_forward link reference_ is not supported)
 - Keywords `THIS`, `PARENT`, and `ROOT` in Reference
 - Prototype
