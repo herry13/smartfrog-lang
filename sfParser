@@ -7,5 +7,5 @@ MAIN_CLASS="org.sf.lang.Parser"
 #$BIN -classpath "$HOME/bin" $MAIN_CLASS $@
 
 JAVA="java"
-JAR="$HOME/sbt/target/scala-2.10/sfParser-assembly-$(<$HOME/VERSION).jar"
+JAR="$HOME/dist/sfParser.jar"
 $JAVA -jar $JAR $@
