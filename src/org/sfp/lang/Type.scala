@@ -4,6 +4,8 @@ import scala.collection.immutable.HashMap
 import org.sf.lang.Reference
 
 object Type {
+  type T = String
+  
   // key is the variable's name
   // value is the variable's type
   type Vars = Map[String, Set[String]]
@@ -19,7 +21,7 @@ object Type {
   def set(e: Environment, r: Reference, t: String): Environment = {
       val v = e._2.get(r.toString)
       if (v.isEmpty) (e._1, e._2 + (r.toString -> Set(t)))
-      else (e._1, e._2.updated(r.toString, v.get + t))
+      else throw new TypeError("variable " + r + " is already defined") //(e._1, e._2.updated(r.toString, v.get + t))
     }
   
   // True if r has type t in environment e.
@@ -27,6 +29,8 @@ object Type {
       val v = e._2.get(r.toString)
       (!v.isEmpty && v.get.contains(t))
     }
+  
+  def hasvar(e: Environment, r: Reference): Boolean = !e._2.get(r.toString).isEmpty
   
   // True if t1 is sub-type of t2 in environment e, otherwise false.
   def subtype(e: Environment, t1: String, t2: String): Boolean = {
@@ -58,7 +62,7 @@ object Type {
   
   // Initialize type environment.
   def init = //: Environment =
-    List(_bool, _num, _str, _object, _constraint, _action).foldRight[Environment](empty)(
+    List(_bool, _num, _str, _object, _schema, _constraint, _action).foldRight[Environment](empty)(
       (t: String, e: Environment) => define(e, t)
     )
 
@@ -67,12 +71,11 @@ object Type {
   val _num = "num"
   val _str = "str"
   val _object = "object"
+  val _schema = "schema"
   val _constraint = "constraint"
   val _action = "action"
-  val _ref = "ref "
-    
-  def ref(t: String) = _ref + t
-  def isref(t: String) = t.substring(0, 4).equals(_ref)
+  val _ref = "ref"
+  val _vec = "vec"
 }
 
 class TypeError(val msg: String = "") extends Exception {

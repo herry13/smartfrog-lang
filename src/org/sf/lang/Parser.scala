@@ -30,10 +30,7 @@ where [option] is:
     (args.length >= 2 && args.head.equals("-yaml"))
 }
 
-class Parser extends JavaTokenParsers {
-  protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
-  protected val sfConfig = new Reference("sfConfig")
-
+class Parser extends JavaTokenParsers with CommonParser {
   def Sf: Parser[Store] = Body ^^ (b => {
         val v = b(org.sf.lang.Reference.Empty, Store.Empty).find(sfConfig)
         if (Store.isStore(v)) v.asInstanceOf[Store]
@@ -116,8 +113,6 @@ class Parser extends JavaTokenParsers {
     | Null
     )
 
-  protected val intRegex = """\-?[0-9]+(?!\.)""".r
-  
   def Number: Parser[Any] =
     floatingPointNumber ^^ (n =>
       if (intRegex.findFirstIn(n).get != n) n.toDouble
@@ -130,22 +125,13 @@ class Parser extends JavaTokenParsers {
     | epsilon ^^ (x => List())
     ) <~ "]"
 
-  def Null: Parser[Any] = "NULL" ^^ (x => null)
+  def Null: Parser[Any] = _null ^^ (x => null)
     
   def Boolean: Parser[Boolean] =
     ( _true ^^ (x => true)
     | _false ^^ (x => false)
     )
 	
-  //--- helpers ---//
-  val epsilon = ""
-  val include: Parser[Any] = "#include"
-  val data: Parser[Any] = "DATA"
-  val _true: Parser[Any] = "true"
-  val _false: Parser[Any] = "false"
-  val _extends: Parser[Any] = "extends"
-  val eos: Parser[Any] = ";"
-  
   def parse(s: String): Store = {
     parseAll(Sf, s) match {
       case Success(root, _) => root
@@ -161,4 +147,20 @@ class Parser extends JavaTokenParsers {
   }
     
   def parseFile(filePath: String): Store = parse(Source.fromFile(filePath).mkString)
+}
+
+trait CommonParser extends JavaTokenParsers {
+  protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
+  protected val sfConfig = new Reference("sfConfig")
+
+  protected val intRegex = """\-?[0-9]+(?!\.)""".r
+  
+  val epsilon = ""
+  val include: Parser[Any] = "#include"
+  val data: Parser[Any] = "DATA"
+  val _true: Parser[Any] = "true"
+  val _false: Parser[Any] = "false"
+  val _null:Parser[Any] = "NULL"
+  val _extends: Parser[Any] = "extends"
+  val eos: Parser[Any] = ";"
 }

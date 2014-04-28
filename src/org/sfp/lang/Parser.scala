@@ -6,7 +6,7 @@ import org.sf.lang.Store
 import org.sf.lang.SemanticsException
 
 object Parser extends Parser with App {
-  val help = """Usage: scala org.sf.lang.SfpParser [option] <sfp-file>
+  val help = """Usage: scala org.sfp.lang.Parser [option] <sfp-file>
 
 where [option] is:
   -json     print output in JSON
@@ -32,9 +32,7 @@ where [option] is:
     (args.length >= 2 && args.head.equals("-yaml"))
 }
 
-class Parser extends org.sf.lang.Parser {
-  val _main = org.sf.lang.Reference("main")
-  
+class Parser extends org.sf.lang.Parser with CommonParser {
   def Sfp: Parser[Store] =
     Statement ^^ (st => {
         val m = st(org.sf.lang.Reference.Empty, Store.Empty).find(_main)
@@ -197,18 +195,6 @@ class Parser extends org.sf.lang.Parser {
   def Effect: Parser[Expression] =
     Reference ~ eq ~ BasicValue <~ eos ^^ { case r ~ _ ~ v => new PairExpression(Expression.eq, r, v) }
     
-  //--- helpers ---//
-  val eq = "=" | "is"
-  val neq = "!=" | "isnt"
-  override val include: Parser[Any] = "include" | "#include"
-  override val _true: Parser[Any] = "true" | "yes"
-  override val _false: Parser[Any] = "false" | "no"
-  val _schema: Parser[Any] = "schema"
-  val _global: Parser[Any] = "global"
-  val _import: Parser[Any] = "import"
-  val _isa: Parser[Any] = "isa"
-  val _action: Parser[Any] = "def" | "sub" | "action"
-
   override def parse(s: String): Store = {
     parseAll(Sfp, s) match {
       case Success(root, _) => root
@@ -222,4 +208,20 @@ class Parser extends org.sf.lang.Parser {
       case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos + " in included file " + filePath)
     }
   }
+}
+
+trait CommonParser extends org.sf.lang.CommonParser {
+  val _main = org.sf.lang.Reference("main")
+  
+  //--- helpers ---//
+  val eq = "=" | "is"
+  val neq = "!=" | "isnt"
+  override val include: Parser[Any] = "include" | "#include"
+  override val _true: Parser[Any] = "true" | "yes"
+  override val _false: Parser[Any] = "false" | "no"
+  val _schema: Parser[Any] = "schema"
+  val _global: Parser[Any] = "global"
+  val _import: Parser[Any] = "import"
+  val _isa: Parser[Any] = "isa"
+  val _action: Parser[Any] = "def" | "sub" | "action"  
 }
