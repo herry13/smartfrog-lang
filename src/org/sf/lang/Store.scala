@@ -37,7 +37,7 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
   
   /**
    * Find a value of given reference.
-   * TODO -- handles ROOT, PARENT, HERE, THIS, ATTRIB
+   * TODO -- handles HERE, ATTRIB
    * 
    * @param r reference of the value
    */
@@ -53,7 +53,12 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
     else rest.find(r)
   
   def resolve(ns: Reference, r: Reference): (Reference, Any) =
-    if (ns == Reference.empty) (ns, find(r))
+  	if (r.head.equals("ROOT")) (Reference.empty, find(r.rest))
+    else if (r.head.equals("PARENT"))
+      if (ns == Reference.empty) throw new SemanticsException("[todo] invalid reference: " + r)
+      else (ns.prefix, find(ns.prefix ++ r.rest))
+    else if (r.head.equals("THIS")) (ns, find(ns ++ r.rest))
+    else if (ns == Reference.empty) (ns, find(r))
     else {
       val v = find(ns ++ r)
       if (v == undefined) resolve(ns.prefix, r)
