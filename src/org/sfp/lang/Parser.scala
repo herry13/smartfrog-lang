@@ -37,10 +37,10 @@ class Parser extends org.sf.lang.Parser {
   
   def Sfp: Parser[Store] =
     Statement ^^ (st => {
-        /*val m = st(org.sf.lang.Reference.Empty, Store.Empty).find(_main)
+        val m = st(org.sf.lang.Reference.Empty, Store.Empty).find(_main)
         if (Store.isStore(m)) m.asInstanceOf[Store]
-        else throw new SemanticsException("[err101] main is not exist or a component")*/
-        st(org.sf.lang.Reference.Empty, Store.Empty)
+        else throw new SemanticsException("[err101] main is not exist or a component")
+        //st(org.sf.lang.Reference.Empty, Store.Empty)
       }
     )
   

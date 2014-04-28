@@ -1,20 +1,20 @@
 package org.sf.lang
 
 object Reference {
-  object Empty extends Reference("[empty]") {
+  object Empty extends Reference("") {
 	override val rest = Empty.this
 	override def last = throw new Exception
 	override def prefix = throw new Exception
 	override def equals(that: Reference) = (Empty.this == that)
-	override def toString = "[empty]"
+	override def toString = "<Empty>"
   }
   
-  object Undefined extends Reference("[undefined]") {
+  object Undefined extends Reference("") {
 	override val rest = Undefined.this
 	override def last = throw new Exception
 	override def prefix = throw new Exception
 	override def equals(that: Reference) = (Undefined.this == that)
-	override def toString = "[undefined]"
+	override def toString = "<Undefined>"
   }
   
   def apply(s: String): Reference = new Reference(s, Empty)
@@ -30,6 +30,8 @@ class Reference(val head: String, val _rest: Reference = Reference.Empty) {
   import Reference._
   
   val rest = _rest
+  val _string = if (rest == Empty) head else head + "." + rest
+  val _hashcode = _string.hashCode
 
   def ++(that: Reference): Reference =
     if (this == Empty) that
@@ -80,7 +82,9 @@ class Reference(val head: String, val _rest: Reference = Reference.Empty) {
     else if (head.equals(id)) rest.delete(id)
     else new Reference(head, rest.delete(id))
     
-  override def toString = if (rest == Empty) head else head + "." + rest
+  override def toString = _string
+  
+  override def hashCode = _hashcode
   
   def toJson: String = "\"$." + toString + "\""
   
