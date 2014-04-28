@@ -4,16 +4,17 @@ This is the implementation of the formal semantic of [SmartFrog](http://smartfro
 
 - Basic Value (Boolean, Number, String, Null, Vector)
 - Data and Link Reference (_forward link reference_ is not supported)
+- `THIS`, `PARENT`, and `ROOT` in Reference
 - Prototype
 - Placement (_forward placement_ is not supported)
 - Include file
 
 Not yet supported:
 
-- TBD
+- `TBD`
 - Optional value of link reference
+- Keywords in link reference: `ATTRIB`, `HERE`
 - Lazy reference
-- Keywords in reference: ROOT, PARENT, ATTRIB, HERE, THIS
 - Function
 - Schema
 - Predicate
