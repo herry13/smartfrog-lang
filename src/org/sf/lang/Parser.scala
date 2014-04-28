@@ -18,8 +18,8 @@ where [option] is:
       else if (inYaml(args)) println(parseFile(args.tail.head).toYaml)
       else println(parseFile(args.head))
     } catch {
-      case se: SemanticsException => println(se.msg)
-      case e: Exception => println(e)
+      case se: SemanticsException => System.err.println(se.msg)
+      case e: Exception => System.err.println(e)
     }
   }
     
@@ -34,12 +34,13 @@ class Parser extends JavaTokenParsers {
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
   protected val sfConfig = new Reference("sfConfig")
 
-  def Sf: Parser[Store] = Body ^^ (b =>
-      ((v: Any) =>
-        if (Store.isStore(v)) v.asInstanceOf[Store]
+  def Sf: Parser[Store] =
+    Body ^^ { b => {
+        val v = b(org.sf.lang.Reference.empty, Store.empty).find(sfConfig)
+        if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
         else throw new SemanticsException("[err7] sfConfig is not exist or a component")
-      )(b(org.sf.lang.Reference.Empty, Store.Empty).find(sfConfig))
-    )
+      }
+    }
 
   def Body: Parser[(Reference, Store) => Store] =
     ( Assignment ~ Body ^^ { case a ~ b =>
@@ -55,11 +56,11 @@ class Parser extends JavaTokenParsers {
     Reference ~ Value ^^ { case r ~ v =>
       (ns: Reference, s: Store) =>
         if (r.length == 1) v(ns, ns ++ r, s)
-        else
-          ((l: (Reference, Any)) =>
-          	if (Store.isStore(l._2)) v(ns, l._1 ++ r, s)
-          	else throw new SemanticsException("[err6] prefix of " + r + " is not a component")
-          )(s.resolve(ns, r.prefix))
+        else {
+          val l = s.resolve(ns, r.prefix)
+          if (l._2.isInstanceOf[Store]) v(ns, l._1 ++ r, s)
+          else throw new SemanticsException("[err6] prefix of " + r + " is not a component")
+        }
     }
 
   def Prototypes: Parser[(Reference, Reference, Store) => Store] =
@@ -85,14 +86,14 @@ class Parser extends JavaTokenParsers {
         (ns: Reference, r: Reference, s: Store) => s.bind(r, sv)
       )
     | LinkReference <~ ";"  ^^ (lr =>
-        (ns: Reference, r: Reference, s: Store) =>
-          ((l: (Reference, Any)) =>
-            if (l._2 == Store.Undefined) throw new SemanticsException("[err5] cannot find link reference " + lr)
-            else s.bind(r, l._2)
-          )(s.resolve(ns, lr))
+        (ns: Reference, r: Reference, s: Store) => {
+          val l = s.resolve(ns, lr)
+          if (l._2 == Store.undefined) throw new SemanticsException("[err5] cannot find link reference " + lr)
+          else s.bind(r, l._2)
+        }
       )
     | "extends" ~> Prototypes ^^ (p =>
-        (ns: Reference, r: Reference, s: Store) => p(ns, r, s.bind(r, Store.Empty))
+        (ns: Reference, r: Reference, s: Store) => p(ns, r, s.bind(r, Store.empty))
       )
     )
 	
