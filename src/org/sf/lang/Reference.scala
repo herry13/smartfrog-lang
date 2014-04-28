@@ -71,6 +71,17 @@ class Reference(val head: String, val _rest: Reference = Reference.empty) {
     if (this == empty) this
     else if (head.equals(id)) rest.delete(id)
     else new Reference(head, rest.delete(id))
+
+  def trace(r: Reference): Reference =
+    if (r == empty) this
+    else if (r.head.equals("THIS")) trace(r.rest)
+    else if (r.head.equals("ROOT")) empty.trace(r.rest)
+    else if (r.head.equals("PARENT"))
+      if (this == empty) throw new SemanticsException("[err102] cannot trace " + r + " in " + this)
+      else prefix.trace(r.rest)
+    else (this ++ r.head).trace(r.rest)
+
+  def simplify: Reference = empty.trace(this)
     
   override def toString = if (rest == empty) head else head + ":" + rest
   

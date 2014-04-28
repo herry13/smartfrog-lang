@@ -51,16 +51,16 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
       if (head._2.isInstanceOf[Store]) head._2.asInstanceOf[Store].find(r.rest)
       else undefined
     else rest.find(r)
-  
+    
   def resolve(ns: Reference, r: Reference): (Reference, Any) =
-  	if (r.head.equals("ROOT")) (Reference.empty, find(r.rest))
+  	if (r.head.equals("ROOT")) (Reference.empty, find(r.rest.simplify))
     else if (r.head.equals("PARENT"))
-      if (ns == Reference.empty) throw new SemanticsException("[todo] invalid reference: " + r)
-      else (ns.prefix, find(ns.prefix ++ r.rest))
-    else if (r.head.equals("THIS")) (ns, find(ns ++ r.rest))
-    else if (ns == Reference.empty) (ns, find(r))
+      if (ns == Reference.empty) throw new SemanticsException("[err101] invalid reference: " + r)
+      else (ns.prefix, find((ns.prefix ++ r.rest).simplify))
+    else if (r.head.equals("THIS")) (ns, find((ns ++ r.rest).simplify))
+    else if (ns == Reference.empty) (ns, find(r.simplify))
     else {
-      val v = find(ns ++ r)
+      val v = find((ns ++ r).simplify)
       if (v == undefined) resolve(ns.prefix, r)
       else (ns, v)
     }
