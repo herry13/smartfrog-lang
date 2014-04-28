@@ -1,6 +1,6 @@
-[SmartFrog](http://smartfrog.org) Language Semantics
-============================
-This is the implementation of the formal semantic of [SmartFrog](http://smartfrog.org) (SF) language in Scala. The supported features are:
+# [SmartFrog](http://smartfrog.org) Language Parser
+
+This parser is the implementation of the formal semantic of core subset of [SmartFrog](http://smartfrog.org) (SF) language in Scala. The supported features are:
 
 - Basic values (Boolean, Number, String, Null, Vector)
 - Data and Link Reference (_forward link reference_ is not supported)
@@ -21,8 +21,9 @@ Not yet supported:
 
 Note: forward link-reference is supported in branch `forward-link-reference`.
 
-Requirements
-------------
+
+## Requirements
+
 To run:
 - Java Virtual Machine >= 1.6
 
@@ -31,8 +32,7 @@ To build:
 - SBT >= 0.13 (optional) -- only require to create an independent JAR file
 
 
-Usage
------
+## Usage
 
 	$ ./sfParser [option] <sf-file>
 
@@ -54,8 +54,8 @@ characters: `$.`. For example, data-reference `x:y:z` in JSON and
 YAML is `$.x:y:z`.
 
 
-Independent JAR file
---------------------
+## Independent JAR file
+
 An independent JAR file is available at [here](https://github.com/herry13/smartfrog-lang/blob/master/sbt/target/scala-2.10/sfParser-assembly-0.3.jar).
 The JAR file can be executed with command:
 
@@ -67,8 +67,8 @@ To build an independent JAR file:
 	$ sbt assembly
 
 
-Output
-------
+## Output
+
 If you have the following input:
 
 	A extends {
@@ -92,6 +92,7 @@ then the output will be:
 `(x,{...})` means that variable `x` is a component (object).
 
 
-License
--------
+
+## License
+
 [BSD License](https://raw.githubusercontent.com/herry13/smartfrog-lang/master/LICENSE)
