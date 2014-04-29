@@ -2,7 +2,7 @@
 
 BASEDIR="$(dirname "$0")"
 LISADIR="$BASEDIR/LISA2014paper"
-BIN="$BASEDIR/../sfParser"
+BIN="$BASEDIR/../scala/sfParser"
 
 function test {
 	if [[ -f $1 && "${1##*.}" = "sf" ]]; then
