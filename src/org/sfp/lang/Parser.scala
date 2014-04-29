@@ -1,6 +1,7 @@
 package org.sfp.lang
 
 import scala.io.Source
+import scala.util.parsing.combinator.JavaTokenParsers
 import org.sf.lang.Reference
 import org.sf.lang.Store
 import org.sf.lang.SemanticsException
@@ -35,10 +36,9 @@ where [option] is:
 class Parser extends org.sf.lang.Parser with CommonParser {
   def Sfp: Parser[Store] =
     Statement ^^ (st => {
-        val m = st(org.sf.lang.Reference.Empty, Store.Empty).find(_main)
-        if (Store.isStore(m)) m.asInstanceOf[Store]
+        val m = st(org.sf.lang.Reference.empty, Store.empty).find(_main)
+        if (m.isInstanceOf[Store]) m.asInstanceOf[Store]
         else throw new SemanticsException("[err101] main is not exist or a component")
-        //st(org.sf.lang.Reference.Empty, Store.Empty)
       }
     )
   
@@ -59,11 +59,11 @@ class Parser extends org.sf.lang.Parser with CommonParser {
     )
   
   def Schema: Parser[Store => Store] =
-    ident ~ (_extends ~> ParentSchema).? ~ "{" ~ Body <~ "}" ^^ { case id ~ par ~ _ ~ b => {
+    ident ~ (_extends ~> ParentSchema).? ~ _begin ~ Body <~ _end ^^ { case id ~ par ~ _ ~ b => {
         val r = new Reference(id)
         (s: Store) =>
-          if (par.isEmpty) b(r, s.bind(r, Store.Empty))
-          else b(r, par.get(r, s.bind(r, Store.Empty)))
+          if (par.isEmpty) b(r, s.bind(r, Store.empty))
+          else b(r, par.get(r, s.bind(r, Store.empty)))
       }
     }
   
@@ -81,26 +81,26 @@ class Parser extends org.sf.lang.Parser with CommonParser {
         if (r.length == 1) v(ns, ns ++ r, s)
         else {
           val l = s.resolve(ns, r.prefix)
-          if (Store.isStore(l._2)) v(ns, l._1 ++ r, s)
+          if (l._2.isInstanceOf[Store]) v(ns, l._1 ++ r, s)
           else throw new SemanticsException("[err102] prefix of " + r + " is not a component")
         }
     }
   
   def SfpValue: Parser[(Reference, Reference, Store) => Store] =
-    ( "=" ~> BasicValue <~ eos ^^ (v =>
+    ( eq ~> BasicValue <~ eos ^^ (v =>
         (ns: Reference, r: Reference, s: Store) => s.bind(r, v)
       )
     | LinkReference <~ eos ^^ (lr =>
         (ns: Reference, r: Reference, s: Store) =>
           ((l: (Reference, Any)) =>
-            if (l._2 == Store.Undefined) throw new SemanticsException("[err103] cannot find link reference " + lr)
+            if (l._2 == Store.undefined) throw new SemanticsException("[err103] cannot find link reference " + lr)
             else s.bind(r, l._2)
           )(s.resolve(ns, lr))
       )
-    | ("isa" ~> ParentSchema).? ~ _extends ~ Prototypes ^^ { case sc ~ _ ~ p =>
+    | (_isa ~> ParentSchema).? ~ _extends ~ Prototypes ^^ { case sc ~ _ ~ p =>
         (ns: Reference, r: Reference, s: Store) =>
-          if (sc.isEmpty) p(ns, r, s.bind(r, Store.Empty))
-          else p(ns, r, sc.get(r, s.bind(r, Store.Empty)))
+          if (sc.isEmpty) p(ns, r, s.bind(r, Store.empty))
+          else p(ns, r, sc.get(r, s.bind(r, Store.empty)))
       }
     | ":" ~> Type ^^ (t =>
         (ns: Reference, r: Reference, s: Store) => s.bind(r, t)
@@ -108,36 +108,27 @@ class Parser extends org.sf.lang.Parser with CommonParser {
     )
   
   def Type: Parser[Any] =
-    ( ident ^^ (id =>
-        if (id.equals("bool")) false
-        else if (id.equals("num")) 0
-        else if (id.equals("str")) ""
-        else Store.Empty
-      )
-    | TypeVector
-    | TypeReference
+    ( "bool"              ^^ (x => false)  // a boolean
+    | "[bool]"            ^^ (x => List()) // a list of boolean
+    | "num"               ^^ (x => 0)      // a number
+    | "[num]"             ^^ (x => List()) // a list of number
+    | "str"               ^^ (x => "")     // a string
+    | "[str]"             ^^ (x => List()) // a list of string
+    | ident               ^^ (x => null)   // a reference of particular schema
+    | "[" ~> ident <~ "]" ^^ (x => List()) // a list of reference of particular schema: [Service]
     )
-    
-  def TypeReference: Parser[Any] =
-    ( ident
-    | TypeVector
-    ) ^^ (x => null)
-    
-  def TypeVector: Parser[List[Any]] =
-    ident ^^ (id => List())
 
   override def DataReference: Parser[Reference] =
     Reference
 
   override def Reference: Parser[Reference] =
-    ident ~ ("." ~> ident).* ^^ {
+    ident ~ (_sep ~> ident).* ^^ {
       case id ~ ids => new Reference(id, org.sf.lang.Reference(ids))
     }
 
   //--- constraints ---//
-  val global = new Reference("global")
   def GlobalConstraint: Parser[Store => Store] =
-    "{" ~> Conjunction <~ "}" ^^ (c =>
+    _begin ~> Conjunction <~ _end ^^ (c =>
       (s: Store) => {
         val g = s.find(global)
         if (g.isInstanceOf[Expression]) s.bind(global, c.addParams(g.asInstanceOf[Expression].params))
@@ -157,16 +148,16 @@ class Parser extends org.sf.lang.Parser with CommonParser {
     Reference ~ neq ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv => new PairExpression(Expression.neq, r, bv) }
   
   def In: Parser[Any] =
-    Reference ~ "in" ~ Vector <~ eos ^^ { case r ~ _ ~ vec => new PairExpression(Expression.in, r, vec) }
+    Reference ~ _in ~ Vector <~ eos ^^ { case r ~ _ ~ vec => new PairExpression(Expression.in, r, vec) }
   
   def Imply: Parser[Any] =
-    "if" ~> "{" ~> Conjunction ~ ("}" ~ "then" ~ "{") ~ Conjunction <~ "}" ^^ {
+    "if" ~> _begin ~> Conjunction ~ (_end ~ "then" ~ _begin) ~ Conjunction <~ _end ^^ {
       case premise ~ _ ~ conclusion => new Expression(Expression.imply, List(premise, conclusion))
     } 
   
   //--- action ---//
   def Action: Parser[(Reference, Reference, Store) => Store] =
-    Parameters ~ "{" ~ Cost ~ Conditions ~ Effects <~ "}" ^^ {
+    Parameters ~ _begin ~ Cost ~ Conditions ~ Effects <~ _end ^^ {
       case pars ~ _ ~ c ~ cond ~ eff =>
         (ns: Reference, r: Reference, s: Store) => s.bind(r, new Action(pars, c, cond, eff))
     }
@@ -184,13 +175,13 @@ class Parser extends org.sf.lang.Parser with CommonParser {
     ident ~ ":" ~ ident ^^ { case id ~ _ ~ t => (id, new Reference(t)) }
   
   def Cost: Parser[Integer] =
-    "cost" ~> eq ~> """[0-9]+""".r <~ eos ^^ (n => n.toInt)
+    _cost ~> eq ~> """[0-9]+""".r <~ eos ^^ (n => n.toInt)
     
   def Conditions: Parser[Expression] =
-    "condition" ~> "s".? ~> "{" ~> Conjunction <~ "}"
+    _condition ~> _begin ~> Conjunction <~ _end
     
   def Effects: Parser[Expression] =
-    "effect" ~> "s".? ~> "{" ~> Effect.+ <~ "}" ^^ (eff => new Expression(Expression.and, eff))
+    _effect ~> _begin ~> Effect.+ <~ _end ^^ (eff => new Expression(Expression.and, eff))
     
   def Effect: Parser[Expression] =
     Reference ~ eq ~ BasicValue <~ eos ^^ { case r ~ _ ~ v => new PairExpression(Expression.eq, r, v) }
@@ -210,18 +201,31 @@ class Parser extends org.sf.lang.Parser with CommonParser {
   }
 }
 
-trait CommonParser extends org.sf.lang.CommonParser {
-  val _main = org.sf.lang.Reference("main")
+trait CommonParser extends JavaTokenParsers {
+  val _main = new Reference("main")
+  val global = new Reference("global")
   
   //--- helpers ---//
+  val eos: Parser[Any] = ";"
   val eq = "=" | "is"
   val neq = "!=" | "isnt"
-  override val include: Parser[Any] = "include" | "#include"
-  override val _true: Parser[Any] = "true" | "yes"
-  override val _false: Parser[Any] = "false" | "no"
+  val _in: Parser[Any] = "in"
   val _schema: Parser[Any] = "schema"
   val _global: Parser[Any] = "global"
   val _import: Parser[Any] = "import"
   val _isa: Parser[Any] = "isa"
-  val _action: Parser[Any] = "def" | "sub" | "action"  
+  val _action: Parser[Any] = "def" | "sub" | "action"
+  val _condition: Parser[Any] = "condition" <~ "s".?
+  val _effect: Parser[Any] = "effect" <~ "s".?
+  val _cost: Parser[Any] = "cost"
+  val _epsilon: Parser[Any] = ""
+  val _include: Parser[Any] = "#include"
+  val _extends: Parser[Any] = "extends"
+  val _true: Parser[Any] = "true" | "yes"
+  val _false: Parser[Any] = "false" | "no"
+  val _null: Parser[Any] = "null" | "nil"
+  val _tbd: Parser[Any] = "TBD"
+  val _sep: Parser[Any] = "." | ":"
+  val _begin: Parser[Any] = "{"
+  val _end: Parser[Any] = "}"
 }

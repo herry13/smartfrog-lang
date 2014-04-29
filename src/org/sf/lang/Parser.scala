@@ -30,31 +30,35 @@ where [option] is:
     (args.length >= 2 && args.head.equals("-yaml"))
 }
 
-class Parser extends JavaTokenParsers with CommonParser {
-  def Sf: Parser[Store] = Body ^^ (b => {
-        val v = b(org.sf.lang.Reference.Empty, Store.Empty).find(sfConfig)
-        if (Store.isStore(v)) v.asInstanceOf[Store]
+class Parser extends JavaTokenParsers {
+  protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
+  protected val sfConfig = new Reference("sfConfig")
+
+  def Sf: Parser[Store] =
+    Body ^^ { b => {
+        val v = b(org.sf.lang.Reference.empty, Store.empty).find(sfConfig)
+        if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
         else throw new SemanticsException("[err7] sfConfig is not exist or a component")
       }
-    )
+    }
 
   def Body: Parser[(Reference, Store) => Store] =
-    ( include ~> stringLiteral ~ eos ~ Body ^^ { case file ~ _ ~ b =>
-      	(ns: Reference, s: Store) => b(ns, parseIncludeFile(file.substring(1, file.length-1), ns, s))
-      }
-    | Assignment ~ Body ^^ { case a ~ b =>
+    ( Assignment ~ Body ^^ { case a ~ b =>
         (ns: Reference, s: Store) => b(ns, a(ns, s))
+      }
+    | "#include" ~> stringLiteral ~ ";" ~ Body ^^ { case file ~ _ ~ b =>
+      	(ns: Reference, s: Store) => b(ns, parseIncludeFile(file.substring(1, file.length-1), ns, s))
       }
     | epsilon ^^ { x => (ns: Reference, s: Store) => s }
     )
     
   def Assignment: Parser[(Reference, Store) => Store] =
-    Reference ~ Value <~ eos.* ^^ { case r ~ v =>
+    Reference ~ Value ^^ { case r ~ v =>
       (ns: Reference, s: Store) =>
         if (r.length == 1) v(ns, ns ++ r, s)
         else {
           val l = s.resolve(ns, r.prefix)
-          if (Store.isStore(l._2)) v(ns, l._1 ++ r, s)
+          if (l._2.isInstanceOf[Store]) v(ns, l._1 ++ r, s)
           else throw new SemanticsException("[err6] prefix of " + r + " is not a component")
         }
     }
@@ -78,18 +82,18 @@ class Parser extends JavaTokenParsers with CommonParser {
     )
   
   def Value: Parser[(Reference, Reference, Store) => Store] =
-    ( BasicValue <~ eos ^^ (sv =>
+    ( BasicValue <~ ";"  ^^ (sv =>
         (ns: Reference, r: Reference, s: Store) => s.bind(r, sv)
       )
-    | LinkReference <~ eos  ^^ (lr =>
+    | LinkReference <~ ";"  ^^ (lr =>
         (ns: Reference, r: Reference, s: Store) => {
           val l = s.resolve(ns, lr)
-          if (l._2 == Store.Undefined) throw new SemanticsException("[err5] cannot find link reference " + lr)
-          else s.bind(r, l._2)          
+          if (l._2 == Store.undefined) throw new SemanticsException("[err5] cannot find link reference " + lr)
+          else s.bind(r, l._2)
         }
       )
-    | _extends ~> Prototypes ^^ (p =>
-        (ns: Reference, r: Reference, s: Store) => p(ns, r, s.bind(r, Store.Empty))
+    | "extends" ~> Prototypes ^^ (p =>
+        (ns: Reference, r: Reference, s: Store) => p(ns, r, s.bind(r, Store.empty))
       )
     )
 	
@@ -99,7 +103,7 @@ class Parser extends JavaTokenParsers with CommonParser {
     }
 	
   def DataReference: Parser[Reference] =
-    data ~> Reference
+    "DATA" ~> Reference
 
   def LinkReference: Parser[Reference] =
     Reference
@@ -113,6 +117,8 @@ class Parser extends JavaTokenParsers with CommonParser {
     | Null
     )
 
+  protected val intRegex = """\-?[0-9]+(?!\.)""".r
+  
   def Number: Parser[Any] =
     floatingPointNumber ^^ (n =>
       if (intRegex.findFirstIn(n).get != n) n.toDouble
@@ -125,13 +131,15 @@ class Parser extends JavaTokenParsers with CommonParser {
     | epsilon ^^ (x => List())
     ) <~ "]"
 
-  def Null: Parser[Any] = _null ^^ (x => null)
+  def Null: Parser[Any] = "NULL" ^^ (x => null)
     
   def Boolean: Parser[Boolean] =
-    ( _true ^^ (x => true)
-    | _false ^^ (x => false)
+    ( "true" ^^ (x => true)
+    | "false" ^^ (x => false)
     )
 	
+  val epsilon: Parser[Any] = ""
+  
   def parse(s: String): Store = {
     parseAll(Sf, s) match {
       case Success(root, _) => root
@@ -142,25 +150,9 @@ class Parser extends JavaTokenParsers with CommonParser {
   def parseIncludeFile(filePath: String, ns: Reference, s: Store): Store = {
     parseAll(Body, Source.fromFile(filePath).mkString) match {
       case Success(body, _) => body(ns, s)
-      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos + " in included file " + filePath)
+      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos)
     }
   }
     
   def parseFile(filePath: String): Store = parse(Source.fromFile(filePath).mkString)
-}
-
-trait CommonParser extends JavaTokenParsers {
-  protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
-  protected val sfConfig = new Reference("sfConfig")
-
-  protected val intRegex = """\-?[0-9]+(?!\.)""".r
-  
-  val epsilon = ""
-  val include: Parser[Any] = "#include"
-  val data: Parser[Any] = "DATA"
-  val _true: Parser[Any] = "true"
-  val _false: Parser[Any] = "false"
-  val _null:Parser[Any] = "NULL"
-  val _extends: Parser[Any] = "extends"
-  val eos: Parser[Any] = ";"
 }
