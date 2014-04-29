@@ -1,19 +1,8 @@
-x extends {
-	blob "a string";
-}
-
-sfConfig extends {
-	a extends {
-		a 1;
-		v [true, 95, [1, 2], "foo"];
-	}
-	c extends x, {
-		b 2;
-		z x:blob;
-	}
-
-	b extends a, {
-	}, c, {
-		c 3;
-	}
-}
+/*
+ * a block comment
+ */
+blob 34 ; a:b NULL; foo23 "stuff" ; _boolvar false;
+ 
+ 
+proto extends p:q  myref DATA x:y:zzz; x1 extends { boo 2; } // eol comment
+v [true,95,[1,2],"foo"];

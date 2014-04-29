@@ -1,0 +1,4 @@
+sfConfig extends {
+	a 1;
+	#include "included2.sf";
+}

@@ -1,0 +1,6 @@
+// example of forward link-reference (not supported)
+sfConfig extends {
+	x y;
+	y 1;
+	z x;
+}
