@@ -1,0 +1,5 @@
+Build/*.o
+Build/*.hi
+Build/hsf
+Build/*.hs
+Build/*.sh

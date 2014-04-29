@@ -1,97 +1,13 @@
 # [SmartFrog](http://smartfrog.org) Language Parser
 
-This parser is the implementation of the formal semantic of core subset of [SmartFrog](http://smartfrog.org) (SF) language in Scala. The supported features are:
+This parser is the implementation of the formal semantic of core subset of [SmartFrog](http://smartfrog.org) (SF) language.
 
-- Basic values (Boolean, Number, String, Null, Vector)
-- Component (object)
-- Data and Link Reference (_forward link reference_ is not supported)
-- Keywords `THIS`, `PARENT`, and `ROOT` in Reference
-- Prototype
-- Placement (_forward placement_ is not supported)
-- Include file `#include "any.sf";`
+There two implementations:
 
-Not yet supported:
+- [Scala](scala/) by Herry (herry13@gmail.com)
+- [Haskell] (haskell/) by Paul Anderson (dcspaul@ed.ac.uk)
 
-- `TBD`
-- Optional value of link reference
-- Keywords `ATTRIB`, `HERE` in reference
-- Lazy reference
-- Function
-- Schema
-- Predicate
-
-Note: forward link-reference is supported in branch `forward-link-reference`.
-
-
-## Requirements
-
-To run:
-- Java Virtual Machine >= 1.6
-
-To build:
-- Scala >= 2.10.3
-- SBT >= 0.13 (optional) -- only require to create an independent JAR file
-
-
-## Usage
-
-	$ ./sfParser [option] <sf-file>
-
-To generate standard output for input file: test.sf
-
-	$ ./sfParser test.sf
-
-To generate JSON output
-
-	$ ./sfParser -json test.sf
-
-To generate YAML output
-
-	$ ./sfParser -yaml test.sf
-
-Note that every value is converted as it is to JSON and YAML.
-But the data-reference will be converted to string preceeded with
-characters: `$.`. For example, data-reference `x:y:z` in JSON and
-YAML is `$.x:y:z`.
-
-
-## Independent JAR file
-
-An independent JAR file is available at [here](https://github.com/herry13/smartfrog-lang/blob/master/dist/sfParser.jar).
-The JAR file can be executed with command:
-
-	$ java -jar dist/sfParser.jar <sf-file>
-
-To build an independent JAR file:
-
-	$ cd sbt
-	$ sbt assembly
-
-
-## Output
-
-If you have the following input:
-
-	A extends {
-		foo 1;
-	}
-	
-	sfConfig extends {
-		test extends {
-			bar 1;
-			a1 extends A
-		}
-		bar 2;
-		a2 test:a1;
-	}
-
-then the output will be:
-
-	(test,{(bar,1),(a1,{(foo,1)})}),(bar,2),(a2,{(foo,1)})
-
-`(x,y)` means that variable `x` has a basic value `y`, and
-`(x,{...})` means that variable `x` is a component (object).
-
+Please read the **readme** file of each implementation for usage instructions.
 
 
 ## License
