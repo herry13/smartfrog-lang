@@ -2,7 +2,7 @@
 
 This parser is the implementation of the formal semantic of core subset of [SmartFrog](http://smartfrog.org) (SF) language.
 
-There two implementations:
+There are two implementations:
 
 - [Scala](scala/) by Herry (herry13@gmail.com)
 - [Haskell] (haskell/) by Paul Anderson (dcspaul@ed.ac.uk)
