@@ -7,7 +7,9 @@ let compile file =
 	try
 		let lexbuf = Lexing.from_channel ic in
 		let result = Sfparser.sf Sflexer.token lexbuf in
-			print_string result; print_newline(); flush stdout
+			print_string (Domain.string_of_store result);
+            print_newline();
+            flush stdout
 
 	with e ->
 		close_in_noerr ic;

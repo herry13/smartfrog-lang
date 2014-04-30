@@ -1,0 +1,13 @@
+a 1;
+b true;
+c -2;
+d 1.0;
+e "a string";
+f "a multiline
+string";
+g null;
+
+x extends {
+  y false;
+  x extends { }
+}
