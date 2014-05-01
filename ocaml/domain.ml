@@ -129,3 +129,26 @@ and yaml_of_store1 s tab =
       if tail = [] then h
       else h ^ "\n" ^ yaml_of_store1 tail tab;;
 
+let rec json_of_store s = "{" ^ (json_of_store1 s) ^ "}"
+and json_of_store1 s =
+  match s with
+  | [] -> ""
+  | head::tail ->
+      let h = "\"" ^ head.id ^ "\":" ^ json_of_value head.v in
+      if tail = [] then h
+      else h ^ "," ^ json_of_store1 tail
+and json_of_value v =
+  match v with
+  | Bool b -> string_of_bool b
+  | Num (Int i) -> string_of_int i
+  | Num (Float f) -> string_of_float f
+  | Str s -> "\"" ^ s ^ "\""
+  | Null -> "null"
+  | Ref r -> "$." ^ String.concat ":" r
+  | Vec vec -> "[" ^ (json_of_vec vec) ^ "]"
+  | Store s -> "{" ^ (json_of_store1 s) ^ "}"
+and json_of_vec vec =
+  match vec with
+  | [] -> ""
+  | head :: tail -> let h = json_of_value head in
+                    if tail = [] then h else h ^ "," ^ (json_of_vec tail);;
