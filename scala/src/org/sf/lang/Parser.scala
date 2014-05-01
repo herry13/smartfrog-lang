@@ -95,6 +95,14 @@ class Parser extends JavaTokenParsers {
     | "extends" ~> Prototypes ^^ (ps =>
         (ns: Reference, r: Reference, s: Store) => ps(ns, r, s.bind(r, Store.empty))
       )
+    | "++" ~> Prototypes ^^ (ps =>
+        (ns: Reference, r: Reference, s: Store) => {
+          val v = s.find(r)
+          if (v == Store.undefined) ps(ns, r, s.bind(r, Store.empty))
+          else if (v.isInstanceOf[Store]) ps(ns, r, s)
+          else throw new SemanticsException("[err8] cannot merge a primitive with component")
+        }
+      )
     )
 	
   def Reference: Parser[Reference] =
