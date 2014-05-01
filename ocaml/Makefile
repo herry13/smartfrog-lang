@@ -35,4 +35,4 @@ dist: build clean
 clean-build: clean-all build
 
 test: clean-all build
-	@./csf comp.sf
+	@./test.sh
