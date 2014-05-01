@@ -92,13 +92,13 @@ class Parser extends JavaTokenParsers {
           else s.bind(r, l._2)
         }
       )
-    | "extends" ~> Prototypes ^^ (p =>
-        (ns: Reference, r: Reference, s: Store) => p(ns, r, s.bind(r, Store.empty))
+    | "extends" ~> Prototypes ^^ (ps =>
+        (ns: Reference, r: Reference, s: Store) => ps(ns, r, s.bind(r, Store.empty))
       )
     )
 	
   def Reference: Parser[Reference] =
-    ident ~ (refDelim ~> ident).* ^^ {
+    ident ~ (":" ~> ident).* ^^ {
       case id ~ ids => new Reference(id, org.sf.lang.Reference(ids))
     }
 	
@@ -131,19 +131,15 @@ class Parser extends JavaTokenParsers {
     | epsilon ^^ (x => List())
     ) <~ "]"
 
-  def Null: Parser[Any] = _null ^^ (x => null)
+  def Null: Parser[Any] = "NULL" ^^ (x => null)
     
   def Boolean: Parser[Boolean] =
-    ( _true ^^ (x => true)
-    | _false ^^ (x => false)
+    ( "true" ^^ (x => true)
+    | "false" ^^ (x => false)
     )
 	
   val epsilon: Parser[Any] = ""
   val eos: Parser[Any] = ";"
-  val refDelim: Parser[Any] = ":"
-  val _true: Parser[Any] = "true" | "yes"
-  val _false: Parser[Any] = "false" | "no"
-  val _null: Parser[Any] = "NULL" | "null" | "nil"
   
   def parse(s: String): Store = {
     parseAll(Sf, s) match {
