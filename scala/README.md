@@ -1,6 +1,6 @@
-# [SmartFrog](http://smartfrog.org) Language Parser
+# [SmartFrog](http://smartfrog.org) Language Compiler
 
-This parser is the implementation of the formal semantic of core subset of [SmartFrog](http://smartfrog.org) (SF) language in Scala. The supported features are:
+This compiler is the implementation of the formal semantic of core subset of [SmartFrog](http://smartfrog.org) (SF) language in Scala. The supported features are:
 
 - Basic values (Boolean, Number, String, Null, Vector)
 - Component (object)

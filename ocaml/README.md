@@ -1,6 +1,6 @@
 # SmartFrog Language Compiler in OCaml
 
-This parser is the implementation of the formal semantic of core subset of [SmartFrog](http://smartfrog.org) (SF) language in OCaml. The supported features are:
+This compiler is the implementation of the formal semantic of core subset of [SmartFrog](http://smartfrog.org) (SF) language in OCaml. The supported features are:
 
 - Basic values (Boolean, Number, String, Null, Vector)
 - Component (object)
