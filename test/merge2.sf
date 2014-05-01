@@ -9,4 +9,7 @@ sfConfig extends {
 		q3 3;
 		q4 extends { b 3; c 4; }
 	}
+	p2 ++ {
+		q4 extends { c 5; d 6; }
+	}
 }

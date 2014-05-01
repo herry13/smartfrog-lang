@@ -14,6 +14,7 @@ rule token = parse
     | "DATA"                                      { DATA }
 	| "#include"								  { INCLUDE }
     | ','                                         { COMMA }
+    | "++"                                        { MERGE }
     | '{'                                         { BEGIN }
     | '}'                                         { END }
     | '['                                         { LBRACKET }

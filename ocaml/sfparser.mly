@@ -6,7 +6,7 @@
 %token <float> FLOAT
 %token <string> STRING
 %token <string> ID
-%token INCLUDE EXTENDS COMMA DATA BEGIN END SEP NULL LBRACKET RBRACKET EOS EOF
+%token INCLUDE EXTENDS COMMA DATA BEGIN END MERGE SEP NULL LBRACKET RBRACKET EOS EOF
 %start sf body          /* entry point */
 %type <Domain.store> sf
 %type <string list -> Domain.store -> Domain.store> body
@@ -38,12 +38,18 @@ assignment:
 ;
 value:
 	  basic EOS             { fun ns r s -> bind s r $1 }
-    | EXTENDS prototypes    { fun ns r s -> $2 ns r (bind s r (Store [])) }
     | link_reference EOS    {
                               fun ns r s -> let (_, v1) = resolve s ns $1 in
                                             match v1 with
                                             | Undefined -> raise (Failure "[err5]")
                                             | Val v -> bind s r v
+                            }
+    | EXTENDS prototypes    { fun ns r s -> $2 ns r (bind s r (Store [])) }
+    | MERGE prototypes      {
+                              fun ns r s -> match find s r with
+                                            | Undefined -> $2 ns r (bind s r (Store []))
+                                            | Val (Store s1) -> $2 ns r s
+                                            | _ -> raise (Failure "[err8] cannot merge primitive with component")
                             }
 ;
 prototypes:

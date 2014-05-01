@@ -53,24 +53,32 @@ let rec find s r : _value =
         else match head.v with
         | Store child -> find child rs
         | _ -> Undefined
-      else find tail r;;
+      else find tail r
 
-let rec resolve s ns r =
+and resolve s ns r =
   if ns = [] then ([], find s r)
   else
     let v = find s (List.append ns r) in
     match v with
     | Undefined -> resolve s (prefix ns) r
-    | _ -> (ns, v);;
+    | _ -> (ns, v)
 
-let rec put s id v =
+and put s id v : store =
   match s with
   | [] -> { id = id; v = v } :: []
   | head::tail ->
-      if head.id = id then { id = id; v = v } :: tail
-      else head :: put tail id v;;
+      if head.id = id then
+        match head.v, v with
+        | Store dest, Store src -> { id = id; v = Store (copy dest src []) } :: tail
+        | _,_ -> { id = id; v = v } :: tail
+      else head :: put tail id v
 
-let rec bind s r v : store =
+and copy dest src pfx : store =
+  match src with
+  | [] -> dest
+  | head::tail -> copy (bind dest (oplus pfx head.id) head.v) tail pfx
+
+and bind s r v : store =
   match r with
   | [] -> raise (Failure "[err3]")
   | id :: rs ->
@@ -83,14 +91,9 @@ let rec bind s r v : store =
               match head.v with
               | Store child -> { id = id; v = (Store (bind child rs v)) } :: tail
               | _ -> raise (Failure "[err1]")
-            else head :: bind tail r v;;
+            else head :: bind tail r v
 
-let rec copy s1 s2 pfx =
-  match s2 with
-  | [] -> s1
-  | head::tail -> copy (bind s1 (oplus pfx head.id) head.v) tail pfx;;
-
-let inherit_proto s ns proto r =
+and inherit_proto s ns proto r : store =
   match resolve s ns proto with
   | nsp, Val (Store vp) -> copy s vp r
   | _, _ -> raise (Failure "[err4]");;
