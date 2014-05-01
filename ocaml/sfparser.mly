@@ -6,9 +6,10 @@
 %token <float> FLOAT
 %token <string> STRING
 %token <string> ID
-%token EXTENDS COMMA DATA BEGIN END SEP NULL LBRACKET RBRACKET EOS EOF
-%start sf           /* entry point */
+%token INCLUDE EXTENDS COMMA DATA BEGIN END SEP NULL LBRACKET RBRACKET EOS EOF
+%start sf body          /* entry point */
 %type <Domain.store> sf
+%type <string list -> Domain.store -> Domain.store> body
 %%
 sf:
     body                {
@@ -21,8 +22,9 @@ sf:
                         }
 ;
 body:
-    | assignment body   { fun ns s -> $2 ns ($1 ns s) }
-    |                   { fun ns s -> s }
+    | assignment body     { fun ns s -> $2 ns ($1 ns s) }
+    | INCLUDE STRING EOS  { fun ns s -> raise (Failure "not implemented") }
+    |                     { fun ns s -> s }
 ;
 assignment:
     reference value    {

@@ -12,6 +12,7 @@ rule token = parse
     | "null"                                      { NULL }
     | "extends"                                   { EXTENDS }
     | "DATA"                                      { DATA }
+	| "#include"								  { INCLUDE }
     | ','                                         { COMMA }
     | '{'                                         { BEGIN }
     | '}'                                         { END }

@@ -1,6 +1,6 @@
 .PHONY: build clean clean-all dist
 
-build: semantics sflexer.cmo sfparser.cmo csf.cmo
+build: domain.cmo sflexer.cmo sfparser.cmo csf.cmo
 	ocamlc -o csf domain.cmo sflexer.cmo sfparser.cmo csf.cmo
 
 csf.cmo: csf.ml
@@ -21,7 +21,7 @@ sflexer.cmo: sflexer.ml sfparser.cmo
 sflexer.ml: sflexer.mll
 	ocamllex sflexer.mll
 
-semantics: domain.ml
+domain.cmo: domain.ml
 	ocamlc -c domain.ml
 
 clean:
