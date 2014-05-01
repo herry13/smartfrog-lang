@@ -17,7 +17,7 @@ sf:
                           let s = $1 [] [] in
                           let v = find s r in
                           match v with
-                          | Val (Store s) -> s
+                          | Val (Store main) -> main
                           | _ -> raise (Failure "[err7]")
                         }
 ;
