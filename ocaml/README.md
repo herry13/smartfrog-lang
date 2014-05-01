@@ -31,6 +31,8 @@ Compile:
 
 	make dist
 
+This command will create the compiler executable file `csf`.
+
 
 ## Usage
 
