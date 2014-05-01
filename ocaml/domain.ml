@@ -1,67 +1,34 @@
+(*
+ * semantics primary and secondary domains
+ *)
 type number = Int of int | Float of float
-and reference = string list
-and value = Bool of bool | Num of number | Str of string | Null | Ref of reference | Store of store
+and vector = value list
+and value = Bool of bool | Num of number | Str of string | Null | Ref of string list | Vec of vector | Store of store
 and _value = Val of value | Undefined
 and cell = { id : string; v : value }
 and store = cell list;;
 
-type epsilon = Epsilon;;
-
-(* helper functions : domain to string conversion *)
-
-let string_of_reference r = String.concat ":" r;;
-
-let string_of_number n =
-  match n with
-  | Int i -> string_of_int i
-  | Float f -> string_of_float f;;
-
-let rec string_of_value v =
-  match v with
-  | Bool b -> string_of_bool b
-  | Num n -> string_of_number n
-  | Str s -> s
-  | Ref r -> string_of_reference r
-  | Null -> "null"
-  | _ -> raise (Failure "invalid value");;
-
-let string_of_cell c =
-  match c with
-  | { id = s; v = x; } -> s ^ ": " ^ string_of_value x;;
-
-let rec string_of_store s = string_of_store1 s ""
-and string_of_store1 s tab =
-  match s with
-  | [] -> ""
-  | head::tail ->
-     match head.v with
-     | Store child ->
-         if child = [] then tab ^ head.id ^ ": {}"
-         else tab ^ head.id ^ ":\n" ^ string_of_store1 child (tab ^ "  ")
-     | _ ->
-         if tail = [] then tab ^ string_of_cell head
-         else tab ^ string_of_cell head ^ "\n" ^ string_of_store1 tail tab;;
-
-
-(* semantics algebras *)
+(* 
+ * semantics algebras
+ *)
 
 (* reference functions *)
 let rec prefix r =
   match r with
   | [] -> []
-  | head::tail -> if tail = [] then head :: [] else head :: prefix tail;;
+  | head::tail -> if tail = [] then [] else head :: (prefix tail);;
+
+(* only applicable to oplus (string list) (string) *)
+let rec oplus r id =
+  match r with
+  | [] -> [id]
+  | head::tail -> head :: oplus tail id;;
 
 let rec ominus r1 r2 =
   if r1 = [] then []
   else if r2 = [] then r1
   else if (List.hd r1) = (List.hd r2) then ominus (List.tl r1) (List.tl r2)
   else r1;;
-
-let rec oplus r1 r2 =
-  match r1 as
-  | string s -> s :: r2
- 
-  List.append r1 r2;;
 
 let rec equiv r1 r2 : bool =
   if r1 = [] then
@@ -122,3 +89,40 @@ let rec copy s1 s2 pfx =
   match s2 with
   | [] -> s1
   | head::tail -> copy (bind s1 (oplus pfx head.id) head.v) tail pfx;;
+
+let inherit_proto s ns proto r =
+  match resolve s ns proto with
+  | nsp, Val (Store vp) -> copy s vp r
+  | _, _ -> raise (Failure "[err4]");;
+
+
+
+(*
+ * helper functions : domain to string conversion
+ *)
+
+let rec yaml_of_store s = yaml_of_store1 s ""
+and yaml_of_vec vec =
+  match vec with
+  | [] -> ""
+  | head::tail -> let v = yaml_of_value head "" in
+                  if tail = [] then v else v ^ "," ^ (yaml_of_vec tail)
+and yaml_of_value v tab =
+  match v with
+  | Bool b -> string_of_bool b
+  | Num (Int i) -> string_of_int i
+  | Num (Float f) -> string_of_float f
+  | Str s -> s
+  | Null -> "null"
+  | Ref r -> "$." ^ String.concat ":" r
+  | Vec vec -> "[" ^ (yaml_of_vec vec) ^ "]"
+  | Store c ->
+      if c = [] then "{}" else "\n" ^ yaml_of_store1 c (tab ^ "  ")
+and yaml_of_store1 s tab =
+  match s with
+  | [] -> "{}"
+  | head::tail ->
+      let h = tab ^ head.id ^ ": " ^ yaml_of_value head.v (tab ^ "  ") in
+      if tail = [] then h
+      else h ^ "\n" ^ yaml_of_store1 tail tab;;
+

@@ -35,4 +35,4 @@ dist: build clean
 clean-build: clean-all build
 
 test: clean-all build
-	@./csf prim.sf
+	@./csf comp.sf
