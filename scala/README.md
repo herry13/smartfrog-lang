@@ -9,6 +9,7 @@ This compiler is the implementation of the formal semantic of core subset of [Sm
 - Prototype
 - Placement (_forward placement_ is not supported)
 - Include file `#include "any.sf";`
+- Deep copy inheritance (extends), merge operator (++)
 
 Not yet supported:
 
