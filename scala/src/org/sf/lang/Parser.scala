@@ -46,14 +46,14 @@ class Parser extends JavaTokenParsers {
     ( Assignment ~ Body ^^ { case a ~ b =>
         (ns: Reference, s: Store) => b(ns, a(ns, s))
       }
-    | "#include" ~> stringLiteral ~ ";" ~ Body ^^ { case file ~ _ ~ b =>
+    | "#include" ~> stringLiteral ~ eos ~ Body ^^ { case file ~ _ ~ b =>
       	(ns: Reference, s: Store) => b(ns, parseIncludeFile(file.substring(1, file.length-1), ns, s))
       }
     | epsilon ^^ { x => (ns: Reference, s: Store) => s }
     )
     
   def Assignment: Parser[(Reference, Store) => Store] =
-    Reference ~ Value ^^ { case r ~ v =>
+    Reference ~ Value <~ eos.* ^^ { case r ~ v =>
       (ns: Reference, s: Store) =>
         if (r.length == 1) v(ns, ns ++ r, s)
         else {
@@ -82,10 +82,10 @@ class Parser extends JavaTokenParsers {
     )
   
   def Value: Parser[(Reference, Reference, Store) => Store] =
-    ( BasicValue <~ ";"  ^^ (sv =>
+    ( BasicValue <~ eos  ^^ (sv =>
         (ns: Reference, r: Reference, s: Store) => s.bind(r, sv)
       )
-    | LinkReference <~ ";"  ^^ (lr =>
+    | LinkReference <~ eos  ^^ (lr =>
         (ns: Reference, r: Reference, s: Store) => {
           val l = s.resolve(ns, lr)
           if (l._2 == Store.undefined) throw new SemanticsException("[err5] cannot find link reference " + lr)
@@ -98,7 +98,7 @@ class Parser extends JavaTokenParsers {
     )
 	
   def Reference: Parser[Reference] =
-    ident ~ (":" ~> ident).* ^^ {
+    ident ~ (refDelim ~> ident).* ^^ {
       case id ~ ids => new Reference(id, org.sf.lang.Reference(ids))
     }
 	
@@ -131,14 +131,19 @@ class Parser extends JavaTokenParsers {
     | epsilon ^^ (x => List())
     ) <~ "]"
 
-  def Null: Parser[Any] = "NULL" ^^ (x => null)
+  def Null: Parser[Any] = _null ^^ (x => null)
     
   def Boolean: Parser[Boolean] =
-    ( "true" ^^ (x => true)
-    | "false" ^^ (x => false)
+    ( _true ^^ (x => true)
+    | _false ^^ (x => false)
     )
 	
   val epsilon: Parser[Any] = ""
+  val eos: Parser[Any] = ";"
+  val refDelim: Parser[Any] = ":"
+  val _true: Parser[Any] = "true" | "yes"
+  val _false: Parser[Any] = "false" | "no"
+  val _null: Parser[Any] = "NULL" | "null" | "nil"
   
   def parse(s: String): Store = {
     parseAll(Sf, s) match {

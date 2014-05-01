@@ -20,11 +20,21 @@ object Store {
 class Store(val head: Store.Cell, val rest: Store = Store.empty) {
   import Store._
   
+  //--- merge ---//
+  def put(id: String, v: Any): Store =
+    if (this == empty) Store(id, v, empty)
+    else if (head._1.equals(id))
+      if (v.isInstanceOf[Store] && head._2.isInstanceOf[Store])
+        Store(id, head._2.asInstanceOf[Store].copy(v.asInstanceOf[Store], Reference.empty), rest)
+      else Store(id, v, rest)
+    else Store(head, rest.put(id, v))
+  
   //--- start of semantics functions ---//
+  /*
   def put(id: String, v: Any): Store =
     if (this == empty) Store(id, v, empty)
     else if (head._1.equals(id)) Store(id, v, rest)
-    else Store(head, rest.put(id, v))
+    else Store(head, rest.put(id, v))*/
     
   def bind(r: Reference, v: Any): Store =
     if (r == Reference.empty) throw new SemanticsException("[err3] invalid reference " + r + "=" + v)
