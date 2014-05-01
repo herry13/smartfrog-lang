@@ -20,7 +20,7 @@ rule token = parse
     | '['                                         { LBRACKET }
     | ']'                                         { RBRACKET }
     | '"'('\\'_|[^'\\''"'])*'"' as lxm            { STRING(lxm) }
-	| ';'                                         { EOS } (* end of assignment *)
+	| ';'+                                        { EOS } (* end of assignment *)
     | ':'                                         { SEP } (* identifiers' separator *)
 	| ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9']* as lxm	{ ID(lxm) }
 	| eof                                         { EOF }
