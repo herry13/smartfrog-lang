@@ -104,6 +104,7 @@ and inherit_proto s ns proto r : store =
  * helper functions : domain to string conversion
  *)
 
+(*** generate YAML from given store ***)
 let rec yaml_of_store s = yaml_of_store1 s ""
 and yaml_of_vec vec =
   match vec with
@@ -129,6 +130,7 @@ and yaml_of_store1 s tab =
       if tail = [] then h
       else h ^ "\n" ^ yaml_of_store1 tail tab;;
 
+(*** generate JSON of given store ***)
 let rec json_of_store s = "{" ^ (json_of_store1 s) ^ "}"
 and json_of_store1 s =
   match s with
@@ -152,3 +154,43 @@ and json_of_vec vec =
   | [] -> ""
   | head :: tail -> let h = json_of_value head in
                     if tail = [] then h else h ^ "," ^ (json_of_vec tail);;
+
+(*** generate HTML of given store ***)
+let rec xml_of_store s : string = xml_of_store1 s
+and xml_of_store1 s : string =
+  match s with
+  | [] -> ""
+  | head::tail ->
+      if (String.get head.id 0) = '_' then xml_of_store1 tail
+      else
+        let h = "<" ^ head.id ^ (attribute_of_value head.v) ^ ">" ^ xml_of_value head.v ^ "</" ^ head.id ^ ">" in
+        if tail = [] then h
+        else h ^ "\n" ^ xml_of_store1 tail
+and attribute_of_value v : string =
+  match v with
+  | Store s -> let attr = String.trim (accumulate_attribute s) in
+               if (String.length attr) > 0 then " " ^ attr else attr
+  | _ -> ""
+and accumulate_attribute s : string =
+  match s with
+  | [] -> ""
+  | head::tail ->
+      if (String.get head.id 0) = '_' then
+        match head.v with
+        | Store _ | Ref _ -> raise (Failure "attribute may not be a component or vector")
+        | _ -> " " ^ (String.sub head.id 1 ((String.length head.id) - 1)) ^ "=\"" ^ xml_of_value head.v ^ "\"" ^ accumulate_attribute tail
+      else accumulate_attribute tail
+and xml_of_value v : string =
+  match v with
+  | Bool b -> string_of_bool b
+  | Num (Int i) -> string_of_int i
+  | Num (Float f) -> string_of_float f
+  | Str s -> s
+  | Null -> "</null>"
+  | Ref r -> "$." ^ String.concat ":" r
+  | Vec vec -> "<vector>" ^ (xml_of_vec vec) ^ "</vector>"
+  | Store s -> "\n" ^ xml_of_store1 s
+and xml_of_vec vec : string =
+  match vec with
+  | [] -> ""
+  | head::tail -> "<item>" ^ (xml_of_value head) ^ "</item>" ^ xml_of_vec tail;;

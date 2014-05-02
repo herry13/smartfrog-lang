@@ -1,6 +1,6 @@
 open Array
 
-let help = "usage: csf [option] <sf-file>\n\nwhere [option] is:\n  -json   print output in JSON\n  -yaml   print output in YAML\n\n"
+let help = "usage: csf [option] <sf-file>\n\nwhere [option] is:\n  -json   print output in JSON\n  -yaml   print output in YAML\n  -xml    print output in XML\n\n"
 
 let compile opt file =
 	let ic = open_in file in
@@ -9,6 +9,8 @@ let compile opt file =
 		let result = Sfparser.sf Sflexer.token lexbuf in
 			if opt = "-yaml" then
 				print_string ((Domain.yaml_of_store result) ^ "\n")
+			else if opt = "-xml" then
+				print_string ((Domain.xml_of_store result) ^ "\n")
 			else
 				print_string ((Domain.json_of_store result) ^ "\n")
 
