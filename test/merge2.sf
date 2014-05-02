@@ -4,12 +4,20 @@ p1 extends {
 	q4 extends { a 1; b 2; }
 }
 sfConfig extends {
-	p2 extends p1, {
+	p2 extends p1, {           // merge p1 with { ... }, and then assign to p2 
 		q1 2;
 		q3 3;
 		q4 extends { b 3; c 4; }
 	}
-	p2 ++ {
+	++ p2 extends {            // merge existing p2 with { ... }
 		q4 extends { c 5; d 6; }
+	}
+	p3 extends { x 1; }
+	++ p3 extends p2:q4        // merge existing p3 with p2:q4
+
+	x extends { a 1; }
+	y1 x;
+	y1 extends x, {            // y1 extends x, { ... }
+		++ x extends { a 2; }  // merge existing x with { a 2; }
 	}
 }

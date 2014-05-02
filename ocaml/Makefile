@@ -6,20 +6,14 @@ build: domain.cmo sflexer.cmo sfparser.cmo csf.cmo
 csf.cmo: csf.ml
 	ocamlc -c csf.ml
 
-sfparser.cmo: sfparser.ml
+sfparser.cmo:
+	ocamlyacc sfparser.mly
+	ocamlc -c sfparser.mli
 	ocamlc -c sfparser.ml
 
-sfparser.ml: sfparser.mli
-	ocamlc -c sfparser.mli
-
-sfparser.mli: sfparser.mly
-	ocamlyacc sfparser.mly
-
-sflexer.cmo: sflexer.ml sfparser.cmo
-	ocamlc -c sflexer.ml
-
-sflexer.ml: sflexer.mll
+sflexer.cmo: sfparser.cmo
 	ocamllex sflexer.mll
+	ocamlc -c sflexer.ml
 
 domain.cmo: domain.ml
 	ocamlc -c domain.ml

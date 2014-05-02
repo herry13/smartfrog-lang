@@ -3,4 +3,9 @@ sfConfig extends {
 	b 1;
 	c true;
 	d DATA x:y:z;
+
+	e $.x:y:z;
+	f $.x.y.z;
+	g yes;
+	h no;
 }
