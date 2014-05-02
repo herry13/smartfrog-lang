@@ -30,7 +30,7 @@ where [option] is:
     (args.length >= 2 && args.head.equals("-yaml"))
 }
 
-class Parser extends JavaTokenParsers {
+class Parser extends CommonParser {
   // ignore space, tabs, newline, and C-style comments
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
   
@@ -153,7 +153,25 @@ class Parser extends JavaTokenParsers {
     | _false ^^ (x => false)
     )
 	
-  //--- helper functions ---//
+  def parse(s: String): Store = {
+    parseAll(Sf, s) match {
+      case Success(root, _) => root
+      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos)
+    }
+  }
+    
+  def parseIncludeFile(filePath: String, ns: Reference, s: Store): Store = {
+    parseAll(Body, Source.fromFile(filePath).mkString) match {
+      case Success(body, _) => body(ns, s)
+      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos)
+    }
+  }
+    
+  def parseFile(filePath: String): Store = parse(Source.fromFile(filePath).mkString)
+}
+
+trait CommonParser extends JavaTokenParsers {
+   //--- helper functions ---//
   val epsilon: Parser[Any] = ""
   val eos: Parser[Any] = ";"
   val eof: Parser[Any] = "\\Z".r
@@ -171,20 +189,4 @@ class Parser extends JavaTokenParsers {
   val _merge: Parser[Any] = "++"
   val _extends: Parser[Any] = "extends" | "<"
   val _data: Parser[Any] = "DATA" | "$."
-  
-  def parse(s: String): Store = {
-    parseAll(Sf, s) match {
-      case Success(root, _) => root
-      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos)
-    }
-  }
-    
-  def parseIncludeFile(filePath: String, ns: Reference, s: Store): Store = {
-    parseAll(Body, Source.fromFile(filePath).mkString) match {
-      case Success(body, _) => body(ns, s)
-      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos)
-    }
-  }
-    
-  def parseFile(filePath: String): Store = parse(Source.fromFile(filePath).mkString)
 }

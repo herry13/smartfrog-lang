@@ -201,12 +201,12 @@ class Parser extends org.sf.lang.Parser with CommonParser {
   }
 }
 
-trait CommonParser extends JavaTokenParsers {
+trait CommonParser extends org.sf.lang.CommonParser {
   val _main = new Reference("main")
   val global = new Reference("global")
   
   //--- helpers ---//
-  val eos: Parser[Any] = ";"
+  override val eos: Parser[Any] = ";"
   val eq = "=" | "is"
   val neq = "!=" | "isnt"
   val _in: Parser[Any] = "in"
@@ -219,11 +219,11 @@ trait CommonParser extends JavaTokenParsers {
   val _effect: Parser[Any] = "effect" <~ "s".?
   val _cost: Parser[Any] = "cost"
   val _epsilon: Parser[Any] = ""
-  val _include: Parser[Any] = "#include"
-  val _extends: Parser[Any] = "extends"
-  val _true: Parser[Any] = "true" | "yes"
-  val _false: Parser[Any] = "false" | "no"
-  val _null: Parser[Any] = "null" | "nil"
+  override val _include: Parser[Any] = "#include"
+  override val _extends: Parser[Any] = "extends"
+  override val _true: Parser[Any] = "true" | "yes"
+  override val _false: Parser[Any] = "false" | "no"
+  override val _null: Parser[Any] = "null" | "nil"
   val _tbd: Parser[Any] = "TBD"
   val _sep: Parser[Any] = "." | ":"
   val _begin: Parser[Any] = "{"
