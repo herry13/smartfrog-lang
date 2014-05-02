@@ -1,0 +1,3 @@
+sfConfig extends {
+  b extends { c 1; d a; }
+}

@@ -1,0 +1,12 @@
+p1 extends {
+	q1 1;
+	q2 2;
+	q4 extends { a 1; b 2; }
+}
+sfConfig extends {
+	p2 extends p1, {
+		q1 2;
+		q3 3;
+		q4 extends { b 3; c 4; }
+	}
+}

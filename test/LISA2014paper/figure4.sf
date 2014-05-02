@@ -1,3 +1,4 @@
+// forward link-reference (not supported)
 sfConfig extends {
 	a b;
 	b 1;

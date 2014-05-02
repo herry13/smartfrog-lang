@@ -1,0 +1,24 @@
+p1 {
+	q1 1;
+	q2 2;
+	q4 { a 1; b 2; }
+}
+sfConfig {
+	p2 < p1, {  // merge p1 with { ... }, and then assign to p2
+		q1 2;
+		q3 3;
+		q4 { b 3; c 4; }
+	}
+	++ p2 { // merge existing p2 with { ... }
+		q4 { c 5; d 6; }
+	}
+	p3 { x 1; }
+	++ p3 < p2:q4  // merge existing p3 with p2:q4
+
+	x { a 1; }
+	y1 x;
+	y1 < x, {  // y1 extends x, { ... }
+		++ x { a 2; } // merge existing x with { a 2; }
+	}
+}
+
