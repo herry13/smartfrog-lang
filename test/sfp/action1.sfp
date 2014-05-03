@@ -1,4 +1,4 @@
-main extends {
+main {
 	a = 1;
 	b = x.y;
 

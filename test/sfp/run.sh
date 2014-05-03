@@ -1,7 +1,7 @@
 #!/bin/bash
 
 BASEDIR="$(dirname "$0")"
-BIN="$BASEDIR/../../sfp"
+BIN="$BASEDIR/../../scala/sfp"
 EXT="sfp"
 
 echo "Running tests..."

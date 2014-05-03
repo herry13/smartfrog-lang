@@ -36,7 +36,7 @@ where [option] is:
 class Parser extends org.sf.lang.Parser with CommonParser {
   def Sfp: Parser[Store] =
     Statement ^^ (st => {
-        val m = st(org.sf.lang.Reference.empty, Store.empty).find(_main)
+        val m = st(org.sf.lang.Reference.empty, Store.empty).find(ref_main)
         if (m.isInstanceOf[Store]) m.asInstanceOf[Store]
         else throw new SemanticsException("[err101] main is not exist or a component")
       }
@@ -59,7 +59,7 @@ class Parser extends org.sf.lang.Parser with CommonParser {
     )
   
   def Schema: Parser[Store => Store] =
-    ident ~ (_extends ~> ParentSchema).? ~ _begin ~ Body <~ _end ^^ { case id ~ par ~ _ ~ b => {
+    ident ~ (_extends ~> ParentSchema).? ~ begin ~ Body <~ end ^^ { case id ~ par ~ _ ~ b => {
         val r = new Reference(id)
         (s: Store) =>
           if (par.isEmpty) b(r, s.bind(r, Store.empty))
@@ -75,7 +75,7 @@ class Parser extends org.sf.lang.Parser with CommonParser {
   
   override def Assignment: Parser[(Reference, Store) => Store] =
     ( _action ~> Reference ~ Action
-    | Reference ~ SfpValue <~ eos.*
+    | Reference ~ SfpValue
     ) ^^ { case r ~ v =>
       (ns: Reference, s: Store) =>
         if (r.length == 1) v(ns, ns ++ r, s)
@@ -97,16 +97,26 @@ class Parser extends org.sf.lang.Parser with CommonParser {
             else s.bind(r, l._2)
           )(s.resolve(ns, lr))
       )
-    | (_isa ~> ParentSchema).? ~ _extends ~ Prototypes ^^ { case sc ~ _ ~ p =>
+    | (_isa ~> ParentSchema).? ~ SfpObject ^^ { case sc ~ obj =>
         (ns: Reference, r: Reference, s: Store) =>
-          if (sc.isEmpty) p(ns, r, s.bind(r, Store.empty))
-          else p(ns, r, sc.get(r, s.bind(r, Store.empty)))
+          if (sc.isEmpty) obj(ns, r, s.bind(r, Store.empty))
+          else obj(ns, r, sc.get(r, s.bind(r, Store.empty)))
       }
-    | ":" ~> Type ^^ (t =>
+    | ":" ~> Type <~ eos ^^ (t =>
         (ns: Reference, r: Reference, s: Store) => s.bind(r, t)
+      )
+    | begin ~> Body <~ end ^^ (b =>
+        (ns: Reference, r: Reference, s: Store) => b(r, s.bind(r, Store.empty))
       )
     )
   
+  def SfpObject: Parser[(Reference, Reference, Store) => Store] =
+    ( _extends ~> Prototypes
+    | begin ~> Body <~ end ^^ (b => // syntactic sugar
+        (ns: Reference, r: Reference, s: Store) => b(r, s)
+      )
+    )
+    
   def Type: Parser[Any] =
     ( "bool"              ^^ (x => false)  // a boolean
     | "[bool]"            ^^ (x => List()) // a list of boolean
@@ -122,17 +132,17 @@ class Parser extends org.sf.lang.Parser with CommonParser {
     Reference
 
   override def Reference: Parser[Reference] =
-    ident ~ (_sep ~> ident).* ^^ {
+    ident ~ (refSep ~> ident).* ^^ {
       case id ~ ids => new Reference(id, org.sf.lang.Reference(ids))
     }
 
   //--- constraints ---//
   def GlobalConstraint: Parser[Store => Store] =
-    _begin ~> Conjunction <~ _end ^^ (c =>
+    begin ~> Conjunction <~ end ^^ (c =>
       (s: Store) => {
-        val g = s.find(global)
-        if (g.isInstanceOf[Expression]) s.bind(global, c.addParams(g.asInstanceOf[Expression].params))
-        else s.bind(global, c)
+        val g = s.find(ref_global)
+        if (g.isInstanceOf[Expression]) s.bind(ref_global, c.addParams(g.asInstanceOf[Expression].params))
+        else s.bind(ref_global, c)
       }
     )
     
@@ -151,13 +161,13 @@ class Parser extends org.sf.lang.Parser with CommonParser {
     Reference ~ _in ~ Vector <~ eos ^^ { case r ~ _ ~ vec => new PairExpression(Expression.in, r, vec) }
   
   def Imply: Parser[Any] =
-    "if" ~> _begin ~> Conjunction ~ (_end ~ "then" ~ _begin) ~ Conjunction <~ _end ^^ {
+    "if" ~> begin ~> Conjunction ~ (end ~ "then" ~ begin) ~ Conjunction <~ end ^^ {
       case premise ~ _ ~ conclusion => new Expression(Expression.imply, List(premise, conclusion))
     } 
   
   //--- action ---//
   def Action: Parser[(Reference, Reference, Store) => Store] =
-    Parameters ~ _begin ~ Cost ~ Conditions ~ Effects <~ _end ^^ {
+    Parameters ~ begin ~ Cost ~ Conditions ~ Effects <~ end ^^ {
       case pars ~ _ ~ c ~ cond ~ eff =>
         (ns: Reference, r: Reference, s: Store) => s.bind(r, new Action(pars, c, cond, eff))
     }
@@ -178,10 +188,10 @@ class Parser extends org.sf.lang.Parser with CommonParser {
     _cost ~> eq ~> """[0-9]+""".r <~ eos ^^ (n => n.toInt)
     
   def Conditions: Parser[Expression] =
-    _condition ~> _begin ~> Conjunction <~ _end
+    _condition ~> begin ~> Conjunction <~ end
     
   def Effects: Parser[Expression] =
-    _effect ~> _begin ~> Effect.+ <~ _end ^^ (eff => new Expression(Expression.and, eff))
+    _effect ~> begin ~> Effect.+ <~ end ^^ (eff => new Expression(Expression.and, eff))
     
   def Effect: Parser[Expression] =
     Reference ~ eq ~ BasicValue <~ eos ^^ { case r ~ _ ~ v => new PairExpression(Expression.eq, r, v) }
@@ -202,8 +212,8 @@ class Parser extends org.sf.lang.Parser with CommonParser {
 }
 
 trait CommonParser extends org.sf.lang.CommonParser {
-  val _main = new Reference("main")
-  val global = new Reference("global")
+  val ref_main = new Reference("main")
+  val ref_global = new Reference("global")
   
   //--- helpers ---//
   override val eos: Parser[Any] = ";"
@@ -218,14 +228,11 @@ trait CommonParser extends org.sf.lang.CommonParser {
   val _condition: Parser[Any] = "condition" <~ "s".?
   val _effect: Parser[Any] = "effect" <~ "s".?
   val _cost: Parser[Any] = "cost"
-  val _epsilon: Parser[Any] = ""
-  override val _include: Parser[Any] = "#include"
+  override val _include: Parser[Any] = "#include" | "include"
   override val _extends: Parser[Any] = "extends"
   override val _true: Parser[Any] = "true" | "yes"
   override val _false: Parser[Any] = "false" | "no"
-  override val _null: Parser[Any] = "null" | "nil"
+  override val _null: Parser[Any] = "NULL" | "null" | "nil"
   val _tbd: Parser[Any] = "TBD"
-  val _sep: Parser[Any] = "." | ":"
-  val _begin: Parser[Any] = "{"
-  val _end: Parser[Any] = "}"
+  override val refSep: Parser[Any] = "." | ":"
 }

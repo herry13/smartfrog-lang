@@ -6,9 +6,9 @@ schema Y extends X {
 	a = 2;
 }
 
-main extends {
-	b isa X extends { }
-	c isa Y extends {
+main {
+	b isa X { }
+	c isa Y {
 		d = 4;
 	}
 }

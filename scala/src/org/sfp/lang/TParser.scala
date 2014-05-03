@@ -43,7 +43,7 @@ class TParser extends CommonParser {
         (ns: Reference, e: Environment) => st(ns, sc(e))
       }
     | _global ~> GlobalConstraint ~ Statement ^^ { case g ~ st =>
-        (ns: Reference, e: Environment) => st(ns, set(e, global, g))
+        (ns: Reference, e: Environment) => st(ns, set(e, ref_global, g))
       }
     | _import ~> stringLiteral ~ eos ~ Statement ^^ { case file ~ _ ~ st =>
       	(ns: Reference, e: Environment) => st(ns, parseImportFile(file.substring(1, file.length-1), ns, e))
@@ -51,12 +51,12 @@ class TParser extends CommonParser {
     | Assignment ~ Statement ^^ { case ass ~ st =>
         (ns: Reference, e: Environment) => st(ns, ass(ns, e))
       }
-    | _epsilon ^^ (x => (ns: Reference, e: Environment) => e)
+    | epsilon ^^ (x => (ns: Reference, e: Environment) => e)
     )
 
   // TODO
   def Schema: Parser[Environment => Environment] =
-    ident ~ (_extends ~> ParentSchema).? ~ _begin ~ Body <~ _end ^^ {
+    ident ~ (_extends ~> ParentSchema).? ~ begin ~ Body <~ end ^^ {
       case id ~ par ~ _ ~ b =>
         (e: Environment) => {
           val r = new Reference(id)
@@ -79,7 +79,7 @@ class TParser extends CommonParser {
     | Assignment ~ Body ^^ { case a ~ b =>
         (ns: Reference, e: Environment) => b(ns, a(ns, e))
       }
-    | _epsilon ^^ { x => (ns: Reference, e: Environment) => e }
+    | epsilon ^^ { x => (ns: Reference, e: Environment) => e }
     )
     
   // TODO
@@ -96,7 +96,7 @@ class TParser extends CommonParser {
           if (ps.isEmpty) p(ns, r, e)
           else ps.get(ns, r, p(ns, r, e))
       }
-    | _epsilon ^^ { x => (ns: Reference, r: Reference, e: Environment) => e }
+    | epsilon ^^ { x => (ns: Reference, r: Reference, e: Environment) => e }
     )
   
   // TODO
@@ -104,7 +104,7 @@ class TParser extends CommonParser {
     ( Reference ^^ { case r1 =>
         (ns: Reference, r: Reference, e: Environment) => ???
       }
-    | _begin ~> Body <~ _end ^^ { case b =>
+    | begin ~> Body <~ end ^^ { case b =>
         (ns: Reference, r: Reference, e: Environment) => b(r, e)
       }
     )
@@ -120,7 +120,7 @@ class TParser extends CommonParser {
     | (_isa ~> ParentSchema).? ~ _extends ~ Prototypes ^^ { case sc ~ _ ~ p =>
         (ns: Reference, r: Reference, e: Environment) => ???
       }
-    | ":" ~> _Type ^^ (t =>
+    | ":" ~> _Type <~ eos ^^ (t =>
         (ns: Reference, r: Reference, e: Environment) => ???
       )
     )
@@ -137,7 +137,7 @@ class TParser extends CommonParser {
     )
     
   def Reference: Parser[Reference] =
-    ident ~ (_sep ~> ident).* ^^ {
+    ident ~ (refSep ~> ident).* ^^ {
       case id ~ ids => new Reference(id, org.sf.lang.Reference(ids))
     }
 
@@ -167,7 +167,7 @@ class TParser extends CommonParser {
         if (xs.forall((t1: T) => t.equals(t1))) t
         else throw new SemanticsException("[err104]")
       }
-    | _epsilon ^^ (x => _Tvec)
+    | epsilon ^^ (x => _Tvec)
     ) <~ "]"
 
   def Null: Parser[T] = _null ^^ (x => _Tnull)
@@ -182,7 +182,7 @@ class TParser extends CommonParser {
     
   //--- constraints ---//
   def GlobalConstraint: Parser[T] =
-    _begin ~> Conjunction <~ _end ^^ (c => _Tconstraint)
+    begin ~> Conjunction <~ end ^^ (c => _Tconstraint)
     
   def Conjunction: Parser[T] =
     CStatement.* ^^ (cs => _Tconstraint)
@@ -199,13 +199,13 @@ class TParser extends CommonParser {
     Reference ~ _in ~ Vector <~ eos ^^ { case r ~ _ ~ vec => _Tconstraint }
   
   def Imply: Parser[T] =
-    "if" ~> _begin ~> Conjunction ~ (_end ~ "then" ~ _begin) ~ Conjunction <~ _end ^^ {
+    "if" ~> begin ~> Conjunction ~ (end ~ "then" ~ begin) ~ Conjunction <~ end ^^ {
       case premise ~ _ ~ conclusion => _Tconstraint
     } 
   
   //--- action ---//
   def Action: Parser[(Reference, Reference, Environment) => Environment] =
-    Parameters ~ _begin ~ Cost ~ Conditions ~ Effects <~ _end ^^ {
+    Parameters ~ begin ~ Cost ~ Conditions ~ Effects <~ end ^^ {
       case pars ~ _ ~ c ~ cond ~ eff =>
         (ns: Reference, r: Reference, e: Environment) => set(e, r, _Taction)
     }
@@ -213,7 +213,7 @@ class TParser extends CommonParser {
   def Parameters: Parser[Map[String, Reference]] =
     ( "(" ~> Parameter.+ <~ ")" ^^ (pars => ???
       )
-    | _epsilon ^^ (x => Map())
+    | epsilon ^^ (x => Map())
     )
     
   def Parameter: Parser[(String, Reference)] =
@@ -223,10 +223,10 @@ class TParser extends CommonParser {
     _cost ~> eq ~> """[0-9]+""".r <~ eos ^^ (n => n.toInt)
     
   def Conditions: Parser[T] =
-    _condition ~> _begin ~> Conjunction <~ _end
+    _condition ~> begin ~> Conjunction <~ end
     
   def Effects: Parser[T] =
-    _effect ~> _begin ~> Effect.+ <~ _end ^^ (eff => ???)
+    _effect ~> begin ~> Effect.+ <~ end ^^ (eff => ???)
     
   def Effect: Parser[T] =
     Reference ~ eq ~ BasicValue <~ eos ^^ { case r ~ _ ~ v => ??? }

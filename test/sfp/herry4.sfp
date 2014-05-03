@@ -1,9 +1,9 @@
-main extends {
-	a extends {
+main {
+	a {
 		a = 1;
 	}
 
-	c extends {
+	c {
 		b = 2;
 	}
 

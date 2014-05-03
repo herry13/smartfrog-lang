@@ -1,4 +1,4 @@
-main extends {
+main {
 	a = "abc";
 	b = 1;
 	c = true;
