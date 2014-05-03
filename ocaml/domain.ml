@@ -53,24 +53,32 @@ let rec find s r : _value =
         else match head.v with
         | Store child -> find child rs
         | _ -> Undefined
-      else find tail r;;
+      else find tail r
 
-let rec resolve s ns r =
+and resolve s ns r =
   if ns = [] then ([], find s r)
   else
     let v = find s (List.append ns r) in
     match v with
     | Undefined -> resolve s (prefix ns) r
-    | _ -> (ns, v);;
+    | _ -> (ns, v)
 
-let rec put s id v =
+and put s id v : store =
   match s with
   | [] -> { id = id; v = v } :: []
   | head::tail ->
-      if head.id = id then { id = id; v = v } :: tail
-      else head :: put tail id v;;
+      if head.id = id then
+        match head.v, v with
+        | Store dest, Store src -> { id = id; v = Store (copy dest src []) } :: tail
+        | _,_ -> { id = id; v = v } :: tail
+      else head :: put tail id v
 
-let rec bind s r v : store =
+and copy dest src pfx : store =
+  match src with
+  | [] -> dest
+  | head::tail -> copy (bind dest (oplus pfx head.id) head.v) tail pfx
+
+and bind s r v : store =
   match r with
   | [] -> raise (Failure "[err3]")
   | id :: rs ->
@@ -83,14 +91,9 @@ let rec bind s r v : store =
               match head.v with
               | Store child -> { id = id; v = (Store (bind child rs v)) } :: tail
               | _ -> raise (Failure "[err1]")
-            else head :: bind tail r v;;
+            else head :: bind tail r v
 
-let rec copy s1 s2 pfx =
-  match s2 with
-  | [] -> s1
-  | head::tail -> copy (bind s1 (oplus pfx head.id) head.v) tail pfx;;
-
-let inherit_proto s ns proto r =
+and inherit_proto s ns proto r : store =
   match resolve s ns proto with
   | nsp, Val (Store vp) -> copy s vp r
   | _, _ -> raise (Failure "[err4]");;
@@ -101,6 +104,7 @@ let inherit_proto s ns proto r =
  * helper functions : domain to string conversion
  *)
 
+(*** generate YAML from given store ***)
 let rec yaml_of_store s = yaml_of_store1 s ""
 and yaml_of_vec vec =
   match vec with
@@ -126,3 +130,67 @@ and yaml_of_store1 s tab =
       if tail = [] then h
       else h ^ "\n" ^ yaml_of_store1 tail tab;;
 
+(*** generate JSON of given store ***)
+let rec json_of_store s = "{" ^ (json_of_store1 s) ^ "}"
+and json_of_store1 s =
+  match s with
+  | [] -> ""
+  | head::tail ->
+      let h = "\"" ^ head.id ^ "\":" ^ json_of_value head.v in
+      if tail = [] then h
+      else h ^ "," ^ json_of_store1 tail
+and json_of_value v =
+  match v with
+  | Bool b -> string_of_bool b
+  | Num (Int i) -> string_of_int i
+  | Num (Float f) -> string_of_float f
+  | Str s -> "\"" ^ s ^ "\""
+  | Null -> "null"
+  | Ref r -> "$." ^ String.concat ":" r
+  | Vec vec -> "[" ^ (json_of_vec vec) ^ "]"
+  | Store s -> "{" ^ (json_of_store1 s) ^ "}"
+and json_of_vec vec =
+  match vec with
+  | [] -> ""
+  | head :: tail -> let h = json_of_value head in
+                    if tail = [] then h else h ^ "," ^ (json_of_vec tail);;
+
+(*** generate HTML of given store ***)
+let rec xml_of_store s : string = xml_of_store1 s
+and xml_of_store1 s : string =
+  match s with
+  | [] -> ""
+  | head::tail ->
+      if (String.get head.id 0) = '_' then xml_of_store1 tail
+      else
+        let h = "<" ^ head.id ^ (attribute_of_value head.v) ^ ">" ^ xml_of_value head.v ^ "</" ^ head.id ^ ">" in
+        if tail = [] then h
+        else h ^ "\n" ^ xml_of_store1 tail
+and attribute_of_value v : string =
+  match v with
+  | Store s -> let attr = String.trim (accumulate_attribute s) in
+               if (String.length attr) > 0 then " " ^ attr else attr
+  | _ -> ""
+and accumulate_attribute s : string =
+  match s with
+  | [] -> ""
+  | head::tail ->
+      if (String.get head.id 0) = '_' then
+        match head.v with
+        | Store _ | Ref _ -> raise (Failure "attribute may not be a component or vector")
+        | _ -> " " ^ (String.sub head.id 1 ((String.length head.id) - 1)) ^ "=\"" ^ xml_of_value head.v ^ "\"" ^ accumulate_attribute tail
+      else accumulate_attribute tail
+and xml_of_value v : string =
+  match v with
+  | Bool b -> string_of_bool b
+  | Num (Int i) -> string_of_int i
+  | Num (Float f) -> string_of_float f
+  | Str s -> s
+  | Null -> "</null>"
+  | Ref r -> "$." ^ String.concat ":" r
+  | Vec vec -> "<vector>" ^ (xml_of_vec vec) ^ "</vector>"
+  | Store s -> "\n" ^ xml_of_store1 s
+and xml_of_vec vec : string =
+  match vec with
+  | [] -> ""
+  | head::tail -> "<item>" ^ (xml_of_value head) ^ "</item>" ^ xml_of_vec tail;;
