@@ -194,3 +194,4 @@ and xml_of_vec vec : string =
   match vec with
   | [] -> ""
   | head::tail -> "<item>" ^ (xml_of_value head) ^ "</item>" ^ xml_of_vec tail;;
+
