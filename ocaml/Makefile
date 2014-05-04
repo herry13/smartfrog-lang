@@ -1,10 +1,12 @@
 .PHONY: build clean clean-all dist
 
-build: domain.cmo sflexer.cmo sfparser.cmo csf.cmo
-	ocamlc -o csf domain.cmo sflexer.cmo sfparser.cmo csf.cmo
+LIB=str.cma
 
-csf.cmo: csf.ml
+build: csf
+
+csf: csf.ml lexstack.cmo domain.cmo sflexer.cmo sfparser.cmo
 	ocamlc -c csf.ml
+	ocamlc -o csf $(LIB) lexstack.cmo domain.cmo sflexer.cmo sfparser.cmo csf.cmo
 
 sfparser.cmo: domain.cmo
 	ocamlyacc sfparser.mly
@@ -17,6 +19,9 @@ sflexer.cmo: sflexer.mll sfparser.cmo
 
 domain.cmo: domain.ml
 	ocamlc -c domain.ml
+
+lexstack.cmo: lexstack.ml sfparser.cmo sflexer.cmo
+	ocamlc -c lexstack.ml
 
 clean:
 	@rm -f *.{cmo,mli,cmi} sfparser.ml sflexer.ml

@@ -2,9 +2,6 @@
 
 open Domain
 
-let include_file file ns s =
-    raise (Failure "not implemented")
-
 %}
 
 %token <bool> BOOL
@@ -12,7 +9,8 @@ let include_file file ns s =
 %token <float> FLOAT
 %token <string> STRING
 %token <string> ID
-%token INCLUDE EXTENDS COMMA DATA BEGIN END SEP NULL LBRACKET RBRACKET EOS EOF
+%token <string> INCLUDE
+%token EXTENDS COMMA DATA BEGIN END SEP NULL LBRACKET RBRACKET EOS EOF
 
 %start sf body          /* entry points */
 %type <Domain.store> sf
@@ -31,8 +29,8 @@ sf:
 
 body:
     | assignment body     { fun ns s -> $2 ns ($1 ns s) }
-    | INCLUDE STRING EOS  { fun ns s -> include_file $2 ns s }
     |                     { fun ns s -> s }
+    /* included file is handled by lexer */
 
 assignment:
     | reference value  {
