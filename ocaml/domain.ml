@@ -1,12 +1,26 @@
 (*
  * semantics primary and secondary domains
  *)
-type number = Int of int | Float of float
-and vector = value list
-and value = Bool of bool | Num of number | Str of string | Null | Ref of string list | Vec of vector | Store of store
-and _value = Val of value | Undefined
-and cell = { id : string; v : value }
-and store = cell list;;
+(* number domain: union of int and float *)
+type number = Int of int
+            | Float of float
+(* vector domain *)
+and vector  = value list
+(* value domain *)
+and value   = Bool of bool
+            | Num of number
+            | Str of string
+            | Null
+            | Ref of string list
+            | Vec of vector
+            | Store of store
+(* lifted value domain *)
+and _value  = Val of value 
+            | Undefined
+(* cell domain *)
+and cell    = { id : string; v : value }
+(* store domain *)
+and store   = cell list;;
 
 (* 
  * semantics algebras
