@@ -168,7 +168,11 @@ and json_of_vec vec =
   | head :: tail -> let h = json_of_value head in
                     if tail = [] then h else h ^ "," ^ (json_of_vec tail);;
 
-(*** generate HTML of given store ***)
+(*
+ * generate XML of given store
+ * - attribute started with '_' is treated as parent's XML attribute
+ * - attribute started without '_' is treated as element
+ *)
 let rec xml_of_store s : string = xml_of_store1 s
 and xml_of_store1 s : string =
   match s with

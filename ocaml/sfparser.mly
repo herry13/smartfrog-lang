@@ -10,27 +10,31 @@ open Domain
 %token <string> STRING
 %token <string> ID
 %token <string> INCLUDE
+%token <string list -> Domain.store -> Domain.store> SF_INCLUDE
 %token EXTENDS COMMA DATA BEGIN END SEP NULL LBRACKET RBRACKET EOS EOF
 
-%start sf body          /* entry points */
+%start sf included          /* entry points: sf -> main file, included -> included file */
 %type <Domain.store> sf
-%type <string list -> Domain.store -> Domain.store> body
+%type <string list -> Domain.store -> Domain.store> included
 
 %%
 sf:
-    | body  {
-              let r = ["sfConfig"] in
-              let s = $1 [] [] in
-              let v = find s r in
-              match v with
-              | Val (Store main) -> main
-              | _ -> raise (Failure "[err7]")
-            }
+    | body EOF {
+                 let r = ["sfConfig"] in
+                 let s = $1 [] [] in
+                 let v = find s r in
+                 match v with
+                 | Val (Store main) -> main
+                 | _ -> raise (Failure "[err7]")
+               }
+
+included:
+    | body EOF   { $1 }
 
 body:
     | assignment body     { fun ns s -> $2 ns ($1 ns s) }
+    | SF_INCLUDE          { $1 }
     |                     { fun ns s -> s }
-    /* included file is handled by lexer */
 
 assignment:
     | reference value  {

@@ -8,7 +8,7 @@ This compiler is the implementation of the formal semantic of core subset of [Sm
 - Keywords `THIS`, `PARENT`, and `ROOT` in Reference
 - Prototype
 - Placement (_forward placement_ is not supported)
-- Include file `#include "any.sf" (SF-style is not fully supported)`
+- Include file `#include "any.sf"`
 
 Not yet supported:
 

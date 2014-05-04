@@ -7,8 +7,8 @@
 }
 rule token = parse
 	  [' ''\t''\n''\r']                           { token lexbuf } (* skip blanks *)
-    | "//"[^'\n''\r']*                            { token lexbuf }
-    | '/' '*'+ (('*'[^'/'])+|[^'*']+)* '*'+ '/'   { token lexbuf }
+    | "//"[^'\n''\r']*                            { token lexbuf } (* skip inline comment *)
+    | '/' '*'+ (('*'[^'/'])+|[^'*']+)* '*'+ '/'   { token lexbuf } (* skip multi-lines comment *)
 	| '-'?['0'-'9']+ as i                         { INT(int_of_string i) }
     | '-'?['0'-'9']+ '.' ['0'-'9']* as f          { FLOAT(float_of_string f) }
 	| "true"                                      { BOOL true }
@@ -17,7 +17,7 @@ rule token = parse
     | "extends"                                   { EXTENDS }
     | "DATA"                                      { DATA }
 	| "#include"[' ''\t']+ '"'('\\'_|[^'\\''"'])+'"' [' ''\t']* ';' as s
-      { INCLUDE (get_include_file s) }
+      { INCLUDE (get_include_file s) } (* return included file name *)
     | ','                                         { COMMA }
     | '{'                                         { BEGIN }
     | '}'                                         { END }

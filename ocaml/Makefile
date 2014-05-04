@@ -6,7 +6,7 @@ build: csf
 
 csf: csf.ml lexstack.cmo domain.cmo sflexer.cmo sfparser.cmo
 	ocamlc -c csf.ml
-	ocamlc -o csf $(LIB) lexstack.cmo domain.cmo sflexer.cmo sfparser.cmo csf.cmo
+	ocamlc -o csf $(LIB) domain.cmo sflexer.cmo sfparser.cmo lexstack.cmo csf.cmo
 
 sfparser.cmo: domain.cmo
 	ocamlyacc sfparser.mly
