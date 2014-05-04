@@ -48,17 +48,19 @@ assignment:
 value:
 	| basic EOS             { fun ns r s -> bind s r $1 }
     | EXTENDS prototypes    { fun ns r s -> $2 ns r (bind s r (Store [])) }
-    | MERGE prototypes      { fun ns r s -> let v = find s r in
-                                            match v with
-                                            | Val (Store s1) -> $2 ns r s
-                                            | _ -> raise (Failure "merge target is not a component")
-                            }
     | link_reference EOS    {
                               fun ns r s -> let (_, v1) = resolve s ns $1 in
                                             match v1 with
                                             | Undefined -> raise (Failure "[err5]")
                                             | Val v -> bind s r v
                             }
+    | MERGE prototypes      { (* syntactic sugar *)
+                              fun ns r s -> let v = find s r in
+                                            match v with
+                                            | Val (Store s1) -> $2 ns r s
+                                            | _ -> raise (Failure "merge target is not a component")
+                            }
+    | BEGIN body END        { fun ns r s -> $2 r (bind s r (Store [])) (* syntactic sugar *) }
 
 prototypes:
     | prototype COMMA prototypes { fun ns r s -> $3 ns r ($1 ns r s) }

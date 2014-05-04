@@ -15,6 +15,7 @@ rule token = parse
 	| "false"                                     { BOOL false }
     | "null"                                      { NULL }
     | "extends"                                   { EXTENDS }
+    | '<'                                         { EXTENDS }
     | "DATA"                                      { DATA }
 	| "#include"[' ''\t']+ '"'('\\'_|[^'\\''"'])+'"' [' ''\t']* ';' as s
       { INCLUDE (get_include_file s) } (* return included file name *)
