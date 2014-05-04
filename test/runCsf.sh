@@ -1,8 +1,8 @@
 #!/bin/bash
 
 BASEDIR="$(dirname "$0")"
-LISADIR="LISA2014paper"
-BIN="../ocaml/csf"
+LISADIR="$BASEDIR/LISA2014paper"
+BIN="$BASEDIR/../ocaml/csf"
 
 function test {
 	if [[ -f $1 && "${1##*.}" = "sf" ]]; then
@@ -18,7 +18,7 @@ function test {
 
 echo "Running tests..."
 
-for file in ./*; do
+for file in $BASEDIR/*; do
 	test $file
 done
 
