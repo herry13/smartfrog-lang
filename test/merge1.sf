@@ -1,3 +1,6 @@
+/**
+ * using deep-copy (merge) semantics
+ */
 p1 extends {
 	q1 1;
 	q2 2;

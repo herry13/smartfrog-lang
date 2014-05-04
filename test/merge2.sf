@@ -1,3 +1,6 @@
+/**
+ * - use merge operator (++) to add attribute to an existing component
+ */
 p1 extends {
 	q1 1;
 	q2 2;

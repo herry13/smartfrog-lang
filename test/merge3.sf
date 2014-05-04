@@ -1,3 +1,8 @@
+/**
+ * Equivalent to "merge2.sf", but:
+ * - allowing for not using "extends" to define an component with a single anonymous prototype (body)
+ * - use "<" instead of "extends"
+ */
 p1 {
 	q1 1;
 	q2 2;
