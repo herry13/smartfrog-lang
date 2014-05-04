@@ -80,10 +80,7 @@ and put s id v : store =
   match s with
   | [] -> { id = id; v = v } :: []
   | head::tail ->
-      if head.id = id then
-        match head.v, v with
-        | Store dest, Store src -> { id = id; v = Store (copy dest src []) } :: tail
-        | _,_ -> { id = id; v = v } :: tail
+      if head.id = id then { id = id; v = v } :: tail
       else head :: put tail id v
 
 and copy dest src pfx : store =
