@@ -18,28 +18,41 @@ let rec prefix r =
   | [] -> []
   | head::tail -> if tail = [] then [] else head :: (prefix tail);;
 
-(* only applicable to oplus (string list) (string) *)
-let rec oplus r id =
+(* only applicable to oplus (string list -> string -> string list) *)
+let rec (+!) (r : string list) (id : string) =
   match r with
   | [] -> [id]
-  | head::tail -> head :: oplus tail id;;
+  | head::tail -> head :: (tail +! id);;
 
-let rec ominus r1 r2 =
+(* only applicable to oplus (string -> string -> string list) *)
+let (+) (id1 : string) (id2 : string) = id1 :: id2 :: [];;
+ 
+(* only applicable to oplus (string -> string list -> string list) *)
+let rec (!+) (id : string) (r : string list) = id :: r;;
+
+(* only applicable to oplus (string list -> string list -> string list) *)
+let rec (++) (r1 : string list) (r2 : string list) =
+  match r1 with
+  | [] -> r2
+  | id::rs -> if r2 = [] then r1
+              else id :: (rs ++ r2);;
+
+let rec (--) r1 r2 =
   if r1 = [] then []
   else if r2 = [] then r1
-  else if (List.hd r1) = (List.hd r2) then ominus (List.tl r1) (List.tl r2)
+  else if (List.hd r1) = (List.hd r2) then (List.tl r1) -- (List.tl r2)
   else r1;;
 
-let rec equiv r1 r2 : bool =
+let rec (==) r1 r2 : bool =
   if r1 = [] then
     if r2 = [] then true else false
   else if r2 = [] then false
-  else if (List.hd r1) = (List.hd r2) then equiv (List.tl r1) (List.tl r2)
+  else if (List.hd r1) = (List.hd r2) then (List.tl r1) == (List.tl r2)
   else false
 
-let rec subeqref r1 r2 : bool = if ominus r1 r2 = [] then true else false;;
+let rec (<=) r1 r2 : bool = if (r1 -- r2) = [] then true else false;;
 
-let rec subref r1 r2 : bool = (subeqref r1 r2) && not (equiv r1 r2);;
+let rec (<) r1 r2 : bool = (r1 <= r2) && not (r1 == r2);;
 
 (* store functions *)
 
@@ -76,7 +89,7 @@ and put s id v : store =
 and copy dest src pfx : store =
   match src with
   | [] -> dest
-  | head::tail -> copy (bind dest (oplus pfx head.id) head.v) tail pfx
+  | head::tail -> copy (bind dest (pfx +! head.id) head.v) tail pfx
 
 and bind s r v : store =
   match r with
@@ -155,7 +168,11 @@ and json_of_vec vec =
   | head :: tail -> let h = json_of_value head in
                     if tail = [] then h else h ^ "," ^ (json_of_vec tail);;
 
-(*** generate HTML of given store ***)
+(*
+ * generate XML of given store
+ * - attribute started with '_' is treated as parent's XML attribute
+ * - attribute started without '_' is treated as element
+ *)
 let rec xml_of_store s : string = xml_of_store1 s
 and xml_of_store1 s : string =
   match s with
@@ -194,3 +211,4 @@ and xml_of_vec vec : string =
   match vec with
   | [] -> ""
   | head::tail -> "<item>" ^ (xml_of_value head) ^ "</item>" ^ xml_of_vec tail;;
+
