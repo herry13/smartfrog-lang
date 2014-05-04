@@ -80,7 +80,7 @@ and check_error e lexstack =
   | e -> raise e
 
 (* parse main file *)
-and parse_sf file =
+and parse file =
   let lexstack = create file Sflexer.token in
   try 
     Sfparser.sf (get_token lexstack) dummy_lexbuf

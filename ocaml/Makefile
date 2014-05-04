@@ -4,9 +4,9 @@ LIB=str.cma
 
 build: csf
 
-csf: csf.ml lexstack.cmo domain.cmo sflexer.cmo sfparser.cmo
+csf: csf.ml sf.cmo domain.cmo sflexer.cmo sfparser.cmo
 	ocamlc -c csf.ml
-	ocamlc -o csf $(LIB) domain.cmo sflexer.cmo sfparser.cmo lexstack.cmo csf.cmo
+	ocamlc -o csf $(LIB) domain.cmo sflexer.cmo sfparser.cmo sf.cmo csf.cmo
 
 sfparser.cmo: domain.cmo
 	ocamlyacc sfparser.mly
@@ -20,8 +20,8 @@ sflexer.cmo: sflexer.mll sfparser.cmo
 domain.cmo: domain.ml
 	ocamlc -c domain.ml
 
-lexstack.cmo: lexstack.ml sfparser.cmo sflexer.cmo
-	ocamlc -c lexstack.ml
+sf.cmo: sf.ml sfparser.cmo sflexer.cmo
+	ocamlc -c sf.ml
 
 clean:
 	@rm -f *.{cmo,mli,cmi} sfparser.ml sflexer.ml

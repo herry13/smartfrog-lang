@@ -7,7 +7,7 @@ let help = "usage: csf [option] <sf-file>" ^
   "\n  -xml    print output in XML\n\n"
 
 let compile opt file =
-  let result = Lexstack.parse_sf file in
+  let result = Sf.parse file in
   if opt = "-yaml" then print_string (Domain.yaml_of_store result)
   else if opt = "-xml" then print_string (Domain.xml_of_store result)
   else print_string (Domain.json_of_store result);
