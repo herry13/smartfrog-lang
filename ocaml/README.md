@@ -37,15 +37,15 @@ This command will create the compiler executable file `csf`.
 
 - JSON output
 
-	$ ./csf <sf-file>
+		$ ./csf <sf-file>
 
 - YAML output
  
-	$ ./csf -yaml <sf-file>
+		$ ./csf -yaml <sf-file>
 
 - XML output
 
-	$ ./csf -xml <sf-file>
+		$ ./csf -xml <sf-file>
 
 
 ## License
