@@ -99,14 +99,6 @@ class Parser extends CommonParser {
     | _extends ~> Prototypes <~ eos.* ^^ (ps =>
         (ns: Reference, r: Reference, s: Store) => ps(ns, r, s.bind(r, Store.empty))
       )
-    | _merge ~> Prototypes ^^ (ps => // syntactic sugar
-        (ns: Reference, r: Reference, s: Store) => {
-          val v = s.find(r)
-          if (v == Store.undefined) ps(ns, r, s.bind(r, Store.empty))
-          else if (v.isInstanceOf[Store]) ps(ns, r, s)
-          else throw new SemanticsException("[err8] cannot merge a primitive with component")
-        }
-      )
     | begin ~> Body <~ end ^^ { case b => // syntactic sugar
         (ns: Reference, r: Reference, s: Store) => b(r, s.bind(r, Store.empty))
       }
