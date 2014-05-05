@@ -54,12 +54,6 @@ value:
                                             | Undefined -> raise (Failure "[err5]")
                                             | Val v -> bind s r v
                             }
-    | MERGE prototypes      { (* syntactic sugar *)
-                              fun ns r s -> let v = find s r in
-                                            match v with
-                                            | Val (Store s1) -> $2 ns r s
-                                            | _ -> raise (Failure "merge target is not a component")
-                            }
     | BEGIN body END        { fun ns r s -> $2 r (bind s r (Store [])) (* syntactic sugar *) }
 
 prototypes:

@@ -2,6 +2,8 @@
 
 LIB=str.cma
 
+dist: build clean
+
 build: csf
 
 csf: csf.ml sf.cmo domain.cmo sflexer.cmo sfparser.cmo
@@ -28,8 +30,6 @@ clean:
 
 clean-all: clean
 	@rm -f csf
-
-dist: build clean
 
 clean-build: clean-all build
 
