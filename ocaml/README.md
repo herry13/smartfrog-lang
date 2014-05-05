@@ -5,7 +5,6 @@ This compiler is the implementation of the formal semantic of core subset of [Sm
 - Basic values (Boolean, Number, String, Null, Vector)
 - Component (object)
 - Data and Link Reference (_forward link reference_ is not supported)
-- Keywords `THIS`, `PARENT`, and `ROOT` in Reference
 - Prototype
 - Placement (_forward placement_ is not supported)
 - Include file `#include "any.sf"`
@@ -14,7 +13,7 @@ Not yet supported:
 
 - `TBD`
 - Optional value of link reference
-- Keywords `ATTRIB`, `HERE` in reference
+- Keywords `THIS`, `PARENT`, `ROOT`, `ATTRIB`, `HERE` in reference
 - Lazy reference
 - Function
 - Schema
