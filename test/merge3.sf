@@ -1,6 +1,6 @@
 /**
- * Equivalent to "merge2.sf", but:
- * - allowing for not using "extends" to define an component with a single anonymous prototype (body)
+ * Syntactic sugars. This is equivalent to "merge2.sf", but:
+ * - allow not using "extends" to define the component's body (without other prototypes)
  * - use "<" instead of "extends"
  */
 p1 {
