@@ -46,7 +46,7 @@ assignment:
     | reference value       { fun ns s -> $2 ns (List.append ns $1) s }
 
 value:
-	| basic EOS             { fun ns r s -> bind s r $1 }
+	| basic EOS             { fun ns r s -> bind s r (Basic $1) }
     | EXTENDS prototypes    { fun ns r s -> $2 ns r (bind s r (Store [])) }
     | link_reference EOS    {
                               fun ns r s -> let (_, v1) = resolve s ns $1 in

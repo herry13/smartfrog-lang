@@ -1,12 +1,21 @@
 (*
  * semantics primary and secondary domains
  *)
-type number = Int of int | Float of float
-and vector = value list
-and value = Bool of bool | Num of number | Str of string | Null | Ref of string list | Vec of vector | Store of store
-and _value = Val of value | Undefined
-and cell = { id : string; v : value }
-and store = cell list;;
+type number = Int of int
+            | Float of float
+and vector  = basic list
+and basic   = Bool of bool
+            | Num of number
+            | Str of string
+            | Null
+            | Ref of string list
+            | Vec of vector
+and value   = Basic of basic
+            | Store of store
+and _value  = Val of value
+            | Undefined
+and cell    = { id : string; v : value }
+and store   = cell list;;
 
 (* 
  * semantics algebras
@@ -117,98 +126,122 @@ and inherit_proto s ns proto r : store =
  * helper functions : domain to string conversion
  *)
 
+let string_of_ref r = "$." ^ String.concat ":" r
+
 (*** generate YAML from given store ***)
 let rec yaml_of_store s = yaml_of_store1 s ""
+
+and yaml_of_store1 s tab =
+  match s with
+  | [] -> "{}"
+  | head :: tail ->
+      let h = tab ^ head.id ^ ": " in
+      match head.v with
+      | Basic basic ->
+          let v = h ^ yaml_of_basic basic in
+          if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
+      | Store child ->
+          let v = h ^ (if child = [] then "" else "\n") ^ yaml_of_store1 child (tab ^ "  ") in
+          if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
+
 and yaml_of_vec vec =
   match vec with
   | [] -> ""
-  | head::tail -> let v = yaml_of_value head "" in
+  | head :: tail -> let v = yaml_of_basic head in
                   if tail = [] then v else v ^ "," ^ (yaml_of_vec tail)
-and yaml_of_value v tab =
+
+and yaml_of_basic v =
   match v with
   | Bool b -> string_of_bool b
   | Num (Int i) -> string_of_int i
   | Num (Float f) -> string_of_float f
   | Str s -> s
   | Null -> "null"
-  | Ref r -> "$." ^ String.concat ":" r
+  | Ref r -> string_of_ref r
   | Vec vec -> "[" ^ (yaml_of_vec vec) ^ "]"
-  | Store c ->
-      if c = [] then "{}" else "\n" ^ yaml_of_store1 c (tab ^ "  ")
-and yaml_of_store1 s tab =
-  match s with
-  | [] -> "{}"
-  | head::tail ->
-      let h = tab ^ head.id ^ ": " ^ yaml_of_value head.v (tab ^ "  ") in
-      if tail = [] then h
-      else h ^ "\n" ^ yaml_of_store1 tail tab;;
 
 (*** generate JSON of given store ***)
-let rec json_of_store s = "{" ^ (json_of_store1 s) ^ "}"
+and json_of_store s = "{" ^ (json_of_store1 s) ^ "}"
+
 and json_of_store1 s =
   match s with
   | [] -> ""
-  | head::tail ->
-      let h = "\"" ^ head.id ^ "\":" ^ json_of_value head.v in
-      if tail = [] then h
-      else h ^ "," ^ json_of_store1 tail
-and json_of_value v =
+  | head :: tail ->
+      let h = "\"" ^ head.id ^ "\":" in
+      match head.v with
+      | Basic basic -> let v = h ^ json_of_basic basic in
+                       if tail = [] then v else v ^ "," ^ json_of_store1 tail
+      | Store child -> let v = h ^ "{" ^ (json_of_store1 child) ^ "}" in
+                       if tail = [] then v else v ^ "," ^ json_of_store1 tail
+
+and json_of_basic v =
   match v with
   | Bool b -> string_of_bool b
   | Num (Int i) -> string_of_int i
   | Num (Float f) -> string_of_float f
   | Str s -> "\"" ^ s ^ "\""
   | Null -> "null"
-  | Ref r -> "$." ^ String.concat ":" r
+  | Ref r -> string_of_ref r
   | Vec vec -> "[" ^ (json_of_vec vec) ^ "]"
-  | Store s -> "{" ^ (json_of_store1 s) ^ "}"
+
 and json_of_vec vec =
   match vec with
   | [] -> ""
-  | head :: tail -> let h = json_of_value head in
-                    if tail = [] then h else h ^ "," ^ (json_of_vec tail);;
+  | head :: tail -> let h = json_of_basic head in
+                    if tail = [] then h else h ^ "," ^ (json_of_vec tail)
 
 (*
  * generate XML of given store
  * - attribute started with '_' is treated as parent's XML attribute
  * - attribute started without '_' is treated as element
  *)
-let rec xml_of_store s : string = xml_of_store1 s
+and xml_of_store s : string = xml_of_store1 s
+
 and xml_of_store1 s : string =
   match s with
   | [] -> ""
-  | head::tail ->
+  | head :: tail ->
       if (String.get head.id 0) = '_' then xml_of_store1 tail
       else
-        let h = "<" ^ head.id ^ (attribute_of_value head.v) ^ ">" ^ xml_of_value head.v ^ "</" ^ head.id ^ ">" in
-        if tail = [] then h
-        else h ^ "\n" ^ xml_of_store1 tail
-and attribute_of_value v : string =
-  match v with
-  | Store s -> let attr = String.trim (accumulate_attribute s) in
-               if (String.length attr) > 0 then " " ^ attr else attr
-  | _ -> ""
+        match head.v with
+        | Basic basic ->
+            let h = "<" ^ head.id ^ ">" ^ (xml_of_basic basic) ^ "</" ^ head.id ^ ">" in
+            if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
+        | Store child ->
+            let h = "<" ^ head.id ^ (attribute_of_store child) ^ ">" ^ (xml_of_store1 child) ^ "</" ^ head.id ^ ">" in
+            if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
+
+and attribute_of_store s : string =
+  let attr = String.trim (accumulate_attribute s) in
+  if (String.length attr) > 0 then " " ^ attr else attr
+
+and is_attribute id = ((String.get id 0) = ' ')
+
 and accumulate_attribute s : string =
   match s with
   | [] -> ""
-  | head::tail ->
-      if (String.get head.id 0) = '_' then
+  | head :: tail ->
+      if is_attribute head.id then
         match head.v with
-        | Store _ | Ref _ -> raise (Failure "attribute may not be a component or vector")
-        | _ -> " " ^ (String.sub head.id 1 ((String.length head.id) - 1)) ^ "=\"" ^ xml_of_value head.v ^ "\"" ^ accumulate_attribute tail
+        | Store _ | Basic (Vec _) -> raise (Failure "XML attr may not a component or vector")
+        | Basic b -> " " ^ string_of_attribute head.id b ^ accumulate_attribute tail
       else accumulate_attribute tail
-and xml_of_value v : string =
+
+and string_of_attribute id v =
+  (String.sub id 1 ((String.length id) - 1)) ^ "=\"" ^ xml_of_basic v ^ "\""
+
+and xml_of_basic v : string =
   match v with
   | Bool b -> string_of_bool b
   | Num (Int i) -> string_of_int i
   | Num (Float f) -> string_of_float f
   | Str s -> s
   | Null -> "</null>"
-  | Ref r -> "$." ^ String.concat ":" r
+  | Ref r -> string_of_ref r
   | Vec vec -> "<vector>" ^ (xml_of_vec vec) ^ "</vector>"
-  | Store s -> "\n" ^ xml_of_store1 s
+
 and xml_of_vec vec : string =
   match vec with
   | [] -> ""
-  | head::tail -> "<item>" ^ (xml_of_value head) ^ "</item>" ^ xml_of_vec tail;;
+  | head :: tail -> "<item>" ^ (xml_of_basic head) ^ "</item>" ^ xml_of_vec tail;;
 
