@@ -24,7 +24,7 @@ sf.cmo: sf.ml sfparser.cmo sflexer.cmo
 	ocamlc -c sf.ml
 
 clean:
-	@rm -f *.{cmo,mli,cmi} sfparser.ml sflexer.ml
+	@rm -f *.cmo *.mli *.cmi sfparser.ml sflexer.ml
 
 clean-all: clean
 	@rm -f csf
