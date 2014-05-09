@@ -13,7 +13,7 @@ import System.FilePath.Posix
 import GHC.IO.Exception
 import System.Console.GetOpt
 
--- Parsec
+-- cabal install Parsec
 import Text.Parsec (sepBy, sepBy1, (<|>), eof)
 import Text.Parsec.String (Parser, parseFromFile)
 import Text.Parsec.Language (emptyDef)
@@ -432,7 +432,9 @@ compile isComparing sourcePath destPath = do
 		Left e -> if (isComparing)
 			then writeFile destPath e
 			else hPutStrLn stderr ( "** " ++ sourcePath ++ "\n" ++ e )
-		Right json -> writeFile destPath json
+		Right json -> if (destPath == "-")
+			then putStr json
+			else writeFile destPath json
 	-- return the results or the error message
 	case (result) of
 		Left e -> return e
@@ -451,8 +453,8 @@ data ErrorCode = EPARSEFAIL | EPARENTNOTSTORE | ENOPARENT | EREPLACEROOTSTORE |
 err :: ErrorCode -> [String] -> Bool -> String
 err code args = \isComparing -> case (code) of
 	EPARSEFAIL	-> if (isComparing)
-		then (show a) ++ "\n"
-		else "parse failed: " ++ (show a) ++ "\n"
+		then (id a) ++ "\n"
+		else "parse failed: " ++ (id a) ++ "\n"
 	EPARENTNOTSTORE -> "parent not a store [error 1]: " ++ a
 	ENOPARENT -> "reference has no parent [error 2]: " ++ a
 	EREPLACEROOTSTORE -> "attempt to replace root store [error 3]"
@@ -465,7 +467,9 @@ err code args = \isComparing -> case (code) of
 		then "[err6] prefix of " ++ a ++ " is not a component"
 		else "can't resolve reference [error 6]: " ++ a
 	EREFNOTOBJ -> "reference not an object [error 6]: " ++ a
-	ENOSPEC -> "no sfConfig at top level of specification [error 7]"
+	ENOSPEC -> if (isComparing)
+		then "[err7] sfConfig is not exist or a component"
+		else "no sfConfig at top level of specification [error 7]"
 	ESPEC -> "sfConfig cannot be a basic value [error 7]: " ++ a
 	where a = args!!0
 
@@ -478,6 +482,7 @@ err code args = \isComparing -> case (code) of
 -- you can use ".." in this to refer to directories above the source
 -- with a slash it is treated as an absolute pathname
 -- the default is "" which is the same directory as the source
+-- you can use "-" for stdout
 
 data Flag = Output String | Compare | SfParser String deriving(Show,Eq)
 
@@ -532,7 +537,9 @@ main = do
 
 process :: [Flag] -> String -> IO ()
 process opts srcPath = do
-	let dstPath = jsonPath srcPath (outputDir opts)
+	let dstPath = if ((outputDir opts) == "-")
+		then (++) "-"
+		else jsonPath srcPath (outputDir opts)
 	if (Compare `elem` opts) then do
 		sfParserPath <- (findSfParserPath opts)
 		haskellResult <- compile True srcPath (dstPath "-1")
