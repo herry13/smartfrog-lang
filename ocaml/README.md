@@ -33,6 +33,12 @@ Compile:
 This command will create the compiler executable file `csf`.
 
 
+## Binaries
+
+- MacOS X : [dist/darwin/csf](dist/darwin/csf)
+- Linux : [dist/linux/csf](dist/linux/csf)
+
+
 ## Usage
 
 - JSON output

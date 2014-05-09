@@ -35,3 +35,9 @@ clean-build: clean-all build
 
 test: clean-all build
 	@./test.sh
+
+darwin: dist
+	@mv -f csf dist/darwin
+
+linux: dist
+	@mv -f csf dist/linux
