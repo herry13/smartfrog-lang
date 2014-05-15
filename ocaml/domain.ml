@@ -12,14 +12,20 @@ and basic   = Bool of bool
             | Vec of vector
 and value   = Basic of basic
             | Store of store
+            | LR of string list
 and _value  = Val of value
             | Undefined
 and cell    = { id : string; v : value }
 and store   = cell list;;
 
+
+let string_of_ref r = "$." ^ String.concat ":" r
+
 (* 
  * semantics algebras
  *)
+
+let ref_main = ["sfConfig"]
 
 (* reference functions *)
 let rec prefix r =
@@ -34,10 +40,12 @@ let rec (+!) (r : string list) (id : string) =
   | head::tail -> head :: (tail +! id);;
 
 (* only applicable to oplus (string -> string -> string list) *)
-let (+) (id1 : string) (id2 : string) = id1 :: id2 :: [];;
+let (+) (id1 : string) (id2 : string) = [id1; id2];;
  
 (* only applicable to oplus (string -> string list -> string list) *)
-let rec (!+) (id : string) (r : string list) = id :: r;;
+let (!+) (id : string) (r : string list) = id :: r;;
+
+let (+!) (r : string list) (id : string) = r@[id];;
 
 (* only applicable to oplus (string list -> string list -> string list) *)
 let rec (++) (r1 : string list) (r2 : string list) =
@@ -59,9 +67,18 @@ let rec (==) r1 r2 : bool =
   else if (List.hd r1) = (List.hd r2) then (List.tl r1) == (List.tl r2)
   else false
 
+(* r1 is a prefix or equals r2 *)
 let rec (<=) r1 r2 : bool = if (r1 -- r2) = [] then true else false;;
 
+(* r1 is a strict prefix of r2 *)
 let rec (<) r1 r2 : bool = (r1 <= r2) && not (r1 == r2);;
+
+module SetRef = Set.Make(
+  struct
+    let compare = Pervasives.compare
+    type t = string list
+  end )
+
 
 (* store functions *)
 
@@ -117,16 +134,45 @@ and bind s r v : store =
 
 and inherit_proto s ns proto r : store =
   match resolve s ns proto with
+  | nsp, Val (LR lr) -> ( match (resolve_link s ns r lr) with
+                          | Val (Store s1) -> copy s s1 r
+                          | _ -> raise (Failure "[err4]") )
   | nsp, Val (Store vp) -> copy s vp r
-  | _, _ -> raise (Failure "[err4]");;
+  | _, _ -> raise (Failure "[err4]")
 
+and resolve_link s ns r lr = get_link s ns r lr SetRef.empty
 
+and get_link s ns r lr acc =
+  if SetRef.exists (fun r1 -> r = lr) acc then raise (Failure "[err20] cyclic link reference")
+  else
+    match resolve s ns lr with
+    | nsp, Val (LR lrp) -> get_link s (prefix (nsp ++ lr)) r lrp (SetRef.add lr acc)
+    | nsp, vp -> if (nsp ++ lr) <= r then raise (Failure "[err21] implicit cyclic link reference")
+                 else vp
+
+and replace_link s ns c =
+  match c.v with
+  | LR lr -> ( let v = resolve_link s ns (ns +! c.id) lr in
+               match v with
+               | Undefined -> raise (Failure ("invalid link-reference: " ^ string_of_ref lr))
+               | Val value -> value )
+  | _ -> c.v
+
+and accept s root ns visitor =
+  match s with
+  | [] -> root
+  | head :: tail ->
+      match head.v with
+      | Store s1 -> accept tail (accept s1 root (ns +! head.id) visitor) ns visitor
+      | _ -> let v = visitor root ns head in
+             let root1 = bind root (ns +! head.id) v in
+             match v with
+             | Store s1 -> accept tail (accept s1 root1 (ns +! head.id) visitor) ns visitor
+             | _ -> accept tail root1 ns visitor
 
 (*
  * helper functions : domain to string conversion
  *)
-
-let string_of_ref r = "$." ^ String.concat ":" r
 
 (*** generate YAML from given store ***)
 let rec yaml_of_store s = yaml_of_store1 s ""
@@ -142,6 +188,9 @@ and yaml_of_store1 s tab =
           if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
       | Store child ->
           let v = h ^ (if child = [] then "" else "\n") ^ yaml_of_store1 child (tab ^ "  ") in
+          if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
+      | LR lr ->
+          let v = h ^ "link[" ^ (string_of_ref lr) ^ "]" in
           if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
 
 and yaml_of_vec vec =
@@ -173,6 +222,8 @@ and json_of_store1 s =
                        if tail = [] then v else v ^ "," ^ json_of_store1 tail
       | Store child -> let v = h ^ "{" ^ (json_of_store1 child) ^ "}" in
                        if tail = [] then v else v ^ "," ^ json_of_store1 tail
+      | LR lr -> let v = h ^ "link[" ^ (string_of_ref lr) ^ "]" in
+                 if tail = [] then v else v ^ "," ^ json_of_store1 tail
 
 and json_of_basic v =
   match v with
@@ -210,6 +261,9 @@ and xml_of_store1 s : string =
         | Store child ->
             let h = "<" ^ head.id ^ (attribute_of_store child) ^ ">" ^ (xml_of_store1 child) ^ "</" ^ head.id ^ ">" in
             if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
+        | LR lr ->
+            let h = "<" ^ head.id ^ "><link>" ^ (string_of_ref lr) ^ "</link></" ^ head.id ^ ">" in
+            if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
 
 and attribute_of_store s : string =
   let attr = String.trim (accumulate_attribute s) in
@@ -225,6 +279,7 @@ and accumulate_attribute s : string =
         match head.v with
         | Store _ | Basic (Vec _) -> raise (Failure "XML attr may not a component or vector")
         | Basic b -> " " ^ string_of_attribute head.id b ^ accumulate_attribute tail
+        | LR lr -> raise (Failure "link-reference")
       else accumulate_attribute tail
 
 and string_of_attribute id v =

@@ -20,11 +20,13 @@ open Domain
 %%
 sf:
     | body EOF {
-                 let r = ["sfConfig"] in
-                 let s = $1 [] [] in
-                 let v = find s r in
+                 let root = $1 [] [] in
+                 let v = find root ref_main in
                  match v with
-                 | Val (Store main) -> main
+                 | Val (Store main) -> (
+                     match find (accept main root ref_main replace_link) ref_main with
+                     | Val (Store main1) -> main1
+                     | _ -> raise (Failure "[err7]") )
                  | _ -> raise (Failure "[err7]")
                }
 
@@ -49,12 +51,7 @@ assignment:
 value:
 	| basic EOS             { fun ns r s -> bind s r (Basic $1) }
     | EXTENDS prototypes    { fun ns r s -> $2 ns r (bind s r (Store [])) }
-    | link_reference EOS    {
-                              fun ns r s -> let (_, v1) = resolve s ns $1 in
-                                            match v1 with
-                                            | Undefined -> raise (Failure "[err5]")
-                                            | Val v -> bind s r v
-                            }
+    | link_reference EOS    { fun ns r s -> bind s r $1 }
 
 prototypes:
     | prototype COMMA prototypes { fun ns r s -> $3 ns r ($1 ns r s) }
@@ -81,7 +78,7 @@ items:
     | basic                 { [$1] }
 
 link_reference:
-    | reference   { $1 }
+    | reference   { LR $1 }
 
 data_reference:
     | reference   { $1 }
