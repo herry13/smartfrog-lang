@@ -11,7 +11,15 @@ object Store {
   object undefined {
     override def toString = "<undefined>"
   }
-  
+ 
+  def replaceLink(s: Store, ns: Reference, c: Cell): Any =
+    if (c._2.isInstanceOf[LinkReference]) {
+      val v = s.resolveLink(ns, ns ++ c._1, c._2.asInstanceOf[LinkReference])
+      if (v == undefined) throw new SemanticsException("invalid link reference: " + c._2)
+      else v
+    }
+    else c._2
+
   def apply(id: String, v: Any, rest: Store): Store = new Store((id, v), rest)
   
   def apply(head: Cell, rest: Store): Store = new Store(head, rest)
@@ -72,8 +80,45 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
   def inherit(ns: Reference, src: Reference, dest: Reference): Store = {
     val l = resolve(ns, src)
     if (l._2.isInstanceOf[Store]) copy(l._2.asInstanceOf[Store], dest)
+    else if (l._2.isInstanceOf[LinkReference]) {
+      val v = resolveLink(ns, dest, new LinkReference(src))
+      if (v.isInstanceOf[Store]) copy(v.asInstanceOf[Store], dest)
+      else throw new SemanticsException("[err4] invalid prototype reference: " + src)
+    }
     else throw new SemanticsException("[err4] invalid prototype reference: " + src)
   }
+
+  def resolveLink(ns: Reference, r: Reference, lr: LinkReference): Any = {
+    def getLink(ns: Reference, lr: LinkReference, acc: Set[LinkReference]): Any =
+      if (acc.contains(lr)) throw new SemanticsException("[err20] cyclic link reference is detected: " + lr + ", visited: " + acc)
+      else {
+        val l = resolve(ns, lr.ref)
+        if (l._2.isInstanceOf[LinkReference])
+          getLink((l._1 ++ lr.ref).prefix, l._2.asInstanceOf[LinkReference], acc + lr)
+        //else if ((l._1 ++ lr.ref).subseteqof(r))   // without keywords: THIS, PARENT, ROOT
+        else if (l._1.trace(lr.ref).subseteqof(r))   // with keywords: THIS, PARENT, ROOT
+          throw new SemanticsException("[err21] implicit cyclic link reference: " + lr.ref + " <= " + r)
+        else l._2
+      }
+    getLink(ns, lr, Set())
+  }
+
+  def accept(visitor: (Store, Reference, Cell) => Any): Store =
+    accept1(this, Reference.empty, visitor)
+
+  def accept1(root: Store, ns: Reference, visitor: (Store, Reference, Cell) => Any): Store =
+    if (this == empty) root
+    else if (head._2.isInstanceOf[Store])
+      rest.accept1(head._2.asInstanceOf[Store].accept1(root, ns ++ head._1, visitor), ns, visitor)
+    else {
+      val v = visitor(root, ns, head)
+      val root1 = root.bind(ns ++ head._1, v)
+      if (v.isInstanceOf[Store])
+        rest.accept1(v.asInstanceOf[Store].accept1(root1, ns ++ head._1, visitor), ns, visitor)
+      else
+        rest.accept1(root1, ns, visitor)
+    }
+
   //--- end of semantics functions ---//
   
   //--- helper functions (not part of semantics) ---//

@@ -4,7 +4,7 @@ This compiler is the implementation of the formal semantic of core subset of [Sm
 
 - Basic values (Boolean, Number, String, Null, Vector)
 - Component (object)
-- Data and Link Reference (_forward link reference_ is not supported)
+- Data and Link Reference (_forward link reference_ is supported)
 - Keywords `THIS`, `PARENT`, and `ROOT` in Reference
 - Prototype
 - Placement (_forward placement_ is not supported)
@@ -19,8 +19,6 @@ Not yet supported:
 - Function
 - Schema
 - Predicate
-
-Note: forward link-reference is supported in branch `forward-link-reference`.
 
 
 ## Requirements

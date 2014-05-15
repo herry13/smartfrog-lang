@@ -8,6 +8,10 @@ object Reference {
 	override def equals(that: Reference) = (this == that)
 	override def toString = "[empty]"
   }
+
+  val ref_root = new Reference("ROOT")
+  val ref_this = new Reference("THIS")
+  val ref_parent = new Reference("PARENT")
   
   def apply(s: String): Reference = new Reference(s, empty)
   

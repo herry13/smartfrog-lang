@@ -36,9 +36,13 @@ class Parser extends JavaTokenParsers {
 
   def Sf: Parser[Store] =
     Body ^^ { b => {
-        val v = b(org.sf.lang.Reference.empty, Store.empty).find(sfConfig)
-        if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
-        else throw new SemanticsException("[err7] sfConfig is not exist or a component")
+        val root = b(org.sf.lang.Reference.empty, Store.empty)
+        val main = root.find(sfConfig)
+        if (main.isInstanceOf[Store]) {
+          main.asInstanceOf[Store].accept1(root, sfConfig, Store.replaceLink).find(sfConfig).asInstanceOf[Store]
+        }
+        else
+          throw new SemanticsException("[err7] sfConfig is not exist or not a component")
       }
     }
 
@@ -86,11 +90,7 @@ class Parser extends JavaTokenParsers {
         (ns: Reference, r: Reference, s: Store) => s.bind(r, sv)
       )
     | LinkReference <~ ";"  ^^ (lr =>
-        (ns: Reference, r: Reference, s: Store) => {
-          val l = s.resolve(ns, lr)
-          if (l._2 == Store.undefined) throw new SemanticsException("[err5] cannot find link reference " + lr)
-          else s.bind(r, l._2)
-        }
+        (ns: Reference, r: Reference, s: Store) => s.bind(r, lr)
       )
     | "extends" ~> Prototypes ^^ (p =>
         (ns: Reference, r: Reference, s: Store) => p(ns, r, s.bind(r, Store.empty))
@@ -105,8 +105,8 @@ class Parser extends JavaTokenParsers {
   def DataReference: Parser[Reference] =
     "DATA" ~> Reference
 
-  def LinkReference: Parser[Reference] =
-    Reference
+  def LinkReference: Parser[LinkReference] =
+    Reference ^^ { case r => new LinkReference(r) }
     
   def BasicValue: Parser[Any] =
     ( Boolean
