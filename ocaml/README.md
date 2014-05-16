@@ -53,6 +53,10 @@ This command will create the compiler executable file `csf`.
 
 		$ ./csf -xml <sf-file>
 
+- Plain SF output
+
+		$ ./csf -sf <sf-file>
+
 
 ## License
 
