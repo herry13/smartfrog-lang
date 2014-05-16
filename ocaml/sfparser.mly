@@ -10,6 +10,7 @@ open Domain
 %token <string> STRING
 %token <string> ID
 %token <string> INCLUDE
+%token TOK_TBD
 %token <string list -> Domain.store -> Domain.store> SF_INCLUDE
 %token EXTENDS COMMA DATA BEGIN END SEP NULL LBRACKET RBRACKET EOS EOF
 
@@ -19,15 +20,15 @@ open Domain
 
 %%
 sf:
-    | body EOF {
-                 let root = $1 [] [] in
+    | body EOF { $1 [] []
+                 (*let root = $1 [] [] in
                  let v = find root ref_main in
                  match v with
                  | Val (Store main) -> (
                      match find (accept main root ref_main replace_link) ref_main with
                      | Val (Store main1) -> main1
                      | _ -> raise (Failure "[err7]") )
-                 | _ -> raise (Failure "[err7]")
+                 | _ -> raise (Failure "[err7]") *)
                }
 
 included:
@@ -49,8 +50,11 @@ assignment:
                        }
 
 value:
+    | EOS                   { fun ns r s -> bind s r (Basic Null) }
+    | TOK_TBD EOS           { fun ns r s -> bind s r TBD }
 	| basic EOS             { fun ns r s -> bind s r (Basic $1) }
-    | EXTENDS prototypes    { fun ns r s -> $2 ns r (bind s r (Store [])) }
+    | EXTENDS reference BEGIN body END { fun ns r s -> $4 r (inherit_proto (bind s r (Store [])) ns $2 r) }
+    | EXTENDS prototypes eos   { fun ns r s -> $2 ns r (bind s r (Store [])) }
     | link_reference EOS    { fun ns r s -> bind s r $1 }
 
 prototypes:
@@ -86,5 +90,9 @@ data_reference:
 reference:
     | ID SEP reference  { $1 :: $3 }
     | ID                { [$1] }
+
+eos:
+	| EOS eos { "" }
+	|         { "" }
 
 %%

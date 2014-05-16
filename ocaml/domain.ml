@@ -13,6 +13,7 @@ and basic   = Bool of bool
 and value   = Basic of basic
             | Store of store
             | LR of string list
+            | TBD
 and _value  = Val of value
             | Undefined
 and cell    = { id : string; v : value }
@@ -192,6 +193,9 @@ and yaml_of_store1 s tab =
       | LR lr ->
           let v = h ^ "link[" ^ (string_of_ref lr) ^ "]" in
           if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
+      | TBD ->
+          let v = h ^ "TBD" in
+          if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
 
 and yaml_of_vec vec =
   match vec with
@@ -226,6 +230,8 @@ and sf_of_store1 s tab =
           if tail = [] then v else v ^ "\n" ^ sf_of_store1 tail tab
       | LR lr -> let v = h ^ (String.concat ":" lr) in
                  if tail = [] then v else v ^ "," ^ json_of_store1 tail
+      | TBD -> let v = h ^ "TBD" in
+               if tail = [] then v else v ^ "," ^ json_of_store1 tail
 
 and sf_of_vec vec =
   match vec with
@@ -258,6 +264,8 @@ and json_of_store1 s =
                        if tail = [] then v else v ^ "," ^ json_of_store1 tail
       | LR lr -> let v = h ^ "link[" ^ (string_of_ref lr) ^ "]" in
                  if tail = [] then v else v ^ "," ^ json_of_store1 tail
+      | TBD -> let v = h ^ "TBD" in
+               if tail = [] then v else v ^ "," ^ json_of_store1 tail
 
 and json_of_basic v =
   match v with
@@ -298,6 +306,9 @@ and xml_of_store1 s : string =
         | LR lr ->
             let h = "<" ^ head.id ^ "><link>" ^ (string_of_ref lr) ^ "</link></" ^ head.id ^ ">" in
             if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
+        | TBD ->
+            let h = "<" ^ head.id ^ "><tbd/></" ^ head.id ^ ">" in
+            if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
 
 and attribute_of_store s : string =
   let attr = String.trim (accumulate_attribute s) in
@@ -314,6 +325,7 @@ and accumulate_attribute s : string =
         | Store _ | Basic (Vec _) -> raise (Failure "XML attr may not a component or vector")
         | Basic b -> " " ^ string_of_attribute head.id b ^ accumulate_attribute tail
         | LR lr -> raise (Failure "link-reference")
+        | TBD   -> raise (Failure "TBD")
       else accumulate_attribute tail
 
 and string_of_attribute id v =
