@@ -54,6 +54,10 @@ But the data-reference will be converted to string preceeded with
 characters: `$.`. For example, data-reference `x:y:z` in JSON and
 YAML is `$.x:y:z`.
 
+To generate plain SmartFrog (without prototypes or link-reference)
+
+	$ ./sfParser -sf test.sf
+
 
 ## Independent JAR file
 
