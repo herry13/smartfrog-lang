@@ -165,11 +165,14 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
     def _this =
       if (this == empty) buffer
       else if (head._2.isInstanceOf[Store])
-        head._2.asInstanceOf[Store]
-          ._toSf(ident.append("extends  {\n"), tab + "  ")
-          .append('\n')
-          .append(tab)
-          .append('}')
+        if (head._2.asInstanceOf[Store] == empty)
+            ident.append("extends  {}")
+        else
+          head._2.asInstanceOf[Store]
+            ._toSf(ident.append("extends  {\n"), tab + "  ")
+            .append('\n')
+            .append(tab)
+            .append('}')
       else value(head._2, ident).append(';')
     
     if (rest != empty)
