@@ -209,6 +209,40 @@ and yaml_of_basic v =
   | Ref r -> string_of_ref r
   | Vec vec -> "[" ^ (yaml_of_vec vec) ^ "]"
 
+(*** generate plain SF of given store ***)
+and sf_of_store s = sf_of_store1 s ""
+
+and sf_of_store1 s tab =
+  match s with
+  | [] -> ""
+  | head :: tail ->
+      let h = tab ^ head.id ^ " " in
+      match head.v with
+      | Basic basic ->
+          let v = h ^ (sf_of_basic basic) ^ ";" in
+          if tail = [] then v else v ^ "\n" ^ sf_of_store1 tail tab
+      | Store child ->
+          let v = h ^ "extends  " ^ (if child = [] then "{}" else "{\n" ^ (sf_of_store1 child (tab ^ "  ")) ^ "\n" ^ tab ^ "}") in
+          if tail = [] then v else v ^ "\n" ^ sf_of_store1 tail tab
+      | LR lr -> let v = h ^ (String.concat ":" lr) in
+                 if tail = [] then v else v ^ "," ^ json_of_store1 tail
+
+and sf_of_vec vec =
+  match vec with
+  | [] -> ""
+  | head :: tail -> let v = sf_of_basic head in
+                  if tail = [] then v else v ^ ", " ^ (sf_of_vec tail)
+
+and sf_of_basic v =
+  match v with
+  | Bool b -> string_of_bool b
+  | Num (Int i) -> string_of_int i
+  | Num (Float f) -> string_of_float f
+  | Str s -> s
+  | Null -> "null"
+  | Ref r -> "DATA " ^ String.concat ":" r
+  | Vec vec -> "[|" ^ (sf_of_vec vec) ^ "|]"
+
 (*** generate JSON of given store ***)
 and json_of_store s = "{" ^ (json_of_store1 s) ^ "}"
 
