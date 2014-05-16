@@ -88,4 +88,6 @@ class Reference(val head: String, val _rest: Reference = Reference.empty) {
   def toJson: String = "\"$." + toString + "\""
   
   def toYaml: String = toJson
+  
+  def toSf: String = "DATA " + toString
 }

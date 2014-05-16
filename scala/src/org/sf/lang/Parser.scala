@@ -9,6 +9,7 @@ object Parser extends Parser with App {
 where [option] is:
   -json     print output in JSON
   -yaml     print output in YAML
+  -sf       print output in plain SF
 """
     
   if (args.length <= 0) Console.println(help)
@@ -16,6 +17,7 @@ where [option] is:
     try {
       if (inJson(args)) println(parseFile(args.tail.head).toJson)
       else if (inYaml(args)) println(parseFile(args.tail.head).toYaml)
+      else if (inSf(args)) println(parseFile(args.tail.head).toSf)
       else println(parseFile(args.head))
     } catch {
       case se: SemanticsException => System.err.println(se.msg)
@@ -28,6 +30,9 @@ where [option] is:
     
   def inYaml(args: Array[String]): Boolean =
     (args.length >= 2 && args.head.equals("-yaml"))
+    
+  def inSf(args: Array[String]): Boolean =
+    (args.length >= 2 && args.head.equals("-sf"))
 }
 
 class Parser extends JavaTokenParsers {
