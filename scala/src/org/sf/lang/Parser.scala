@@ -16,6 +16,7 @@ where [option] is:
     try {
       if (inJson(args)) println(parseFile(args.tail.head).toJson)
       else if (inYaml(args)) println(parseFile(args.tail.head).toYaml)
+      else if (inSf(args)) println(parseFile(args.tail.head).toSf)
       else println(parseFile(args.head))
     } catch {
       case se: SemanticsException => System.err.println(se.msg)
@@ -28,6 +29,9 @@ where [option] is:
     
   def inYaml(args: Array[String]): Boolean =
     (args.length >= 2 && args.head.equals("-yaml"))
+    
+  def inSf(args: Array[String]): Boolean =
+    (args.length >= 2 && args.head.equals("-sf"))
 }
 
 class Parser extends JavaTokenParsers {

@@ -146,4 +146,35 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
     else
       _this
   }
+
+  def toSf: String = _toSf(new StringBuffer(""), "").toString
+  
+  protected def _toSf(buffer: StringBuffer, tab: String): StringBuffer = {
+    def value(v: Any, buffer: StringBuffer): StringBuffer =
+      if (v.isInstanceOf[List[Any]]) vector(v.asInstanceOf[List[Any]], buffer.append("[|")).append("|]")
+      else if (v.isInstanceOf[Reference]) buffer.append(v.asInstanceOf[Reference].toSf)
+      else buffer.append(v)
+    
+    def vector(v: List[Any], buffer: StringBuffer): StringBuffer =
+      if (v.length == 0) buffer
+      else if (v.tail.isEmpty) value(v.head, buffer)
+      else vector(v.tail, value(v.head, buffer).append(", "))
+    
+    def ident = buffer.append(tab).append(head._1).append(" ")
+    
+    def _this =
+      if (this == empty) buffer
+      else if (head._2.isInstanceOf[Store])
+        head._2.asInstanceOf[Store]
+          ._toSf(ident.append("extends  {\n"), tab + "  ")
+          .append('\n')
+          .append(tab)
+          .append('}')
+      else value(head._2, ident).append(';')
+    
+    if (rest != empty)
+      rest._toSf(_this.append("\n"), tab)
+    else
+      _this
+  }
 }
