@@ -103,20 +103,17 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
     getLink(ns, lr, Set())
   }
 
-  def accept(visitor: (Store, Reference, Cell) => Any): Store =
-    accept1(this, Reference.empty, visitor)
-
-  def accept1(root: Store, ns: Reference, visitor: (Store, Reference, Cell) => Any): Store =
+  def accept(root: Store, ns: Reference, visitor: (Store, Reference, Cell) => Any): Store =
     if (this == empty) root
     else if (head._2.isInstanceOf[Store])
-      rest.accept1(head._2.asInstanceOf[Store].accept1(root, ns ++ head._1, visitor), ns, visitor)
+      rest.accept(head._2.asInstanceOf[Store].accept(root, ns ++ head._1, visitor), ns, visitor)
     else {
       val v = visitor(root, ns, head)
       val root1 = root.bind(ns ++ head._1, v)
       if (v.isInstanceOf[Store])
-        rest.accept1(v.asInstanceOf[Store].accept1(root1, ns ++ head._1, visitor), ns, visitor)
+        rest.accept(v.asInstanceOf[Store].accept(root1, ns ++ head._1, visitor), ns, visitor)
       else
-        rest.accept1(root1, ns, visitor)
+        rest.accept(root1, ns, visitor)
     }
 
   //--- end of semantics functions ---//

@@ -9,10 +9,6 @@ object Reference {
 	override def toString = "[empty]"
   }
 
-  val ref_root = new Reference("ROOT")
-  val ref_this = new Reference("THIS")
-  val ref_parent = new Reference("PARENT")
-  
   def apply(s: String): Reference = new Reference(s, empty)
   
   def apply(s: String, rest: Reference): Reference = new Reference(s, rest)

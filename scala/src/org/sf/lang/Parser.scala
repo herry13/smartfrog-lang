@@ -39,7 +39,7 @@ class Parser extends JavaTokenParsers {
         val root = b(org.sf.lang.Reference.empty, Store.empty)
         val main = root.find(sfConfig)
         if (main.isInstanceOf[Store]) {
-          main.asInstanceOf[Store].accept1(root, sfConfig, Store.replaceLink).find(sfConfig).asInstanceOf[Store]
+          main.asInstanceOf[Store].accept(root, sfConfig, Store.replaceLink).find(sfConfig).asInstanceOf[Store]
         }
         else
           throw new SemanticsException("[err7] sfConfig is not exist or not a component")
