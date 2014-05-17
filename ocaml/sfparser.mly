@@ -29,7 +29,6 @@ sf:
                      | Val (Store main1) -> main1
                      | _ -> raise (Failure "[err7]") )
                  | _ -> raise (Failure "[err7]")
-                 (*root*)
                }
 
 included:
@@ -48,7 +47,7 @@ assignment:
                     if (List.length r) = 1 then $3 ns (List.append ns r) s
                     else match v1 with
                          | Val (Store s1) -> $3 ns (List.append ns1 r) s
-                         | _ -> raise (Failure "[err6]")
+                         | _ -> raise (Failure ("[err6] prefix of " ^ (String.concat ":" r) ^ " is not a component"))
       }
 
 value:
