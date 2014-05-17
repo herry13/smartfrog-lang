@@ -19,8 +19,17 @@ and _value  = Val of value
 and cell    = { id : string; v : value }
 and store   = cell list;;
 
+(*** utils ***)
 
 let string_of_ref r = "$." ^ String.concat ":" r
+
+let random_ident length =
+  let gen() = match Random.int(52) with
+    | x when x < 26 -> int_of_char 'a' + x
+    | x -> int_of_char 'A' + x - 26 in
+  let gen _ = String.make 1 (char_of_int(gen())) in
+  String.concat "" (Array.to_list (Array.init length gen));;
+
 
 (* 
  * semantics algebras
@@ -54,6 +63,18 @@ let rec (++) (r1 : string list) (r2 : string list) =
   | [] -> r2
   | id::rs -> if r2 = [] then r1
               else id :: (rs ++ r2);;
+
+let rec (<+) (left : string list) (right : string list) =
+  match right with
+  | [] -> left
+  | head :: tail ->
+      if head = "ATTRIB" then left <+ tail
+      else if head = "THIS" then left <+ tail
+      else if head = "ROOT" then [] <+ tail
+      else if head = "PARENT" then
+        if left = [] then raise (Failure "[err102]")
+        else (prefix left) <+ tail
+      else (left +! head) <+ tail
 
 let rec (--) r1 r2 =
   if r1 = [] then []
@@ -96,9 +117,11 @@ let rec find s r : _value =
       else find tail r
 
 and resolve s ns r =
-  if ns = [] then ([], find s r)
+  (* if ns = [] then ([], find s r) *)
+  if ns = [] then ([], find s ([] <+ r))
   else
-    let v = find s (List.append ns r) in
+    (* let v = find s (ns ++ r) in *)
+    let v = find s (ns <+ r) in
     match v with
     | Undefined -> resolve s (prefix ns) r
     | _ -> (ns, v)
@@ -137,9 +160,9 @@ and inherit_proto s ns proto r : store =
   match resolve s ns proto with
   | nsp, Val (LR lr) -> ( match (resolve_link s ns r lr) with
                           | Val (Store s1) -> copy s s1 r
-                          | _ -> raise (Failure "[err4]") )
+                          | _ -> raise (Failure ("[err4] invalid prototype: " ^ string_of_ref lr)) )
   | nsp, Val (Store vp) -> copy s vp r
-  | _, _ -> raise (Failure "[err4]")
+  | _, _ -> raise (Failure ("[err4] invalid prototype: " ^ string_of_ref proto))
 
 and resolve_link s ns r lr = get_link s ns r lr SetRef.empty
 
