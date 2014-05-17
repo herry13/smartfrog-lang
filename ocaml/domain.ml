@@ -170,8 +170,8 @@ and get_link s ns r lr acc =
   if SetRef.exists (fun r1 -> r1 = lr) acc then raise (Failure "[err20] cyclic link reference")
   else
     match resolve s ns lr with
-    | nsp, Val (LR lrp) -> get_link s (prefix (nsp ++ lr)) r lrp (SetRef.add lr acc)
-    | nsp, vp -> if (nsp ++ lr) <= r then raise (Failure "[err21] implicit cyclic link reference")
+    | nsp, Val (LR lrp) -> get_link s (prefix (nsp <+ lr)) r lrp (SetRef.add lr acc)
+    | nsp, vp -> if (nsp <+ lr) <= r then raise (Failure "[err21] implicit cyclic link reference")
                  else vp
 
 and replace_link s ns c =
