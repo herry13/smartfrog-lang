@@ -11,8 +11,8 @@ open Domain
 %token <string> ID
 %token <string> INCLUDE
 %token <string list -> Domain.store -> Domain.store> SF_INCLUDE
-%token TOK_TBD ANY_ID
-%token EXTENDS COMMA DATA BEGIN END SEP NULL LBRACKET RBRACKET EOS EOF
+%token TOK_TBD ANY_ID FUNCTION
+%token EXTENDS COMMA DATA LAZY BEGIN END SEP NULL LBRACKET RBRACKET EOS EOF
 
 %start sf included          /* entry points: sf -> main file, included -> included file */
 %type <Domain.store> sf
@@ -59,8 +59,10 @@ value:
 
 prototypes:
     | DATA prototype COMMA prototypes { fun ns r s -> $4 ns r ($2 ns r s) }
+    | LAZY prototype COMMA prototypes { fun ns r s -> $4 ns r ($2 ns r s) }
     | prototype COMMA prototypes      { fun ns r s -> $3 ns r ($1 ns r s) }
     | DATA prototype                  { $2 }
+    | LAZY prototype                  { $2 }
     | prototype                       { $1 }
 
 prototype:
@@ -73,10 +75,12 @@ basic:
     | BOOL                  { Bool $1 }
     | INT                   { Num (Int $1) }
     | FLOAT                 { Num (Float $1) }
-    | DATA data_reference   { Ref $2 }
+    | DATA data_reference   { DataRef $2 }
+    | LAZY data_reference   { LazyRef $2 }
     | STRING                { Str $1 }
     | NULL                  { Null }
     | vectors               { Vec $1 }
+    | FUNCTION EOS          { Str "func()" }
 
 vectors:
     | LBRACKET items RBRACKET     { $2 }
@@ -84,14 +88,14 @@ vectors:
 
 items:
     | basic COMMA items     { $1 :: $3 }
-    | basic                 { [] }
+    | basic                 { [$1] }
 
 link_reference:
     | keywords reference  { LR ($1 ++ $2) }
     | reference           { LR $1 }
 
 data_reference:
-    | keywords reference  { ($1 ++ $2) }
+    | keywords reference  { (([] <+ $1) ++ $2) }
     | reference           { $1 }
 
 reference:

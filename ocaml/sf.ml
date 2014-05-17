@@ -85,3 +85,9 @@ and parse file =
   try 
     Sfparser.sf (get_token lexstack) dummy_lexbuf
   with e -> check_error e lexstack
+
+and parse_included file =
+  let lexstack = create file Sflexer.token in
+  try
+    (Sfparser.included (get_token lexstack) dummy_lexbuf) [] []
+  with e -> check_error e lexstack

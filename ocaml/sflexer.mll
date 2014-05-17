@@ -26,7 +26,8 @@ rule token = parse
     | "NULL"                                      { NULL }
     | "extends"                                   { EXTENDS }
     | "TBD"                                       { TOK_TBD }
-    | ("DATA"|"LAZY")                             { DATA }
+    | "DATA"                                      { DATA }
+    | "LAZY"                                      { LAZY }
 	| "#include"[' ''\t']+ '"'('\\'_|[^'\\''"'])+'"' [' ''\t']* ';' as s
       { INCLUDE (get_include_file s) } (* return included file name *)
 	| "#include"[' ''\t']+ '"'('\\'_|[^'\\''"'])+'"' [' ''\t']* as s
@@ -39,7 +40,9 @@ rule token = parse
     | "|]"                                        { RBRACKET }
     | '['                                         { LBRACKET }
     | ']'                                         { RBRACKET }
-    | '"'('\\'_|[^'\\''"'])*'"' as s              { STRING (create_string s) }
+    | '('([^')'])*')'                             { FUNCTION }
+    | '"'('\\'_|[^'\\''"'])*'"' as s    { STRING (create_string s) }
+    | "##"('\\'_|[^'\\''"'])*'#' as s             { STRING (create_string s) }
 	| ';'                                         { EOS } (* end of assignment *)
     | ':'                                         { SEP } (* identifiers' separator *)
 	| ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '_' '.' '0'-'9']* as id    { ID id }

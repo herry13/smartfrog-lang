@@ -8,8 +8,9 @@ and basic   = Bool of bool
             | Num of number
             | Str of string
             | Null
-            | Ref of string list
+            | DataRef of string list
             | Vec of vector
+            | LazyRef of string list
 and value   = Basic of basic
             | Store of store
             | LR of string list
@@ -28,8 +29,11 @@ let random_ident length =
     | x when x < 26 -> int_of_char 'a' + x
     | x -> int_of_char 'A' + x - 26 in
   let gen _ = String.make 1 (char_of_int(gen())) in
-  String.concat "" (Array.to_list (Array.init length gen));;
+  String.concat "" (Array.to_list (Array.init length gen))
 
+let is_schema_ident id =
+  if (String.length id) > 6 then ((String.sub id ((String.length id)-6) 6) = "Schema")
+  else false
 
 (* 
  * semantics algebras
@@ -160,9 +164,11 @@ and inherit_proto s ns proto r : store =
   match resolve s ns proto with
   | nsp, Val (LR lr) -> ( match (resolve_link s ns r lr) with
                           | Val (Store s1) -> copy s s1 r
-                          | _ -> raise (Failure ("[err4] invalid prototype: " ^ string_of_ref lr)) )
+                          | _ -> print_string (yaml_of_store s);
+                                 raise (Failure ("[err4] invalid prototype: " ^ string_of_ref lr)) )
   | nsp, Val (Store vp) -> copy s vp r
-  | _, _ -> raise (Failure ("[err4] invalid prototype: " ^ string_of_ref proto))
+  | _, _ -> print_string (yaml_of_store s);
+            raise (Failure ("[err4] invalid prototype: " ^ string_of_ref proto))
 
 and resolve_link s ns r lr = get_link s ns r lr SetRef.empty
 
@@ -199,7 +205,7 @@ and accept s root ns visitor =
  *)
 
 (*** generate YAML from given store ***)
-let rec yaml_of_store s = yaml_of_store1 s ""
+and yaml_of_store s = yaml_of_store1 s ""
 
 and yaml_of_store1 s tab =
   match s with
@@ -233,7 +239,8 @@ and yaml_of_basic v =
   | Num (Float f) -> string_of_float f
   | Str s -> s
   | Null -> "null"
-  | Ref r -> string_of_ref r
+  | DataRef r -> "$." ^ String.concat ":" r
+  | LazyRef r -> "@." ^ String.concat ":" r
   | Vec vec -> "[" ^ (yaml_of_vec vec) ^ "]"
 
 (*** generate plain SF of given store ***)
@@ -243,6 +250,7 @@ and sf_of_store1 s tab =
   match s with
   | [] -> ""
   | head :: tail ->
+      if is_schema_ident(head.id) then sf_of_store1 tail tab else
       let h = tab ^ head.id ^ " " in
       match head.v with
       | Basic basic ->
@@ -267,9 +275,10 @@ and sf_of_basic v =
   | Bool b -> string_of_bool b
   | Num (Int i) -> string_of_int i
   | Num (Float f) -> string_of_float f
-  | Str s -> s
-  | Null -> "null"
-  | Ref r -> "DATA " ^ String.concat ":" r
+  | Str s -> "\"" ^ s ^ "\""
+  | Null -> "NULL"
+  | DataRef r -> "DATA " ^ String.concat ":" r
+  | LazyRef r -> "LAZY " ^ String.concat ":" r
   | Vec vec -> "[|" ^ (sf_of_vec vec) ^ "|]"
 
 (*** generate JSON of given store ***)
@@ -297,7 +306,8 @@ and json_of_basic v =
   | Num (Float f) -> string_of_float f
   | Str s -> "\"" ^ s ^ "\""
   | Null -> "null"
-  | Ref r -> string_of_ref r
+  | DataRef r -> "$." ^ String.concat ":" r
+  | LazyRef r -> "@." ^ String.concat ":" r
   | Vec vec -> "[" ^ (json_of_vec vec) ^ "]"
 
 and json_of_vec vec =
@@ -361,7 +371,8 @@ and xml_of_basic v : string =
   | Num (Float f) -> string_of_float f
   | Str s -> s
   | Null -> "</null>"
-  | Ref r -> string_of_ref r
+  | DataRef r -> "$." ^ String.concat ":" r
+  | LazyRef r -> "@." ^ String.concat ":" r
   | Vec vec -> "<vector>" ^ (xml_of_vec vec) ^ "</vector>"
 
 and xml_of_vec vec : string =
