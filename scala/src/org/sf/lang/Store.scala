@@ -61,14 +61,9 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
     else rest.find(r)
     
   def resolve(ns: Reference, r: Reference): (Reference, Any) =
-  	if (r.head.equals("ROOT")) (Reference.empty, find(r.rest.simplify))
-    else if (r.head.equals("PARENT"))
-      if (ns == Reference.empty) throw new SemanticsException("[err101] invalid reference: " + r)
-      else (ns.prefix, find((ns.prefix ++ r.rest).simplify))
-    else if (r.head.equals("THIS")) (ns, find((ns ++ r.rest).simplify))
-    else if (ns == Reference.empty) (ns, find(r.simplify))
+    if (ns == Reference.empty) (ns, find(ns.trace(r)))
     else {
-      val v = find((ns ++ r).simplify)
+      val v = find(ns.trace(r))
       if (v == undefined) resolve(ns.prefix, r)
       else (ns, v)
     }
@@ -94,8 +89,7 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
       else {
         val l = resolve(ns, lr.ref)
         if (l._2.isInstanceOf[LinkReference])
-          getLink((l._1 ++ lr.ref).prefix, l._2.asInstanceOf[LinkReference], acc + lr)
-        //else if ((l._1 ++ lr.ref).subseteqof(r))   // without keywords: THIS, PARENT, ROOT
+          getLink((l._1.trace(lr.ref)).prefix, l._2.asInstanceOf[LinkReference], acc + lr)
         else if (l._1.trace(lr.ref).subseteqof(r))   // with keywords: THIS, PARENT, ROOT
           throw new SemanticsException("[err21] implicit cyclic link reference: " + lr.ref + " <= " + r)
         else l._2
