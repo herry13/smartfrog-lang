@@ -1,0 +1,6 @@
+// the compiler should end with error
+sfConfig extends {
+	a extends {
+		b a;
+	}
+}
