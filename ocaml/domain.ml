@@ -163,8 +163,8 @@ and bind s r v : store =
 and inherit_proto s ns proto r : store =
   match resolve s ns proto with
   | nsp, Val (LR lr) -> ( match (resolve_link s ns r lr) with
-                          | Val (Store s1) -> copy s s1 r
-                          | _ -> print_string (yaml_of_store s);
+                          | _, Val (Store s1) -> copy s s1 r
+                          | _, _ -> print_string (yaml_of_store s);
                                  raise (Failure ("[err4] invalid prototype: " ^ string_of_ref lr)) )
   | nsp, Val (Store vp) -> copy s vp r
   | _, _ -> print_string (yaml_of_store s);
@@ -178,27 +178,49 @@ and get_link s ns r lr acc =
     match resolve s ns lr with
     | nsp, Val (LR lrp) -> get_link s (prefix (nsp <+ lr)) r lrp (SetRef.add lr acc)
     | nsp, vp -> if (nsp <+ lr) <= r then raise (Failure "[err21] implicit cyclic link reference")
-                 else vp
+                 else (nsp <+ lr, vp)
 
-and replace_link s ns c =
+and replace_link root ns c nslr =
   match c.v with
-  | LR lr -> ( let v = resolve_link s ns (ns +! c.id) lr in
-               match v with
-               | Undefined -> raise (Failure ("invalid link-reference: " ^ string_of_ref lr))
-               | Val value -> value )
-  | _ -> c.v
+  | LR lr -> (
+               match resolve_link root nslr (ns +! c.id) lr with
+               | _, Undefined -> raise (Failure ("invalid link-reference: " ^ (String.concat ":" lr)))
+               | nsp, Val (Store sp) ->
+                   let rootp = bind root (ns +! c.id) (Store sp) in
+                   accept rootp (ns +! c.id) sp nsp
+               | nsp, Val vp -> bind root (ns +! c.id) vp
+             )
+  | Store s -> accept root (ns +! c.id) s (ns +! c.id)
+  | _ -> root
 
-and accept s root ns visitor =
+and accept root ns s nslr =
   match s with
   | [] -> root
   | head :: tail ->
-      match head.v with
-      | Store s1 -> accept tail (accept s1 root (ns +! head.id) visitor) ns visitor
-      | _ -> let v = visitor root ns head in
-             let root1 = bind root (ns +! head.id) v in
-             match v with
-             | Store s1 -> accept tail (accept s1 root1 (ns +! head.id) visitor) ns visitor
-             | _ -> accept tail root1 ns visitor
+      let root1 = replace_link root ns head nslr in
+      accept root1 ns tail nslr
+
+(*
+and __replace_link root ns c =
+  match c.v with
+  | LR lr -> ( match resolve_link root ns (ns +! c.id) lr with
+               | _, Undefined -> raise (Failure ("invalid link-reference: " ^ string_of_ref lr))
+               | nsp, Val (Store sp) -> Store sp
+               | nsp, Val vp -> vp )
+  | _ -> c.v
+
+and __accept s root ns visitor =
+  match s with
+  | [] -> root
+  | head :: tail ->
+      let v = visitor root ns head in
+      let root1 = bind root (ns +! head.id) v in
+      match v with
+      | Store sp ->
+          let root2 = __accept sp root1 (ns +! head.id) visitor in
+          __accept tail root2 ns visitor
+      | _ -> __accept tail root1 ns visitor
+*)
 
 (*
  * helper functions : domain to string conversion
@@ -230,7 +252,7 @@ and yaml_of_vec vec =
   match vec with
   | [] -> ""
   | head :: tail -> let v = yaml_of_basic head in
-                  if tail = [] then v else v ^ "," ^ (yaml_of_vec tail)
+                    if tail = [] then v else v ^ "," ^ (yaml_of_vec tail)
 
 and yaml_of_basic v =
   match v with

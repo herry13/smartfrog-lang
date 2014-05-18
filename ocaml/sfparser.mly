@@ -25,7 +25,7 @@ sf:
                  let v = find root ref_main in
                  match v with
                  | Val (Store main) -> (
-                     match find (accept main root ref_main replace_link) ref_main with
+                     match find (accept root ref_main main ref_main) ref_main with
                      | Val (Store main1) -> main1
                      | _ -> raise (Failure "[err7]") )
                  | _ -> raise (Failure "[err7]")
