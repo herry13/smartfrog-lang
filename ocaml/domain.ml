@@ -76,7 +76,7 @@ let rec (<+) (left : string list) (right : string list) =
       else if head = "THIS" then left <+ tail
       else if head = "ROOT" then [] <+ tail
       else if head = "PARENT" then
-        if left = [] then raise (Failure "[err102]")
+        if left = [] then raise (Failure "[err104]")
         else (prefix left) <+ tail
       else (left +! head) <+ tail
 
@@ -162,13 +162,17 @@ and bind s r v : store =
 
 and inherit_proto s ns proto r : store =
   match resolve s ns proto with
-  | nsp, Val (LR lr) -> ( match (resolve_link s ns r lr) with
-                          | _, Val (Store s1) -> copy s s1 r
+  | nsp, Val (LR lr) -> ( match (resolve_link s nsp r lr) with
+                          | nslr, Val (Store s1) ->
+                              if (nslr <+ lr) <= r then raise (Failure ("[err4a] cyclic prototype - to be compatible with production"))
+                              else copy s s1 r
                           | _, _ -> print_string (yaml_of_store s);
                                  raise (Failure ("[err4] invalid prototype: " ^ string_of_ref lr)) )
-  | nsp, Val (Store vp) -> copy s vp r
+  | nsp, Val (Store vp) ->
+      if (nsp <+ proto) <= r then raise (Failure ("[err4b] cyclic prototype - to be compatible with production"))
+      else copy s vp r
   | _, _ -> print_string (yaml_of_store s);
-            raise (Failure ("[err4] invalid prototype: " ^ string_of_ref proto))
+            raise (Failure ("[err4c] invalid prototype: " ^ string_of_ref proto))
 
 and resolve_link s ns r lr = get_link s ns r lr SetRef.empty
 
@@ -184,7 +188,7 @@ and replace_link root ns c nslr =
   match c.v with
   | LR lr -> (
                match resolve_link root nslr (ns +! c.id) lr with
-               | _, Undefined -> raise (Failure ("invalid link-reference: " ^ (String.concat ":" lr)))
+               | _, Undefined -> raise (Failure ("[err22] invalid link-reference: " ^ (String.concat ":" lr)))
                | nsp, Val (Store sp) ->
                    let rootp = bind root (ns +! c.id) (Store sp) in
                    accept rootp (ns +! c.id) sp nsp
@@ -377,10 +381,10 @@ and accumulate_attribute s : string =
   | head :: tail ->
       if is_attribute head.id then
         match head.v with
-        | Store _ | Basic (Vec _) -> raise (Failure "XML attr may not a component or vector")
+        | Store _ | Basic (Vec _) -> raise (Failure "[err101] XML attr may not a component or vector")
         | Basic b -> " " ^ string_of_attribute head.id b ^ accumulate_attribute tail
-        | LR lr -> raise (Failure "link-reference")
-        | TBD   -> raise (Failure "TBD")
+        | LR lr -> raise (Failure "[102] link-reference")
+        | TBD   -> raise (Failure "[103] TBD")
       else accumulate_attribute tail
 
 and string_of_attribute id v =

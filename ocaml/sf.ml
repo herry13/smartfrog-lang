@@ -76,7 +76,7 @@ and check_error e lexstack =
       let errstr = Printf.sprintf
         "\n\nFile '%s' line %d, column %d : current token is '%s'.\n\n"
         fname lnum lpos (lexeme lexstack) in
-      raise (Failure errstr)
+      raise (Failure ("[err201] " ^ errstr))
   | e -> raise e
 
 (* parse main file *)
