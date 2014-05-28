@@ -58,13 +58,7 @@ class Parser extends JavaTokenParsers {
     
   def Assignment: Parser[(Reference, Store) => Store] =
     Reference ~ Value ^^ { case r ~ v =>
-      (ns: Reference, s: Store) =>
-        if (r.length == 1) v(ns, ns ++ r, s)
-        else {
-          val l = s.resolve(ns, r.prefix)
-          if (l._2.isInstanceOf[Store]) v(ns, l._1 ++ r, s)
-          else throw new SemanticsException("[err6] prefix of " + r + " is not a component")
-        }
+      (ns: Reference, s: Store) => v(ns, ns ++ r, s)
     }
 
   def Prototypes: Parser[(Reference, Reference, Store) => Store] =
