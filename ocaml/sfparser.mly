@@ -37,14 +37,7 @@ body:
     |                     { fun ns s -> s }
 
 assignment:
-    | reference value  {
-                         fun ns s -> let r = $1 in
-                                     let (ns1, v1) = resolve s ns (prefix r) in
-                                     if (List.length r) = 1 then $2 ns (List.append ns r) s
-                                     else match v1 with
-                                          | Val (Store s1) -> $2 ns (List.append ns1 r) s
-                                          | _ -> raise (Failure "[err6]")
-                       }
+    | reference value  { fun ns s -> $2 ns (ns ++ $1) s }
 
 value:
 	| basic EOS             { fun ns r s -> bind s r (Basic $1) }
