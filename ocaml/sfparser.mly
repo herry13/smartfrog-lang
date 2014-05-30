@@ -25,7 +25,7 @@ sf:
                  let v = find s r in
                  match v with
                  | Val (Store main) -> main
-                 | _ -> raise (Failure "[err7]")
+                 | _ -> Domain.failure 7
                }
 
 included:
@@ -45,7 +45,7 @@ value:
     | link_reference EOS    {
                               fun ns r s -> let (_, v1) = resolve s ns $1 in
                                             match v1 with
-                                            | Undefined -> raise (Failure "[err5]")
+                                            | Undefined -> Domain.failure 5
                                             | Val v -> bind s r v
                             }
 

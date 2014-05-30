@@ -17,6 +17,11 @@ and _value  = Val of value
 and cell    = { id : string; v : value }
 and store   = cell list;;
 
+(* helper functions *)
+let failure code =
+  prerr_string ("[err" ^ string_of_int(code) ^ "]\n");
+  exit code
+
 (* 
  * semantics algebras
  *)
@@ -102,23 +107,23 @@ and copy dest src pfx : store =
 
 and bind s r v : store =
   match r with
-  | [] -> raise (Failure "[err3]")
+  | [] -> failure 3
   | id :: rs ->
       if rs = [] then put s id v
       else
         match s with
-        | [] -> raise (Failure "[err2]")
+        | [] -> failure 2
         | head::tail ->
             if head.id = id then
               match head.v with
               | Store child -> { id = id; v = (Store (bind child rs v)) } :: tail
-              | _ -> raise (Failure "[err1]")
+              | _ -> failure 1
             else head :: bind tail r v
 
 and inherit_proto s ns proto r : store =
   match resolve s ns proto with
   | nsp, Val (Store vp) -> copy s vp r
-  | _, _ -> raise (Failure "[err4]");;
+  | _, _ -> failure 4
 
 
 

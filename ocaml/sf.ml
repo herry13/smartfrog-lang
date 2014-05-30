@@ -41,7 +41,7 @@ let rec get_token ls dummy_lexbuf =
   let token = ls.lexfunc ls.lexbuf in
   match token with
   | Sfparser.INCLUDE file -> (* parse included file *)
-      (*** below is the C-style include (the included file does not have to be legal statements) ***)
+      (*** this is the C-style include (the included file does not have to be legal statements) ***)
       (*
       ls.stack <- (ls.filename, ls.chan, ls.lexbuf) :: ls.stack;
       ls.filename <- file;
@@ -85,3 +85,4 @@ and parse file =
   try 
     Sfparser.sf (get_token lexstack) dummy_lexbuf
   with e -> check_error e lexstack
+
