@@ -20,7 +20,7 @@ and _value  = Val of value
 and cell    = { id : string; v : value }
 and store   = cell list;;
 
-(*** utils ***)
+(*** helper functions ***)
 
 let string_of_ref r = "$." ^ String.concat ":" r
 
@@ -34,6 +34,10 @@ let random_ident length =
 let is_schema_ident id =
   if (String.length id) > 6 then ((String.sub id ((String.length id)-6) 6) = "Schema")
   else false
+
+let failure code =
+  prerr_string ("[err" ^ string_of_int(code) ^ "]\n");
+  exit code
 
 (* 
  * semantics algebras
@@ -76,7 +80,7 @@ let rec (<+) (left : string list) (right : string list) =
       else if head = "THIS" then left <+ tail
       else if head = "ROOT" then [] <+ tail
       else if head = "PARENT" then
-        if left = [] then raise (Failure "[err104]")
+        if left = [] then failure 104
         else (prefix left) <+ tail
       else (left +! head) <+ tail
 
@@ -121,10 +125,8 @@ let rec find s r : _value =
       else find tail r
 
 and resolve s ns r =
-  (* if ns = [] then ([], find s r) *)
   if ns = [] then ([], find s ([] <+ r))
   else
-    (* let v = find s (ns ++ r) in *)
     let v = find s (ns <+ r) in
     match v with
     | Undefined -> resolve s (prefix ns) r
@@ -147,48 +149,47 @@ and copy dest src pfx : store =
 
 and bind s r v : store =
   match r with
-  | [] -> raise (Failure "[err3]")
+  | [] -> failure 3
   | id :: rs ->
       if rs = [] then put s id v
       else
         match s with
-        | [] -> raise (Failure "[err2]")
+        | [] -> failure 2
         | head::tail ->
             if head.id = id then
               match head.v with
               | Store child -> { id = id; v = (Store (bind child rs v)) } :: tail
-              | _ -> raise (Failure "[err1]")
+              | _ -> failure 1
             else head :: bind tail r v
 
 and inherit_proto s ns proto r : store =
   match resolve s ns proto with
   | nsp, Val (LR lr) -> ( match (resolve_link s nsp r lr) with
                           | nslr, Val (Store s1) ->
-                              if (nslr <+ lr) <= r then raise (Failure ("[err4a] cyclic prototype - to be compatible with production"))
+                              if (nslr <+ lr) <= r then failure 41 (* cyclic prototype - to be compatible with production *)
                               else copy s s1 r
-                          | _, _ -> print_string (yaml_of_store s);
-                                 raise (Failure ("[err4] invalid prototype: " ^ string_of_ref lr)) )
+                          | _, _ -> failure 4 (* invalid prototype *)
+                        )
   | nsp, Val (Store vp) ->
-      if (nsp <+ proto) <= r then raise (Failure ("[err4b] cyclic prototype - to be compatible with production"))
+      if (nsp <+ proto) <= r then failure 42 (* cyclic prototype - to be compatible with production *)
       else copy s vp r
-  | _, _ -> print_string (yaml_of_store s);
-            raise (Failure ("[err4c] invalid prototype: " ^ string_of_ref proto))
+  | _, _ -> failure 43 (* invalid prototype *)
 
 and resolve_link s ns r lr = get_link s ns r lr SetRef.empty
 
 and get_link s ns r lr acc =
-  if SetRef.exists (fun r1 -> r1 = lr) acc then raise (Failure "[err20] cyclic link reference")
+  if SetRef.exists (fun r1 -> r1 = lr) acc then failure 20 (* cyclic link reference *)
   else
     match resolve s ns lr with
     | nsp, Val (LR lrp) -> get_link s (prefix (nsp <+ lr)) r lrp (SetRef.add lr acc)
-    | nsp, vp -> if (nsp <+ lr) <= r then raise (Failure "[err21] implicit cyclic link reference")
+    | nsp, vp -> if (nsp <+ lr) <= r then failure 21 (* implicit cyclic link reference *)
                  else (nsp <+ lr, vp)
 
 and replace_link root ns c nslr =
   match c.v with
   | LR lr -> (
                match resolve_link root nslr (ns +! c.id) lr with
-               | _, Undefined -> raise (Failure ("[err22] invalid link-reference: " ^ (String.concat ":" lr)))
+               | _, Undefined -> failure 22 (* invalid link-reference *)
                | nsp, Val (Store sp) ->
                    let rootp = bind root (ns +! c.id) (Store sp) in
                    accept rootp (ns +! c.id) sp nsp
@@ -203,28 +204,6 @@ and accept root ns s nslr =
   | head :: tail ->
       let root1 = replace_link root ns head nslr in
       accept root1 ns tail nslr
-
-(*
-and __replace_link root ns c =
-  match c.v with
-  | LR lr -> ( match resolve_link root ns (ns +! c.id) lr with
-               | _, Undefined -> raise (Failure ("invalid link-reference: " ^ string_of_ref lr))
-               | nsp, Val (Store sp) -> Store sp
-               | nsp, Val vp -> vp )
-  | _ -> c.v
-
-and __accept s root ns visitor =
-  match s with
-  | [] -> root
-  | head :: tail ->
-      let v = visitor root ns head in
-      let root1 = bind root (ns +! head.id) v in
-      match v with
-      | Store sp ->
-          let root2 = __accept sp root1 (ns +! head.id) visitor in
-          __accept tail root2 ns visitor
-      | _ -> __accept tail root1 ns visitor
-*)
 
 (*
  * helper functions : domain to string conversion
@@ -381,10 +360,10 @@ and accumulate_attribute s : string =
   | head :: tail ->
       if is_attribute head.id then
         match head.v with
-        | Store _ | Basic (Vec _) -> raise (Failure "[err101] XML attr may not a component or vector")
+        | Store _ | Basic (Vec _) -> failure 101 (* XML attr may not a component or vector *)
         | Basic b -> " " ^ string_of_attribute head.id b ^ accumulate_attribute tail
-        | LR lr -> raise (Failure "[102] link-reference")
-        | TBD   -> raise (Failure "[103] TBD")
+        | LR lr -> failure 102 (* link-reference *)
+        | TBD   -> failure 103 (* TBD *)
       else accumulate_attribute tail
 
 and string_of_attribute id v =

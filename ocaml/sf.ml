@@ -41,7 +41,7 @@ let rec get_token ls dummy_lexbuf =
   let token = ls.lexfunc ls.lexbuf in
   match token with
   | Sfparser.INCLUDE file -> (* parse included file *)
-      (*** below is the C-style include (the included file does not have to be legal statements) ***)
+      (*** this is the C-style include (the included file does not have to be legal statements) ***)
       (*
       ls.stack <- (ls.filename, ls.chan, ls.lexbuf) :: ls.stack;
       ls.filename <- file;
@@ -74,9 +74,10 @@ and check_error e lexstack =
   | Parsing.Parse_error ->
       let fname, lnum, lpos = current_pos lexstack in
       let errstr = Printf.sprintf
-        "\n\nFile '%s' line %d, column %d : current token is '%s'.\n\n"
+        "\n\n[err201] File '%s' line %d, column %d : current token is '%s'.\n\n"
         fname lnum lpos (lexeme lexstack) in
-      raise (Failure ("[err201] " ^ errstr))
+      prerr_string errstr;
+      exit 201
   | e -> raise e
 
 (* parse main file *)

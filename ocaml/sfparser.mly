@@ -24,11 +24,11 @@ sf:
                  let root = $1 [] [] in
                  let v = find root ref_main in
                  match v with
-                 | Val (Store main) -> (
-                     match find (accept root ref_main main ref_main) ref_main with
-                     | Val (Store main1) -> main1
-                     | _ -> raise (Failure "[err7]") )
-                 | _ -> raise (Failure "[err7]")
+                 | Val (Store main) -> ( match find (accept root ref_main main ref_main) ref_main with
+                                         | Val (Store main1) -> main1
+                                         | _ -> failure 7
+                                       )
+                 | _ -> failure 7
                }
 
 included:
@@ -40,15 +40,7 @@ body:
     |                     { fun ns s -> s }
 
 assignment:
-    | tag reference value eos
-      {
-        fun ns s -> let r = $2 in
-                    let (ns1, v1) = resolve s ns (prefix r) in
-                    if (List.length r) = 1 then $3 ns (List.append ns r) s
-                    else match v1 with
-                         | Val (Store s1) -> $3 ns (List.append ns1 r) s
-                         | _ -> raise (Failure ("[err6] prefix of " ^ (String.concat ":" r) ^ " is not a component"))
-      }
+    | tag reference value eos  { fun ns s -> $3 ns (ns ++ $2) s }
 
 value:
     | EOS                   { fun ns r s -> bind s r (Basic Null) }
