@@ -220,7 +220,7 @@ and json_of_basic v =
   | Num (Float f) -> string_of_float f
   | Str s -> "\"" ^ s ^ "\""
   | Null -> "null"
-  | Ref r -> string_of_ref r
+  | Ref r -> "\"" ^ (string_of_ref r) ^ "\""
   | Vec vec -> "[" ^ (json_of_vec vec) ^ "]"
 
 and json_of_vec vec =
