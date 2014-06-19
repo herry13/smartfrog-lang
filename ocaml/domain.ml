@@ -244,7 +244,7 @@ and yaml_of_basic v =
   | Num (Float f) -> string_of_float f
   | Str s -> s
   | Null -> "null"
-  | DataRef r -> "$." ^ String.concat ":" r
+  | DataRef r -> string_of_ref r
   | LazyRef r -> "@." ^ String.concat ":" r
   | Vec vec -> "[" ^ (yaml_of_vec vec) ^ "]"
 
@@ -311,7 +311,7 @@ and json_of_basic v =
   | Num (Float f) -> string_of_float f
   | Str s -> "\"" ^ s ^ "\""
   | Null -> "null"
-  | DataRef r -> "$." ^ String.concat ":" r
+  | DataRef r -> "\"" ^ (string_of_ref r) ^ "\""
   | LazyRef r -> "@." ^ String.concat ":" r
   | Vec vec -> "[" ^ (json_of_vec vec) ^ "]"
 
@@ -376,7 +376,7 @@ and xml_of_basic v : string =
   | Num (Float f) -> string_of_float f
   | Str s -> s
   | Null -> "</null>"
-  | DataRef r -> "$." ^ String.concat ":" r
+  | DataRef r -> string_of_ref r
   | LazyRef r -> "@." ^ String.concat ":" r
   | Vec vec -> "<vector>" ^ (xml_of_vec vec) ^ "</vector>"
 
