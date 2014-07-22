@@ -141,8 +141,8 @@ class Reference(val head: String, val _rest: Reference = Reference.empty) {
     else (this ++ r.head).trace(r.rest)
 
   /**
-   * Use 'trace' to make 'this' to have an absolute path within 'this' context.
-   * @return a reference with an absolute path within 'this' context
+   * Use 'trace' to make 'this' to have an absolute path.
+   * @return a reference with an absolute path
    */
   def simplify: Reference = empty.trace(this)
     
