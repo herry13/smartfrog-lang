@@ -14,8 +14,8 @@ and value   = Basic of basic
             | Store of store
 and _value  = Val of value
             | Undefined
-and cell    = { id : string; v : value }
-and store   = cell list;;
+and cell    = string * value
+and store   = cell list
 
 (*******************************************************************
  * helpers
@@ -74,13 +74,13 @@ let rec (<) r1 r2 : bool = ( (r1 <= r2) && not (r1 == r2) )
 
 let rec find s r : _value =
 	match (s, r) with
-	| (_, []) -> Val (Store s)
-	| ([], _) -> Undefined
-	| (head::tail, id::rs) ->
-		if head.id = id then
-			if rs = [] then Val head.v
+	| _, [] -> Val (Store s)
+	| [], _ -> Undefined
+	| (ids,vs)::tail, id::rs ->
+		if ids = id then
+			if rs = [] then Val vs
 			else
-				match head.v with
+				match vs with
 				| Store child -> find child rs
 				| _ -> Undefined
 		else find tail r
@@ -95,18 +95,18 @@ and resolve s ns r =
 
 and put s id v : store =
 	match s with
-	| [] -> { id = id; v = v } :: []
-	| head::tail ->
-		if head.id = id then
-			match head.v, v with
-			| Store dest, Store src -> { id = id; v = Store (copy dest src []) } :: tail
-			| _,_ -> { id = id; v = v } :: tail
-		else head :: put tail id v
+	| [] -> (id, v) :: []
+	| (ids,vs)::tail ->
+		if ids = id then
+			match vs, v with
+			| Store dest, Store src -> (id, Store (copy dest src [])) :: tail
+			| _,_ -> (id, v) :: tail
+		else (ids,vs) :: put tail id v
 
 and copy dest src pfx : store =
 	match src with
 	| [] -> dest
-	| head::tail -> copy (bind dest (ref_plus_id pfx head.id) head.v) tail pfx
+	| (ids,vs)::tail -> copy (bind dest (ref_plus_id pfx ids) vs) tail pfx
 
 and bind s r v : store =
 	match r with
@@ -116,12 +116,12 @@ and bind s r v : store =
 		else
 			match s with
 			| [] -> failure 2
-			| head::tail ->
-				if head.id = id then
-					match head.v with
-					| Store child -> { id = id; v = (Store (bind child rs v)) } :: tail
+			| (ids,vs)::tail ->
+				if ids = id then
+					match vs with
+					| Store child -> (id, Store (bind child rs v)) :: tail
 					| _ -> failure 1
-				else head :: bind tail r v
+				else (ids,vs) :: bind tail r v
 
 and inherit_proto s ns proto r : store =
 	match resolve s ns proto with

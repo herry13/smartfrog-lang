@@ -125,9 +125,9 @@ let rec yaml_of_store s = yaml_of_store1 s ""
 and yaml_of_store1 s tab =
 	match s with
 	| [] -> "{}"
-	| head :: tail ->
-		let h = tab ^ head.id ^ ": " in
-		match head.v with
+	| (ids,vs) :: tail ->
+		let h = tab ^ ids ^ ": " in
+		match vs with
 		| Basic basic ->
 			let v = h ^ yaml_of_basic basic in
 			if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
@@ -160,9 +160,9 @@ and sf_of_store s = sf_of_store1 s ""
 and sf_of_store1 s tab =
 	match s with
 	| [] -> ""
-	| head :: tail ->
-		let h = tab ^ head.id ^ " " in
-		match head.v with
+	| (ids,vs) :: tail ->
+		let h = tab ^ ids ^ " " in
+		match vs with
 		| Basic basic ->
 			let v = h ^ (sf_of_basic basic) ^ ";" in
 			if tail = [] then v else v ^ "\n" ^ sf_of_store1 tail tab
@@ -198,9 +198,9 @@ and json_of_store s = "{" ^ (json_of_store1 s) ^ "}"
 and json_of_store1 s =
 	match s with
 	| [] -> ""
-	| head :: tail ->
-		let h = "\"" ^ head.id ^ "\":" in
-		match head.v with
+	| (ids,vs) :: tail ->
+		let h = "\"" ^ ids ^ "\":" in
+		match vs with
 		| Basic basic ->
 			let v = h ^ json_of_basic basic in
 			if tail = [] then v else v ^ "," ^ json_of_store1 tail
@@ -236,15 +236,15 @@ and xml_of_store s : string = xml_of_store1 s
 and xml_of_store1 s : string =
 	match s with
 	| [] -> ""
-	| head :: tail ->
-		if (String.get head.id 0) = '_' then xml_of_store1 tail
+	| (ids,vs) :: tail ->
+		if (String.get ids 0) = '_' then xml_of_store1 tail
 		else
-			match head.v with
+			match vs with
 			| Basic basic ->
-				let h = "<" ^ head.id ^ ">" ^ (xml_of_basic basic) ^ "</" ^ head.id ^ ">" in
+				let h = "<" ^ ids ^ ">" ^ (xml_of_basic basic) ^ "</" ^ ids ^ ">" in
 				if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
 			| Store child ->
-				let h = "<" ^ head.id ^ (attribute_of_store child) ^ ">" ^ (xml_of_store1 child) ^ "</" ^ head.id ^ ">" in
+				let h = "<" ^ ids ^ (attribute_of_store child) ^ ">" ^ (xml_of_store1 child) ^ "</" ^ ids ^ ">" in
 				if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
 
 and attribute_of_store s : string =
@@ -256,11 +256,11 @@ and is_attribute id = ((String.get id 0) = ' ')
 and accumulate_attribute s : string =
 	match s with
 	| [] -> ""
-	| head :: tail ->
-		if is_attribute head.id then
-			match head.v with
+	| (ids,vs) :: tail ->
+		if is_attribute ids then
+			match vs with
 			| Store _ | Basic (Vec _) -> raise (Failure "XML attr may not a component or vector")
-			| Basic b -> " " ^ string_of_attribute head.id b ^ accumulate_attribute tail
+			| Basic b -> " " ^ string_of_attribute ids b ^ accumulate_attribute tail
 		else accumulate_attribute tail
 
 and string_of_attribute id v =
