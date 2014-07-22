@@ -1,21 +1,27 @@
-(*
-  sfhelper.ml - helper functions
-  author: Herry (herry13@gmail.com)
+(***
+ * sfhelper.ml - helper functions
+ * author: Herry (herry13@gmail.com)
+ *
+ * changelog:
+ * 22.07.2014 - first released
+ ***)
 
-  changelog:
-  22.07.2014 - first released
-*)
+open Sfdomain
+
+(*******************************************************************
+ * lexer helper type and functions
+ *******************************************************************)
 
 (***
  * The Lexstack type.
  ***)
 type 'a t =
 	{
-		mutable stack : (string * in_channel * Lexing.lexbuf) list;
+		mutable stack    : (string * in_channel * Lexing.lexbuf) list;
 		mutable filename : string;
-		mutable chan : in_channel;
-		mutable lexbuf : Lexing.lexbuf;
-		lexfunc : Lexing.lexbuf -> 'a;
+		mutable chan     : in_channel;
+		mutable lexbuf   : Lexing.lexbuf;
+		lexfunc          : Lexing.lexbuf -> 'a;
 	}
 
 (***
@@ -96,7 +102,182 @@ and check_error e lexstack =
 	| Parsing.Parse_error ->
 		let fname, lnum, lpos = current_pos lexstack in
 		let errstr = Printf.sprintf
-			"\n\nFile '%s' line %d, column %d : current token is '%s'.\n\n"
+			"\n\nFile '%s' line %d, column %d\ncurrent token is '%s'.\n\n"
 			fname lnum lpos (lexeme lexstack) in
 		raise (Failure errstr)
 	| e -> raise e
+	
+
+(*******************************************************************
+ * helper functions to convert semantics domain to YAML, JSON, plain SF, or XML
+ *******************************************************************)
+
+(***
+ * convert reference (list of string) to string
+ ***)	
+let string_of_ref r = "$." ^ String.concat ":" r
+
+(***
+ * convert a store to YAML
+ ***)
+let rec yaml_of_store s = yaml_of_store1 s ""
+
+and yaml_of_store1 s tab =
+	match s with
+	| [] -> "{}"
+	| head :: tail ->
+		let h = tab ^ head.id ^ ": " in
+		match head.v with
+		| Basic basic ->
+			let v = h ^ yaml_of_basic basic in
+			if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
+		| Store child ->
+			let v = h ^ (if child = [] then "" else "\n") ^ yaml_of_store1 child (tab ^ "  ") in
+			if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
+
+and yaml_of_vec vec =
+	match vec with
+	| [] -> ""
+	| head :: tail ->
+		let v = yaml_of_basic head in
+		if tail = [] then v else v ^ "," ^ (yaml_of_vec tail)
+
+and yaml_of_basic v =
+	match v with
+	| Bool b -> string_of_bool b
+	| Num (Int i) -> string_of_int i
+	| Num (Float f) -> string_of_float f
+	| Str s -> s
+	| Null -> "null"
+	| Ref r -> string_of_ref r
+	| Vec vec -> "[" ^ (yaml_of_vec vec) ^ "]"
+
+(***
+ * convert a store to a plain SF
+ ***)
+and sf_of_store s = sf_of_store1 s ""
+
+and sf_of_store1 s tab =
+	match s with
+	| [] -> ""
+	| head :: tail ->
+		let h = tab ^ head.id ^ " " in
+		match head.v with
+		| Basic basic ->
+			let v = h ^ (sf_of_basic basic) ^ ";" in
+			if tail = [] then v else v ^ "\n" ^ sf_of_store1 tail tab
+		| Store child ->
+			let v =
+				h ^ "extends  " ^
+				(if child = [] then "{}" else "{\n" ^ (sf_of_store1 child (tab ^ "  ")) ^ "\n" ^ tab ^ "}") in
+			if tail = [] then v else v ^ "\n" ^ sf_of_store1 tail tab
+
+and sf_of_vec vec =
+	match vec with
+	| [] -> ""
+	| head :: tail ->
+		let v =
+			sf_of_basic head in
+			if tail = [] then v else v ^ ", " ^ (sf_of_vec tail)
+
+and sf_of_basic v =
+	match v with
+	| Bool b -> string_of_bool b
+	| Num (Int i) -> string_of_int i
+	| Num (Float f) -> string_of_float f
+	| Str s -> s
+	| Null -> "null"
+	| Ref r -> "DATA " ^ String.concat ":" r
+	| Vec vec -> "[|" ^ (sf_of_vec vec) ^ "|]"
+
+(***
+ * convert a store to JSON
+ ***)
+and json_of_store s = "{" ^ (json_of_store1 s) ^ "}"
+
+and json_of_store1 s =
+	match s with
+	| [] -> ""
+	| head :: tail ->
+		let h = "\"" ^ head.id ^ "\":" in
+		match head.v with
+		| Basic basic ->
+			let v = h ^ json_of_basic basic in
+			if tail = [] then v else v ^ "," ^ json_of_store1 tail
+		| Store child ->
+			let v = h ^ "{" ^ (json_of_store1 child) ^ "}" in
+			if tail = [] then v else v ^ "," ^ json_of_store1 tail
+
+and json_of_basic v =
+	match v with
+	| Bool b -> string_of_bool b
+	| Num (Int i) -> string_of_int i
+	| Num (Float f) -> string_of_float f
+	| Str s -> "\"" ^ s ^ "\""
+	| Null -> "null"
+	| Ref r -> "\"" ^ (string_of_ref r) ^ "\""
+	| Vec vec -> "[" ^ (json_of_vec vec) ^ "]"
+
+and json_of_vec vec =
+	match vec with
+	| [] -> ""
+	| head :: tail ->
+		let h = json_of_basic head in
+		if tail = [] then h else h ^ "," ^ (json_of_vec tail)
+
+(***
+ * convert a store to XML
+ * generate XML of given store
+ * - attribute started with '_' is treated as parent's XML attribute
+ * - attribute started without '_' is treated as element
+ ***)
+and xml_of_store s : string = xml_of_store1 s
+
+and xml_of_store1 s : string =
+	match s with
+	| [] -> ""
+	| head :: tail ->
+		if (String.get head.id 0) = '_' then xml_of_store1 tail
+		else
+			match head.v with
+			| Basic basic ->
+				let h = "<" ^ head.id ^ ">" ^ (xml_of_basic basic) ^ "</" ^ head.id ^ ">" in
+				if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
+			| Store child ->
+				let h = "<" ^ head.id ^ (attribute_of_store child) ^ ">" ^ (xml_of_store1 child) ^ "</" ^ head.id ^ ">" in
+				if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
+
+and attribute_of_store s : string =
+	let attr = String.trim (accumulate_attribute s) in
+	if (String.length attr) > 0 then " " ^ attr else attr
+
+and is_attribute id = ((String.get id 0) = ' ')
+
+and accumulate_attribute s : string =
+	match s with
+	| [] -> ""
+	| head :: tail ->
+		if is_attribute head.id then
+			match head.v with
+			| Store _ | Basic (Vec _) -> raise (Failure "XML attr may not a component or vector")
+			| Basic b -> " " ^ string_of_attribute head.id b ^ accumulate_attribute tail
+		else accumulate_attribute tail
+
+and string_of_attribute id v =
+	(String.sub id 1 ((String.length id) - 1)) ^ "=\"" ^ xml_of_basic v ^ "\""
+
+and xml_of_basic v : string =
+	match v with
+	| Bool b -> string_of_bool b
+	| Num (Int i) -> string_of_int i
+	| Num (Float f) -> string_of_float f
+	| Str s -> s
+	| Null -> "</null>"
+	| Ref r -> string_of_ref r
+	| Vec vec -> "<vector>" ^ (xml_of_vec vec) ^ "</vector>"
+
+and xml_of_vec vec : string =
+	match vec with
+	| [] -> ""
+	| head :: tail -> "<item>" ^ (xml_of_basic head) ^ "</item>" ^ xml_of_vec tail;;
+

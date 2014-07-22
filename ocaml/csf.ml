@@ -42,10 +42,10 @@ let parse_file file =
 *)
 let parse_option_file opt file =
 	let result = parse_file file in
-	if opt = "-yaml" then print_string (Domain.yaml_of_store result)
-	else if opt = "-xml" then print_string (Domain.xml_of_store result)
-	else if opt = "-sf" then print_string (Domain.sf_of_store result)
-	else print_string (Domain.json_of_store result);
+	if opt = "-yaml" then print_string (Sfhelper.yaml_of_store result)
+	else if opt = "-xml" then print_string (Sfhelper.xml_of_store result)
+	else if opt = "-sf" then print_string (Sfhelper.sf_of_store result)
+	else print_string (Sfhelper.json_of_store result);
 	print_newline()
 
 (* main function *)
