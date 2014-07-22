@@ -30,21 +30,26 @@ compareWithScala :: Opts -> Compile -> String -> IO (Bool)
 compareWithScala opts compile srcPath = do
 
 	haskellResult <- compile (opts { format=CompactJSON } ) srcPath
-	scalaResult <- runSfParser opts srcPath
+	otherResult <- runSfParser opts srcPath
 
-	if (matchSfParser haskellResult scalaResult)
+	let (s1,s2) = (s haskellResult, s otherResult)
+		where s r = case r of
+			(Left e) -> errorCode e
+			(Right _) -> "ok"
+			
+	let status = " (" ++ s1 ++ "/" ++ s2 ++ ")"
+
+	if (matchSfParser haskellResult otherResult)
 		then do
-			let status = case scalaResult of
-				(Left e) -> "\n" ++ (errorString e)
-				(Right _) -> ""
 			if (verbosity opts >= Verbose)
 				then putStrLn ( ">> match ok: " ++ (takeBaseName srcPath) ++ status )
 				else return ()
 			return True
 		else do
-			putStrLn ( "** match failed: " ++ indentMsg ((takeBaseName srcPath) ++ "\n"	
-				++ "Haskell: " ++ (outputOrError haskellResult) ++ "\n"
-				++ "Scala:   " ++ (outputOrError scalaResult) ))
+			putStrLn ( "** match failed: " ++ indentMsg ((takeBaseName srcPath) 
+				++ status ++ "\n"	
+				++ "Haskell: " ++ (indentMsgBy (tabString 9) (outputOrError haskellResult)) ++ "\n"
+				++ "Scala:   " ++ (indentMsgBy (tabString 9) (outputOrError otherResult)) ))
 			return False
 
 {------------------------------------------------------------------------------
@@ -57,7 +62,7 @@ compareWithScala opts compile srcPath = do
 
 runSfParser :: Opts -> String -> IO (Either S_Error String)
 runSfParser opts srcPath = do
-	let dstPath = jsonPath srcPath opts ("-s")
+	let dstPath = jsonPath srcPath opts ("-scala")
 	execPath <- getExecutablePath
 	parserPath <- getSfParserPath opts
 	let scriptPath = (takeDirectory execPath) </> "runSF.sh"
@@ -85,7 +90,6 @@ data S_Error
 	| S_ERR3 String
 	| S_ERR4 String
 	| S_ERR5 String
-	| S_ERR6 String
 	| S_ERR7 String
 
 stringToErrorOrResult :: String -> (Either S_Error String)
@@ -95,7 +99,6 @@ stringToErrorOrResult s
 		| isError s "^\\[err3\\]" = Left (S_ERR3 s)
 		| isError s "^\\[err4\\]" = Left (S_ERR4 s)
 		| isError s "^\\[err5\\]" = Left (S_ERR5 s)
-		| isError s "^\\[err6\\]" = Left (S_ERR6 s)
 		| isError s "^\\[err7\\]" = Left (S_ERR7 s)
 		| isError s "^Exception in thread \"main\" java.lang.StackOverflowError" = Left (S_EPARSEFAIL s)
 		| isError s "\\(Is a directory\\)$" = Left (S_EPARSEFAIL s)
@@ -109,22 +112,12 @@ stringToErrorOrResult s
 -- match with hsf error codes
 
 matchSfParser :: (Either Error String) -> (Either S_Error String) -> Bool
-matchSfParser (Right _) (Right _) = True
-matchSfParser (Left (ESYSFAIL _)) (Left (S_ESYSFAIL _)) = True
-matchSfParser (Left (EPARSEFAIL _)) (Left (S_EPARSEFAIL _)) = True
-matchSfParser (Left (EPARENTNOTSTORE _)) (Left (S_ERR1 _)) = True
-matchSfParser (Left (ENOPARENT _)) (Left (S_ERR2 _)) = True
-matchSfParser (Left EREPLACEROOTSTORE) (Left (S_ERR3 _)) = True
-matchSfParser (Left (ENOPROTO _)) (Left (S_ERR4 _)) = True
-matchSfParser (Left (EPROTONOTSTORE _)) (Left (S_ERR4 _)) = True
-matchSfParser (Left (ENOLR _)) (Left (S_ERR5 _)) = True
-matchSfParser (Left (EASSIGN _)) (Left (S_ERR6 _)) = True
-matchSfParser (Left (EREFNOTOBJ _)) (Left (S_ERR6 _)) = True
-matchSfParser (Left ENOSPEC) (Left (S_ERR7 _)) = True
-matchSfParser (Left (ESPEC _)) (Left (S_ERR7 _)) = True
+matchSfParser (Right h) (Right s) = h==s
+matchSfParser (Left e) (Left s) = (errorCode e) == (errorCode s)
 matchSfParser _ _ = False
 
 instance ErrorMessage S_Error where
+
 	errorString (S_ESYSFAIL s) = s
 	errorString (S_EPARSEFAIL s) = s
 	errorString (S_ERR1 s) = s
@@ -132,20 +125,27 @@ instance ErrorMessage S_Error where
 	errorString (S_ERR3 s) = s
 	errorString (S_ERR4 s) = s
 	errorString (S_ERR5 s) = s
-	errorString (S_ERR6 s) = s
 	errorString (S_ERR7 s) = s
+
+	errorCode (S_ESYSFAIL s) = "sys fail"
+	errorCode (S_EPARSEFAIL s) = "parse fail"
+	errorCode (S_ERR1 s) = "err1"
+	errorCode (S_ERR2 s) = "err2"
+	errorCode (S_ERR3 s) = "err3"
+	errorCode (S_ERR4 s) = "err4"
+	errorCode (S_ERR5 s) = "err5"
+	errorCode (S_ERR7 s) = "err7"
 
 {------------------------------------------------------------------------------
     get the path to the sfParser compiler
 ------------------------------------------------------------------------------}
 
--- try the command line arguments (-s PATHNAME) first
--- then try the environment (SFPARSER)
+-- try the environment (SFPARSER)
 -- otherwise return the default (sfparser)
 
 getSfParserPath :: Opts -> IO (String)
 getSfParserPath opts = do
-	sfParserEnv <- lookupEnv "SFPARSER"
+	sfParserEnv <- lookupEnv "SF_SCALA_COMPILER"
 	case (sfParserEnv) of
 		Just s -> return s
-		Nothing -> return "sfparser"
+		Nothing -> return "sfParser"

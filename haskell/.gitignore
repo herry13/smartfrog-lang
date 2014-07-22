@@ -1,5 +1,4 @@
-Build/*.o
-Build/*.hi
-Build/hsf
-Build/*.hs
-Build/*.sh
+.DS_Store
+/Scratch/
+/Build76/
+/Build78/
