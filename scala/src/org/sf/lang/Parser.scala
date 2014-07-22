@@ -3,6 +3,9 @@ package org.sf.lang
 import scala.util.parsing.combinator.JavaTokenParsers
 import scala.io.Source
 
+/**
+ * The main object of sfParser application.
+ */
 object Parser extends Parser with App {
   val help = """Usage: scala org.sf.lang.Parser [option] <sf-file>
 
@@ -34,6 +37,13 @@ where [option] is:
     (args.length >= 2 && args.head.equals("-sf"))
 }
 
+/**
+ * A class that parses an SF codes. It implements the semantics valuation functions.
+ * 
+ * Errors:
+ * - [err5] : the link reference is invalid
+ * - [err7] : main component (sfConfig) is not exist
+ */
 class Parser extends JavaTokenParsers {
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
   protected val sfConfig = new Reference("sfConfig")
@@ -42,7 +52,7 @@ class Parser extends JavaTokenParsers {
     Body ^^ { b => {
         val v = b(org.sf.lang.Reference.empty, Store.empty).find(sfConfig)
         if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
-        else throw new SemanticsException("[err7] sfConfig is not exist or a component")
+        else throw new SemanticsException("[err7] sfConfig is not exist or a component", 7)
       }
     }
 
@@ -86,7 +96,7 @@ class Parser extends JavaTokenParsers {
     | LinkReference <~ ";"  ^^ (lr =>
         (ns: Reference, r: Reference, s: Store) => {
           val l = s.resolve(ns, lr)
-          if (l._2 == Store.undefined) throw new SemanticsException("[err5] cannot find link reference " + lr)
+          if (l._2 == Store.undefined) throw new SemanticsException("[err5] invalid link reference " + lr, 5)
           else s.bind(r, l._2)
         }
       )
@@ -141,14 +151,14 @@ class Parser extends JavaTokenParsers {
   def parse(s: String): Store = {
     parseAll(Sf, s) match {
       case Success(root, _) => root
-      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos)
+      case NoSuccess(msg, next) => throw new SemanticsException("[err0] invalid statement at " + next.pos, 0)
     }
   }
     
   def parseIncludeFile(filePath: String, ns: Reference, s: Store): Store = {
     parseAll(Body, Source.fromFile(filePath).mkString) match {
       case Success(body, _) => body(ns, s)
-      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos)
+      case NoSuccess(msg, next) => throw new SemanticsException("[err0] invalid statement at " + next.pos, 0)
     }
   }
     

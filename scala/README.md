@@ -71,6 +71,7 @@ To build an independent JAR file:
 	$ cd sbt
 	$ sbt assembly
 
+This generates a JAR file `sbt/target/scala-2.10/sfParser-assembly-release.jar`. All required libraries wil be included in that JAR file so that we can execute the JAR with any JVM (no scala library needed).
 
 ## Output
 
