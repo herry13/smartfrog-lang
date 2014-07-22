@@ -72,6 +72,16 @@ let rec (<=) r1 r2 : bool = if (ref_minus_ref r1 r2) = [] then true else false;;
 
 let rec (<) r1 r2 : bool = ( (r1 <= r2) && not (r1 == r2) )
 
+let rec trace base r =
+	match r with
+	| [] -> base
+	| "THIS" :: rs -> trace base rs
+	| "ROOT" :: rs -> trace [] rs
+	| "PARENT" :: rs -> if base = [] then failure 102 else trace (prefix base) rs
+	| id :: rs -> trace (ref_plus_id base id) rs
+
+let simplify r = trace [] r
+
 let rec find s r : _value =
 	match (s, r) with
 	| _, [] -> Val (Store s)
@@ -86,12 +96,17 @@ let rec find s r : _value =
 		else find tail r
 
 and resolve s ns r =
-	if ns = [] then ([], find s r)
-	else
-		let v = find s (List.append ns r) in
-		match v with
-		| Undefined -> resolve s (prefix ns) r
-		| _ -> (ns, v)
+	match r with
+	| "ROOT" :: rs -> ([], find s (simplify rs))
+	| "PARENT" :: rs -> if ns = [] then failure 101 else (prefix ns, find s (simplify (ref_plus_ref (prefix ns) rs)))
+	| "THIS" :: rs -> (ns, find s (simplify (ref_plus_ref ns rs)))
+	| _ ->
+		if ns = [] then ([], find s (simplify r))
+		else
+			let v = find s (simplify (ref_plus_ref ns r)) in
+			match v with
+			| Undefined -> resolve s (prefix ns) r
+			| _ -> (ns, v)
 
 and put s id v : store =
 	match s with

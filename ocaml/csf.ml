@@ -6,7 +6,7 @@
 
   options:
   -sf     print output in plain SF
-  -json   print output in JSON
+  -json   print output in JSON (default)
   -yaml   print output in YAML
   -xml    print output in XML
 
@@ -20,7 +20,7 @@ open Array
 let help = "usage: csf [option] <sf-file>" ^
            "\n\nwhere [option] is:" ^
 		   "\n  -sf     print output in plain SF" ^
-		   "\n  -json   print output in JSON" ^
+		   "\n  -json   print output in JSON (default)" ^
 		   "\n  -yaml   print output in YAML" ^
 		   "\n  -xml    print output in XML\n\n"
 
