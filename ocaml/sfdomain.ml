@@ -167,8 +167,14 @@ and bind s r v : store =
 
 and inherit_proto s ns proto r : store =
 	match resolve s ns proto with
-	| nsp, Val (Store vp) -> copy s vp r
-	| _, _ -> failure 4
+	| _, Val (Store vp) -> copy s vp r
+	| _, Val (Basic (Link rq)) ->
+		(
+			match resolve_link s ns r (Link rq) with
+			| _, Val (Store vq) -> copy s vq r
+			| _, _ -> failure 7
+		)
+	| _, _ -> failure 6
 
 and replace_link s ns cell nss =
 	match cell with
