@@ -1,0 +1,17 @@
+X extends {
+	Y 10;
+}
+sfConfig extends {
+	a extends {
+		y 20;
+	}
+	A extends {
+		B 11;
+		/*sfConfig:A extends {
+			C 22;
+		}*/
+		/* sfConfig:A 22; */
+		a:y 11;
+		D 33;
+	}
+}

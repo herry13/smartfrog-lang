@@ -1,8 +1,7 @@
 ## Haskell SmartFrog Compiler (hsf)
 
-hsf is compiler which implements the formal semantics of the core [SmartFrog](http://smartfrog.org) configuration language. hsf is a Haskell implementation which is intended to be compatible with the [Scala implementation](https://github.com/herry13/smartfrog-lang/blob/master/README.md) sfparser. The output can be compared with the output of sfparser to validate the semantics and the implementations.
-
-The current version does not support #include or ``placement''.
+hsf is compiler which implements the formal semantics of the core [SmartFrog](http://smartfrog.org) configuration language. hsf is a Haskell implementation which is intended to be compatible with the [Scala implementation](https://github.com/herry13/smartfrog-lang/blob/master/README.md) sfParser.
+The output can be automatically compared with the output of various other compilers to validate the semantics and the implementations.
 
 ### Compiling SmartFrog files
 
@@ -13,18 +12,34 @@ A list of SmartFrog source files can be  compiled into corresponding JSON output
 The output files can be generated in a different directory (relative to the source files):
 
 	hsf -o ../output-dir file1.sf file2.sf ...
+	
+The output format can be set with "-f json" or "-f compact" or "-f hpsf"
+The output logging can be increased with "-v" (verbose) or "-d" (debug)
 
 ### Comparing output
 
-The -c option compiles each source file using the Scala SF compiler sfparser, and compares the result with the hsf output. The output files are named *-1.json (for the hsf version) and *-2.json (for the sfparser version). Differences are displayed on the stdout.
+The "-c COMPILER" option compiles each source file using the external COMPILER, and compares the result with the hsf output. Differences are displayed on the stdout. Valid compilers are "scala", "ocaml" and "hp". Eg.
 
-	hsf -c file1.sf file2.sf ...
+	hsf -c scala file1.sf file2.sf ...
 
-In this mode, any error messages are placed in the output file allowing them to be compared with the corresponding messages from sfParser. The compiler also generates slightly different error messages and JSON formatting which are compatible with sfParser. 
+In this mode, any error messages are placed in the output file allowing them to be compared with the corresponding messages from the external compiler.
 
-The script runSfParser.sh is used to run sfparser and must be in the same directory as the hsf binary. If sfparser is not in the path, the location can be specified with the SFPARSER environment variable, or with the -s option:
+The script runSF.sh is used to run the external compilers and must be in the same directory as the hsf binary.
+If the external compilers are not in the path, the locations can be specified with the environment variables SF_SCALA_COMPILER, SF_OCAML_COMPILER, or SF_HP_COMPILER.
 
-	hsf -s path-to-sfparser -c file1.sf file2.sf ...
+### Quickcheck
+
+The "-t" option generates random valid SF source files and checks that they compile.
+
+	hsf -t
+
+The "-q COMPILER" option generates random valid SF source files and compares the output with another compiler:
+
+	hsf -q scala
+
+### The Makefile
+
+As well as building hsf, the makefile supports some targets for doing quickcheck and comparisons using the supplied test files. This is configurable in the Makefile - read the first section of the Makefile, and create an "options.mk" file to override any variables you want to change.
 
 ### Building hsf
 
@@ -34,19 +49,13 @@ hsf requires some additional Haskell modules to build. These can be installed wi
 	cabal install MissingH
 	cabal install Safe
 
-There are multiple Build directories for the different versions of Haskell (eg. 7.6 and 7.8).
-The default Makefile build target currently uses version 7.6.
+The Bin directory may contain binaries for different platforms & different versions of Haskell.
 
-The files in the Build directories have the "platform" appended to the names to support builds
-on multiple platforms. Eg. "hsf-Linux-x86_64.hs". The file "hsf" is linked to the binary for the
-current platform.
+### Remote builds
 
-The default target builds on the current platform. The "remote" target can do a build on a remote
-machine (and retrieve the result). 
+The default Makefile target builds on the current platform. The "remote" target can do a build on
+a remote machine (and retrieve the result). Platform-specific Build directories are created for
+the compile.
 
 Paul Anderson
 <dcspaul@ed.ac.uk>
-
-
-
-

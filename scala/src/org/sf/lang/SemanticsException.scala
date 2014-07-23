@@ -1,5 +1,8 @@
 package org.sf.lang
 
-class SemanticsException(val msg: String) extends Exception {
+/**
+ * A class represents an exception on the semantics operations.
+ */
+class SemanticsException(val msg: String, val code: Integer) extends Exception {
   override def toString = msg
 }

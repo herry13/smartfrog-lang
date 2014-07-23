@@ -1,0 +1,5 @@
+/*****
+ ** test */
+sfConfig extends {
+	a extends {
+}

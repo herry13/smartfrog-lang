@@ -3,13 +3,15 @@ package org.sf.lang
 import scala.util.parsing.combinator.JavaTokenParsers
 import scala.io.Source
 
+/**
+ * The main object of sfParser application.
+ */
 object Parser extends Parser with App {
   val help = """Usage: scala org.sf.lang.Parser [option] <sf-file>
 
 where [option] is:
   -json     print output in JSON
   -yaml     print output in YAML
-  -sf       print output in plain SF
 """
     
   if (args.length <= 0) Console.println(help)
@@ -35,19 +37,22 @@ where [option] is:
     (args.length >= 2 && args.head.equals("-sf"))
 }
 
+/**
+ * A class that parses an SF codes. It implements the semantics valuation functions.
+ * 
+ * Errors:
+ * - [err5] : the link reference is invalid
+ * - [err7] : main component (sfConfig) is not exist
+ */
 class Parser extends JavaTokenParsers {
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
   protected val sfConfig = new Reference("sfConfig")
 
   def Sf: Parser[Store] =
     Body ^^ { b => {
-        val root = b(org.sf.lang.Reference.empty, Store.empty)
-        val main = root.find(sfConfig)
-        if (main.isInstanceOf[Store]) {
-          main.asInstanceOf[Store].accept(root, sfConfig, Store.replaceLink).find(sfConfig).asInstanceOf[Store]
-        }
-        else
-          throw new SemanticsException("[err7] sfConfig is not exist or not a component")
+        val v = b(org.sf.lang.Reference.empty, Store.empty).find(sfConfig)
+        if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
+        else throw new SemanticsException("[err7] sfConfig is not exist or a component", 7)
       }
     }
 
@@ -63,13 +68,7 @@ class Parser extends JavaTokenParsers {
     
   def Assignment: Parser[(Reference, Store) => Store] =
     Reference ~ Value ^^ { case r ~ v =>
-      (ns: Reference, s: Store) =>
-        if (r.length == 1) v(ns, ns ++ r, s)
-        else {
-          val l = s.resolve(ns, r.prefix)
-          if (l._2.isInstanceOf[Store]) v(ns, l._1 ++ r, s)
-          else throw new SemanticsException("[err6] prefix of " + r + " is not a component")
-        }
+      (ns: Reference, s: Store) => v(ns, ns ++ r, s)
     }
 
   def Prototypes: Parser[(Reference, Reference, Store) => Store] =
@@ -95,7 +94,11 @@ class Parser extends JavaTokenParsers {
         (ns: Reference, r: Reference, s: Store) => s.bind(r, sv)
       )
     | LinkReference <~ ";"  ^^ (lr =>
-        (ns: Reference, r: Reference, s: Store) => s.bind(r, lr)
+        (ns: Reference, r: Reference, s: Store) => {
+          val l = s.resolve(ns, lr)
+          if (l._2 == Store.undefined) throw new SemanticsException("[err5] invalid link reference " + lr, 5)
+          else s.bind(r, l._2)
+        }
       )
     | "extends" ~> Prototypes ^^ (p =>
         (ns: Reference, r: Reference, s: Store) => p(ns, r, s.bind(r, Store.empty))
@@ -110,8 +113,8 @@ class Parser extends JavaTokenParsers {
   def DataReference: Parser[Reference] =
     "DATA" ~> Reference
 
-  def LinkReference: Parser[LinkReference] =
-    Reference ^^ { case r => new LinkReference(r) }
+  def LinkReference: Parser[Reference] =
+    Reference
     
   def BasicValue: Parser[Any] =
     ( Boolean
@@ -148,14 +151,14 @@ class Parser extends JavaTokenParsers {
   def parse(s: String): Store = {
     parseAll(Sf, s) match {
       case Success(root, _) => root
-      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos)
+      case NoSuccess(msg, next) => throw new SemanticsException("[err0] invalid statement at " + next.pos, 0)
     }
   }
     
   def parseIncludeFile(filePath: String, ns: Reference, s: Store): Store = {
     parseAll(Body, Source.fromFile(filePath).mkString) match {
       case Success(body, _) => body(ns, s)
-      case NoSuccess(msg, next) => throw new SemanticsException("invalid statement at " + next.pos)
+      case NoSuccess(msg, next) => throw new SemanticsException("[err0] invalid statement at " + next.pos, 0)
     }
   }
     

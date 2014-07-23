@@ -1,0 +1,10 @@
+// this used to be ok, but is now an error (according to the fixed semantics)
+
+A extends { B extends { x 99; } }
+
+P extends { y 6; }
+
+sfConfig extends {
+	Q extends P	
+	P:z A:B:x;
+}

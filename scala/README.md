@@ -52,6 +52,10 @@ But the data-reference will be converted to string preceeded with
 characters: `$.`. For example, data-reference `x:y:z` in JSON and
 YAML is `$.x:y:z`.
 
+To generate plain SmartFrog (without prototypes or link-reference)
+
+	$ ./sfParser -sf test.sf
+
 
 ## Independent JAR file
 
@@ -65,6 +69,7 @@ To build an independent JAR file:
 	$ cd sbt
 	$ sbt assembly
 
+This generates a JAR file `sbt/target/scala-2.10/sfParser-assembly-release.jar`. All required libraries wil be included in that JAR file so that we can execute the JAR with any JVM (no scala library needed).
 
 ## Output
 

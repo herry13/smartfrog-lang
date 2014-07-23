@@ -1,0 +1,15 @@
+sfConfig extends {}, {
+  u extends sfConfig:u, {
+    q extends {}
+    q sfConfig:u;
+  }, {
+    i true;
+    z sfConfig:u:q:q;
+  }, {
+    a 1234;
+  }
+  l sfConfig:u:q:q;
+}
+u "string";
+r 1234;
+y sfConfig:u;

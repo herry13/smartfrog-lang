@@ -24,7 +24,7 @@ Not yet supported:
 
 Requirement:
 
-- OCaml (tested on version >= 4.0.1)
+- OCaml >= 4.0.1
 
 Compile:
 
@@ -35,8 +35,8 @@ This command will create the compiler executable file `csf`.
 
 ## Binaries
 
-- MacOS X : [dist/darwin/csf](dist/darwin/csf)
-- Linux : [dist/linux/csf](dist/linux/csf)
+- [MacOS X](https://raw.githubusercontent.com/herry13/smartfrog-lang/master/ocaml/dist/darwin/csf)
+- [Linux](https://raw.githubusercontent.com/herry13/smartfrog-lang/master/ocaml/dist/linux/csf)
 
 
 ## Usage
@@ -52,6 +52,10 @@ This command will create the compiler executable file `csf`.
 - XML output
 
 		$ ./csf -xml <sf-file>
+
+- Plain SF output
+
+		$ ./csf -sf <sf-file>
 
 
 ## License

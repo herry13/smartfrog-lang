@@ -4,7 +4,7 @@ seq(assemblySettings: _*)
 
 name := "sfParser"
 
-version := "0.3"
+version := "release"
 
 scalaVersion := "2.10.3"
 
