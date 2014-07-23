@@ -8,8 +8,9 @@ and basic   = Bool of bool
             | Num of number
             | Str of string
             | Null
-            | Ref of string list
             | Vec of vector
+            | Ref of string list
+			| Link of string list
 and value   = Basic of basic
             | Store of store
 and _value  = Val of value
@@ -31,6 +32,15 @@ let ref_of_main = ["sfConfig"]
 let failure code =
 	prerr_string ("[err" ^ string_of_int(code) ^ "]\n");
 	exit code
+
+(* Module set of reference *)
+module SetRef = Set.Make
+	(
+		struct
+			let compare = Pervasives.compare
+			type t = string list
+		end
+	)
 
 (*******************************************************************
  * semantics algebras
@@ -108,6 +118,23 @@ and resolve s ns r =
 			| Undefined -> resolve s (prefix ns) r
 			| _ -> (ns, v)
 
+and resolve_link s ns r lr =
+	match lr with
+	| Link rl -> get_link s ns r rl SetRef.empty
+	| _ -> failure 104
+
+and get_link s ns r rl acc =
+	if SetRef.exists (fun rx -> rx = rl) acc then failure 105
+	else 
+		match (resolve s ns rl) with
+		| nsp, vp ->
+			(
+				let nsq = ref_plus_ref nsp rl in
+				match vp with
+				| Val (Basic (Link rm)) -> get_link s (prefix nsq) r rm (SetRef.add rl acc)
+				| _ -> if nsq <= r then failure 106 else (nsq, vp)
+			)
+
 and put s id v : store =
 	match s with
 	| [] -> (id, v) :: []
@@ -142,3 +169,32 @@ and inherit_proto s ns proto r : store =
 	match resolve s ns proto with
 	| nsp, Val (Store vp) -> copy s vp r
 	| _, _ -> failure 4
+
+and replace_link s ns cell nss =
+	match cell with
+	| id, v ->
+		(
+			let rp = ref_plus_id ns id in
+			match v with
+			| Basic (Link rl) ->
+				(
+					match resolve_link s nss rp (Link rl) with
+					| _, Undefined -> failure 110
+					| nsp, Val vp ->
+						(
+							let sp = bind s rp vp in
+							match vp with
+							| Store ssp -> accept sp rp ssp nsp
+							| _ -> sp
+						)
+				)
+			| Store vp -> accept s rp vp rp
+			| _ -> s
+		)
+		
+and accept s ns ss nss =
+	match ss with
+	| [] -> s
+	| c :: sp ->
+		let sq = replace_link s ns c nss in
+		accept sq ns sp nss

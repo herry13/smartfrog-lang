@@ -149,8 +149,9 @@ and yaml_of_basic v =
 	| Num (Float f) -> string_of_float f
 	| Str s -> s
 	| Null -> "null"
-	| Ref r -> string_of_ref r
 	| Vec vec -> "[" ^ (yaml_of_vec vec) ^ "]"
+	| Ref r -> string_of_ref r
+	| Link lr -> "link " ^ string_of_ref lr
 
 (***
  * convert a store to a plain SF
@@ -187,8 +188,9 @@ and sf_of_basic v =
 	| Num (Float f) -> string_of_float f
 	| Str s -> s
 	| Null -> "null"
+	| Vec vec -> "[" ^ (sf_of_vec vec) ^ "]"
 	| Ref r -> "DATA " ^ String.concat ":" r
-	| Vec vec -> "[|" ^ (sf_of_vec vec) ^ "|]"
+	| Link lr -> " " ^ String.concat ":" lr
 
 (***
  * convert a store to JSON
@@ -215,8 +217,9 @@ and json_of_basic v =
 	| Num (Float f) -> string_of_float f
 	| Str s -> "\"" ^ s ^ "\""
 	| Null -> "null"
-	| Ref r -> "\"" ^ (string_of_ref r) ^ "\""
 	| Vec vec -> "[" ^ (json_of_vec vec) ^ "]"
+	| Ref r -> "\"" ^ (string_of_ref r) ^ "\""
+	| Link lr -> "\"link " ^(string_of_ref lr) ^ "\""
 
 and json_of_vec vec =
 	match vec with
@@ -273,8 +276,9 @@ and xml_of_basic v : string =
 	| Num (Float f) -> string_of_float f
 	| Str s -> s
 	| Null -> "</null>"
-	| Ref r -> string_of_ref r
 	| Vec vec -> "<vector>" ^ (xml_of_vec vec) ^ "</vector>"
+	| Ref r -> string_of_ref r
+	| Link lr -> "<link>" ^ (string_of_ref lr) ^ "</link>"
 
 and xml_of_vec vec : string =
 	match vec with

@@ -30,12 +30,18 @@ open Sfdomain
 sf:
 	| body EOF
 		{
-			let s = $1 [] [] in
-			let v =
-				find s ref_of_main in
-				match v with
-				| Val (Store main) -> main
-				| _ -> failure 7
+			let s1 = $1 [] [] in
+			let r = ["sfConfig"] in
+			let v1 = find s1 r in
+			match v1 with
+			| Val (Store vs1) ->
+				(
+					let s2 = accept s1 r vs1 r in
+					match find s2 r with
+					| Val (Store v2) -> v2
+					| _ -> failure 10
+				)
+			| _ -> failure 10
 		}
 
 included:
@@ -52,15 +58,7 @@ assignment:
 value:
 	| basic EOS          { fun ns r s -> bind s r (Basic $1) }
 	| EXTENDS prototypes { fun ns r s -> $2 ns r (bind s r (Store [])) }
-	| link_reference EOS
-		{
-			fun ns r s ->
-				let (_, v1) =
-					resolve s ns $1 in
-					match v1 with
-					| Undefined -> failure 5
-					| Val v -> bind s r v
-		}
+	| link_reference EOS { fun ns r s -> bind s r ($1 r) }
 
 prototypes:
     | prototype COMMA prototypes { fun ns r s -> $3 ns r ($1 ns r s) }
@@ -87,7 +85,7 @@ items:
     | basic             { [$1] }
 
 link_reference:
-    | reference { $1 }
+    | reference { fun r -> if $1 <= r then failure 4 else Basic (Link $1) }
 
 data_reference:
     | reference { $1 }
