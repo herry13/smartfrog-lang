@@ -194,7 +194,7 @@ and replace_link s ns cell nss =
 							| _ -> sp
 						)
 				)
-			| Store vp -> accept s rp vp rp
+			| Store vs -> accept s rp vs rp
 			| _ -> s
 		)
 		

@@ -30,13 +30,12 @@ open Sfdomain
 sf:
 	| body EOF
 		{
-			let s1 = $1 [] [] in
 			let r = ["sfConfig"] in
-			let v1 = find s1 r in
-			match v1 with
-			| Val (Store vs1) ->
+			let s1 = $1 [] [] in
+			match find s1 r with
+			| Val (Store v1) ->
 				(
-					let s2 = accept s1 r vs1 r in
+					let s2 = accept s1 r v1 r in
 					match find s2 r with
 					| Val (Store v2) -> v2
 					| _ -> failure 10
