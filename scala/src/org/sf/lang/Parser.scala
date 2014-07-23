@@ -46,13 +46,18 @@ where [option] is:
  */
 class Parser extends JavaTokenParsers {
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
-  protected val sfConfig = new Reference("sfConfig")
 
   def Sf: Parser[Store] =
     Body ^^ { b => {
-        val v = b(org.sf.lang.Reference.empty, Store.empty).find(sfConfig)
-        if (v.isInstanceOf[Store]) v.asInstanceOf[Store]
-        else throw new SemanticsException("[err7] sfConfig is not exist or a component", 7)
+    	val r = new Reference("sfConfig")
+    	val s1 = b(org.sf.lang.Reference.empty, Store.empty)
+    	val v1 = s1.find(r)
+    	val s2 = if (v1.isInstanceOf[Store]) s1.accept(r, v1.asInstanceOf[Store], r)
+    	         else throw new SemanticsException("[err10]", 10)
+    	val v2 = s2.find(r)
+    	
+    	if (v2.isInstanceOf[Store]) v2.asInstanceOf[Store]
+    	else throw new SemanticsException("[err10]", 10)
       }
     }
 
@@ -94,11 +99,7 @@ class Parser extends JavaTokenParsers {
         (ns: Reference, r: Reference, s: Store) => s.bind(r, sv)
       )
     | LinkReference <~ ";"  ^^ (lr =>
-        (ns: Reference, r: Reference, s: Store) => {
-          val l = s.resolve(ns, lr)
-          if (l._2 == Store.undefined) throw new SemanticsException("[err5] invalid link reference " + lr, 5)
-          else s.bind(r, l._2)
-        }
+        (ns: Reference, r: Reference, s: Store) => s.bind(r, lr(r))
       )
     | "extends" ~> Prototypes ^^ (p =>
         (ns: Reference, r: Reference, s: Store) => p(ns, r, s.bind(r, Store.empty))
@@ -113,8 +114,12 @@ class Parser extends JavaTokenParsers {
   def DataReference: Parser[Reference] =
     "DATA" ~> Reference
 
-  def LinkReference: Parser[Reference] =
-    Reference
+  def LinkReference: Parser[Reference => LinkReference] =
+    Reference ^^ (rp =>
+      (r: Reference) =>
+        if (rp.subseteqof(r)) throw new SemanticsException("[err4]", 4)
+        else new LinkReference(rp)
+    )
     
   def BasicValue: Parser[Any] =
     ( Boolean

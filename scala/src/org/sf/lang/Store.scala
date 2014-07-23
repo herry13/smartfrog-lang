@@ -108,7 +108,35 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
       if (v == undefined) resolve(ns.prefix, r)
       else (ns, v)
     }
-     
+  
+  /**
+   * Resolve given link reference (lr) within this store (this) and given namespace (lr) where
+   * 'r' is the reference of target variable which the resolution value will be assigned to.
+   * @param ns namespace
+   * @param r target variable
+   * @param lr a link reference to be resolved
+   */
+  def resolveLink(ns: Reference, r: Reference, lr: LinkReference) =
+    getLink(ns, r, lr.ref, Set())
+    
+  /**
+   * Resolve given link reference (lr) within this store (this) and given namespace (lr) where
+   * 'r' is the reference of target variable which the resolution value will be assigned to.
+   * @param ns namespace
+   * @param r target variable
+   * @param lr a link reference to be resolved
+   * @param acc an accumulator of visited references
+   */
+  def getLink(ns: Reference, r: Reference, rl: Reference, acc: Set[Reference]): (Reference, Any) =
+    if (acc.exists((rx) => rx.equals(rl))) throw new SemanticsException("[err4]", 4)
+    else {
+      val (nsp, vp) = resolve(ns, rl)
+      val nsq = nsp ++ rl
+      if (vp.isInstanceOf[LinkReference]) getLink(nsq.prefix, r, vp.asInstanceOf[LinkReference].ref, acc + rl)
+      else if (nsq.subseteqof(r)) throw new SemanticsException("[err5]", 5)
+      else (nsp, vp)
+    }
+  
   /**
    * Copy given store (src) to the target reference (r) of this store.
    * @param src a store to be copied
@@ -128,11 +156,39 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
    * @param dest a reference of target object
    * @return a store
    */
-  def inherit(ns: Reference, src: Reference, dest: Reference): Store = {
-    val l = resolve(ns, src)
-    if (l._2.isInstanceOf[Store]) copy(l._2.asInstanceOf[Store], dest)
-    else throw new SemanticsException("[err4] invalid prototype reference: " + src, 4)
+  def inherit(ns: Reference, proto: Reference, r: Reference): Store = {
+    val (nsp, vp) = resolve(ns, proto)
+    if (vp.isInstanceOf[Store]) copy(vp.asInstanceOf[Store], r)
+    else if (vp.isInstanceOf[LinkReference]) {
+      val (_, vq) = resolveLink(ns, r, vp.asInstanceOf[LinkReference])
+      if (vq.isInstanceOf[Store]) copy(vq.asInstanceOf[Store], r)
+      else throw new SemanticsException("[err7]", 7)
+    }
+    else throw new SemanticsException("[err6] invalid prototype reference: " + proto, 6)
   }
+  
+  def replaceLink(ns: Reference, c: Cell, nss: Reference): Store = {
+    val (id, v) = c
+    val rp = ns ++ id
+    if (v.isInstanceOf[LinkReference]) {
+      val (nsp, vp) = resolveLink(nss, rp, v.asInstanceOf[LinkReference])
+      if (vp == Store.undefined) throw new SemanticsException("[err8]", 8)
+      else {
+        val sp = bind(rp, vp)
+        if (vp.isInstanceOf[Store]) sp.accept(rp, vp.asInstanceOf[Store], nsp)
+        else sp
+      }
+    }
+    else if (v.isInstanceOf[Store]) accept(rp, v.asInstanceOf[Store], rp)
+    else this
+  }
+  
+  def accept(ns: Reference, ss: Store, nss: Reference): Store =
+    if (ss == Store.empty) this
+    else {
+      val sq = replaceLink(ns, ss.head, nss)
+      sq.accept(ns, ss.rest, nss)
+    }
   
   /**********************************************************
    * helper methods which are not part of semantics
