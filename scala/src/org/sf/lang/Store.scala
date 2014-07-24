@@ -104,7 +104,7 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
     else if (r.head.equals("THIS")) (ns, find((ns ++ r.rest).simplify))
     else if (ns == Reference.empty) (ns, find(r.simplify))
     else {
-      val v = find((ns ++ r).simplify)
+      val v = find(ns.trace(r))
       if (v == undefined) resolve(ns.prefix, r)
       else (ns, v)
     }

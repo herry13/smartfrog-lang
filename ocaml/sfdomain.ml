@@ -113,7 +113,7 @@ and resolve s ns r =
 	| _ ->
 		if ns = [] then ([], find s (simplify r))
 		else
-			let v = find s (simplify (ref_plus_ref ns r)) in
+			let v = find s (trace ns r) in
 			match v with
 			| Undefined -> resolve s (prefix ns) r
 			| _ -> (ns, v)
