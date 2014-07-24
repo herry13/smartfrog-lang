@@ -1,0 +1,23 @@
+s1 extends  {
+  dns "ns.foo";
+  web extends  {
+    running true;
+    port 80;
+  }
+}
+s2 extends  {
+  dns "ns.foo";
+  web extends  {
+    running true;
+    port 80;
+  }
+  web.running false;
+}
+pc1 extends  {
+  dns "ns.foo";
+  refer DATA s1:web;
+}
+pc2 extends  {
+  dns "ns.foo";
+  refer DATA s1:web;
+}

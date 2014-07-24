@@ -1,0 +1,13 @@
+SmartFrogTypeResolutionException:: , data: [c in: HERE sfConfig:b cause: java.lang.Integer cannot be cast to org.smartfrog.sfcore.languages.sf.sfcomponentdescription.SFComponentDescription], Unresolved Reference during phase type resolution
+
+SmartFrogTypeResolutionException:: , data: [c in: HERE sfConfig:b cause: java.lang.Integer cannot be cast to org.smartfrog.sfcore.languages.sf.sfcomponentdescription.SFComponentDescription], Unresolved Reference during phase type resolution
+	at org.smartfrog.sfcore.languages.sf.sfcomponentdescription.SFComponentDescriptionImpl.typeResolve(SFComponentDescriptionImpl.java:409)
+	at org.smartfrog.sfcore.languages.sf.sfcomponentdescription.SFComponentDescriptionImpl.sfResolvePhases(SFComponentDescriptionImpl.java:1147)
+	at org.smartfrog.sfcore.languages.sf.sfcomponentdescription.SFComponentDescriptionImpl.sfResolvePhase(SFComponentDescriptionImpl.java:1125)
+	at org.smartfrog.SFParse.parseInputStream(SFParse.java:336)
+	at org.smartfrog.SFParse.parseFile(SFParse.java:275)
+	at org.smartfrog.SFParse.main(SFParse.java:591)
+'paul2.sf': 
+SmartFrogTypeResolutionException:: , data: [c in: HERE sfConfig:b cause: java.lang.Integer cannot be cast to org.smartfrog.sfcore.languages.sf.sfcomponentdescription.SFComponentDescription], Unresolved Reference during phase type resolution
+
+SmartFrogTypeResolutionException:: , data: [c in: HERE sfConfig:b cause: java.lang.Integer cannot be cast to org.smartfrog.sfcore.languages.sf.sfcomponentdescription.SFComponentDescription], Unresolved Reference during phase type resolution

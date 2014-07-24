@@ -1,0 +1,17 @@
+a 3;
+x THIS:a;
+sfConfig extends {
+	a 1;
+	b extends {
+		a 2;
+		c THIS;
+		d THIS:PARENT:a;
+		e THIS:ROOT:a;
+	}
+	d extends {
+		c a;
+	}
+	e extends {
+		c ROOT:a;
+	}
+}

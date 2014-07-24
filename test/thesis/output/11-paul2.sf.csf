@@ -1,0 +1,17 @@
+a extends  {
+  a 1;
+  v [|true, 95, [|1, 2|], "foo"|];
+}
+c extends  {
+  blob "a string";
+  b 2;
+  z "a string";
+}
+b extends  {
+  a 1;
+  v [|true, 95, [|1, 2|], "foo"|];
+  blob "a string";
+  b 2;
+  z "a string";
+  c 3;
+}

@@ -1,0 +1,17 @@
+sfConfig extends {
+  A extends {
+    x 10;
+  }
+  B extends A {
+    y 20;
+  }
+  C extends A, {
+    y 20;
+  };
+  D extends A, B, {
+    w 50;
+  }, C, {
+    z 40;
+  }
+}
+

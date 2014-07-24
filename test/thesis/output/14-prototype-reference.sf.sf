@@ -1,0 +1,6 @@
+a extends  {
+  b 1;
+}
+c extends  {
+  b 1;
+}

@@ -1,0 +1,17 @@
+A extends  {
+  x 10;
+}
+B extends  {
+  x 10;
+  y 20;
+}
+C extends  {
+  x 10;
+  y 20;
+}
+D extends  {
+  x 10;
+  y 20;
+  w 50;
+  z 40;
+}

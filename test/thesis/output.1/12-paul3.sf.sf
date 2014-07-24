@@ -1,0 +1,7 @@
+a extends  {
+  v1 [|3, 4|];
+}
+b extends  {
+  v1 [|3, 4|];
+  v [|"one", 3, "two"|];
+}
