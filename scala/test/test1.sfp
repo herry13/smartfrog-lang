@@ -1,0 +1,21 @@
+schema X { a = 100; }
+schema Y extends X {
+	a = 300;
+	b = 200;
+}
+main {
+	a = 1
+	b = true
+	c = 0.5
+	d = null
+	e = "a string"
+	f {
+		g = 2
+	}
+	h extends f
+	i c
+	j f
+	k = [1, true]
+	l isa X { }
+	m isa Y { }
+}
