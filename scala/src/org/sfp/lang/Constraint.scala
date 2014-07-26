@@ -4,7 +4,21 @@ import org.sf.lang.Store
 import org.sf.lang.Reference
 
 trait Constraint {
+  /**
+   * Evaluate the constraint.
+   * @param s a store to be evaluated
+   * @return true, if a given store satisfies the constraint, otherwise false
+   */
   def apply(s: Store): Boolean
+  
+  // convert the constraint into DNF formula
+  //def toDNF: Constraint
+  
+  // convert the constraint into 3-CNF formula
+  //def to3CNF: Constraint
+  
+  // remove nested reference from the constraint
+  //def normalise(s: Store): Constraint
 }
 
 object True extends Constraint {
