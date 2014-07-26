@@ -53,7 +53,13 @@ class Parser extends JavaTokenParsers {
         val s2 = if (v1.isInstanceOf[Store]) s1.accept(r, v1.asInstanceOf[Store], r)
                  else throw new SemanticsException("[err11]", 11)
         val v2 = s2.find(r)
-        if (v2.isInstanceOf[Store]) v2.asInstanceOf[Store]
+        val rg = new Reference("global")
+        val vg = s1.find(rg)
+        if (v2.isInstanceOf[Store]) {
+          if (vg == Store.undefined) v2.asInstanceOf[Store]
+          else if (vg.isInstanceOf[Constraint]) v2.asInstanceOf[Store].bind(rg, vg)
+          else throw new SemanticsException("[err202]", 202)
+        }
         else throw new SemanticsException("[err11]", 11)
 	  }
     )
@@ -220,8 +226,67 @@ class Parser extends JavaTokenParsers {
   val eos: Parser[Any] = ";" | '\n'
   
   //--- TODO : global ---//
-  def Global: Parser[Store => Store] = ???
+  def Global: Parser[Store => Store] =
+    Conjunction ^^ (gc =>
+      (s: Store) => {
+        val r = new Reference("global")
+        val gs = s.find(r)
+        if (gs == Store.undefined) s.bind(r, gc)
+        else if (gs.isInstanceOf[Constraint]) {
+          val f = new Conjunction(List(gs.asInstanceOf[Constraint], gc))
+          s.bind(r, f)
+        }
+        else throw new SemanticsException("[err201] global is not a constraint", 201)
+      }
+    )
   
+  def Conjunction: Parser[Constraint] =
+    "{" ~>
+    ( ConstraintStatement.+ ^^ (cs => new Conjunction(cs))
+    | epsilon ^^ (cs => new Conjunction(List()))
+    ) <~ "}"
+    
+  def Disjunction: Parser[Constraint] =
+    "(" ~>
+    ( ConstraintStatement.+ ^^ (cs => new Disjunction(cs))
+    | epsilon ^^ (cs => new Disjunction(List()))
+    ) <~ ")"
+    
+  def ConstraintStatement: Parser[Constraint] =
+    ( Equal
+    | NotEqual
+    | Negation
+    | Implication
+    | Conjunction
+    | Disjunction
+    | MemberOfList
+    )
+   
+  def Equal: Parser[Constraint] =
+    Reference ~ "=" ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv =>
+      new Equal(r, bv)
+    }
+  
+  def NotEqual: Parser[Constraint] =
+    Reference ~ "!=" ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv =>
+      new NotEqual(r, bv)
+    }
+  
+  def Implication: Parser[Constraint] = 
+    "if" ~> Conjunction ~ "then" ~ Conjunction ^^ { case premise ~ _ ~ conclusion =>
+      new Implication(premise, conclusion)
+    }
+  
+  def Negation: Parser[Constraint] =
+    "not" ~> ConstraintStatement ^^ (cs =>
+      new Negation(cs)
+    )
+    
+  def MemberOfList: Parser[Constraint] =
+    Reference ~ "in" ~ Vector <~ eos ^^ { case r ~ _ ~ vec =>
+      new MemberOfList(r, vec)
+    }
+    
   //--- TODO : action ---//
   def Action: Parser[Any] =
     "action" ^^ (x => ???)
