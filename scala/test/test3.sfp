@@ -1,7 +1,7 @@
 schema X {
 	a = 1
 	
-	def seta () {
+	def seta (y: int) {
 		cost = 2
 		condition {
 			a = 1

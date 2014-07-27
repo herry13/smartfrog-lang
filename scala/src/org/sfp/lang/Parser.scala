@@ -43,8 +43,6 @@ where [option] is:
 }
 
 class Parser extends JavaTokenParsers {
-  import Domain._
-  
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
 
   def Sfp: Parser[Store] =
@@ -216,17 +214,19 @@ class Parser extends JavaTokenParsers {
   // TODO
   def TypeValue: Parser[Any] = ":" ~> Type | epsilon
   
-  def Type: Parser[T] =
-    tau ~ tauSuffix ^^ { case t ~ ts => t.toString + ts }
-  
-  def tauSuffix: Parser[String] =
-    ( "[]" ^^ (x => "[]")
-    | "*" ^^ (x => "*")
-    | epsilon ^^ (x => "")
+  def Type: Parser[Type] =
+    ( "[]" ~> tau ^^ (t => new ListType(t))
+    | "*" ~> tau ^^ (t => new RefType(t))
+    | tau
     )
 
-  def tau: Parser[T] =
-    ("bool" | "num" | "str" | "obj" | ident) ^^ (x => x)
+  def tau: Parser[Type] =
+    ( "bool"
+    | "num"
+    | "str"
+    | "obj"
+    | ident
+    ) ^^ (t => new BasicType(t))
     
   val eos: Parser[Any] = ";" | '\n'
   

@@ -12,6 +12,8 @@ class SimpleEffect(val r: Reference, val v: Any, val rest: Effect = null) extend
     val s1 = s.bind(r, v)
     if (rest == null) s1 else rest(s1)
   }
+  
+  override def toString = "(= " + r + " " + v + ")"
 }
 
 class ConditionalEffect(val r: Reference, val v: Any, val c: Constraint, val rest: Effect = null) extends Effect {

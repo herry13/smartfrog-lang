@@ -1,7 +1,6 @@
 package org.sfp.lang
 
 import org.sf.lang.Store
-import org.sfp.lang.Domain._
 
 class Action (val parameters: List[Parameter],
               val cost: Integer,
@@ -15,6 +14,12 @@ class Action (val parameters: List[Parameter],
   def ground: List[Action] = ???
   
   def toSAS: String = ???
+  
+  override def toString = {
+    val params = parameters.foldRight[String]("(params")(
+      (p: Parameter, s: String) => s + " (" + p + ")"
+    ) + ")"
+    
+    "(action " + params + " (cost " + cost + ") (pre " + precondition + ") (eff " + effect + "))"
+  }
 }
-
-class Parameter(val id: String, val t: T)
