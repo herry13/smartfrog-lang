@@ -1,0 +1,14 @@
+schema X {
+	a = 1
+	
+	def seta () {
+		cost = 2
+		condition {
+			a = 1
+		}
+		effect {
+			a = 2
+		}
+	}
+
+}

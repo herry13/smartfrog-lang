@@ -28,7 +28,7 @@ where [option] is:
       else println(parseFile(args.head))
     } catch {
       case se: SemanticsException => System.err.println(se.msg)
-      case e: Exception => System.err.println(e)
+      case e: Exception => e.printStackTrace()
     }
   }
     
@@ -43,6 +43,8 @@ where [option] is:
 }
 
 class Parser extends JavaTokenParsers {
+  import Domain._
+  
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
 
   def Sfp: Parser[Store] =
@@ -86,11 +88,11 @@ class Parser extends JavaTokenParsers {
 	)
   
   def Assignment: Parser[(Reference, Store) => Store] =
-    ( Reference ~ TypeValue ~ Value ^^ { case r ~ tv ~ v =>
-        (ns: Reference, s: Store) => v(ns, ns ++ r, s)
-      }
-    | "def" ~> Reference ~ Action ^^ { case r ~ a =>
+    ( "def" ~> Reference ~ Action ^^ { case r ~ a =>
       	(ns: Reference, s: Store) => s.bind(ns ++ r, a)
+      }
+    | Reference ~ TypeValue ~ Value ^^ { case r ~ tv ~ v =>
+        (ns: Reference, s: Store) => v(ns, ns ++ r, s)
       }
     )
   
@@ -210,22 +212,25 @@ class Parser extends JavaTokenParsers {
       }
     }
   
+  //--- type syntax ---//
   // TODO
   def TypeValue: Parser[Any] = ":" ~> Type | epsilon
   
-  // TODO
-  def Type: Parser[Any] = tau ~ tauSuffix
+  def Type: Parser[T] =
+    tau ~ tauSuffix ^^ { case t ~ ts => t.toString + ts }
   
-  // TODO
-  def tauSuffix: Parser[Any] = "[]" | "*" | epsilon
+  def tauSuffix: Parser[String] =
+    ( "[]" ^^ (x => "[]")
+    | "*" ^^ (x => "*")
+    | epsilon ^^ (x => "")
+    )
 
-  // TODO
-  def tau: Parser[Any] =
-    "bool" | "num" | "str" | "obj" | ident
+  def tau: Parser[T] =
+    ("bool" | "num" | "str" | "obj" | ident) ^^ (x => x)
     
   val eos: Parser[Any] = ";" | '\n'
   
-  //--- TODO : global ---//
+  //--- global ---//
   def Global: Parser[Store => Store] =
     Conjunction ^^ (gc =>
       (s: Store) => {
@@ -287,10 +292,47 @@ class Parser extends JavaTokenParsers {
       new MemberOfList(r, vec)
     }
     
-  //--- TODO : action ---//
-  def Action: Parser[Any] =
-    "action" ^^ (x => ???)
+  def Action: Parser[Action] =
+    "(" ~> Parameters ~ ")" ~ "{" ~ Cost ~ "condition" ~ Condition ~ "effect" ~ Effects <~ "}" ^^ {
+      case ps ~ _ ~ _ ~ cost ~ _ ~ cond ~ _ ~ eff =>
+        new Action(ps, cost, cond, eff)
+    }
   
+  def Parameters: Parser[List[Parameter]] =
+    ( Parameter ~ ("," ~> Parameter).* ^^ { case p ~ ps => p :: ps }
+    | epsilon ^^ (x => List())
+    )
+    
+  def Parameter: Parser[Parameter] =
+    ident ~ ":" ~ Type ^^ { case id ~ _ ~ t => new Parameter(id, t) }
+    
+  def Cost: Parser[Integer] =
+    ( "cost" ~> "=" ~> Number <~ eos ^^ (n =>
+        if (n.isInstanceOf[Integer]) n.asInstanceOf[Integer]
+        else throw new SemanticsException("[err301]", 301)
+      )
+    | epsilon ^^ (x => 1)
+    )
+    
+  def Condition: Parser[Constraint] =
+    ( Conjunction
+    | epsilon ^^ (x => True)
+    )
+    
+  def Effects: Parser[Effect] =
+    "{" ~> Effect.+ <~ "}" ^^ (effs => {
+        val eff1 = effs.head(null)
+        effs.tail.foldRight[Effect](eff1)(
+          (ef: Effect => Effect, effs: Effect) => ef(effs)
+        )
+      }
+    )
+    
+  def Effect: Parser[Effect => Effect] =
+    Reference ~ "=" ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv =>
+      (eff: Effect) => new SimpleEffect(r, bv, eff)
+    }
+    
   // same as SF
   val epsilon: Parser[Any] = ""
 

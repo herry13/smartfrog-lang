@@ -206,6 +206,7 @@ class Store(val head: Store.Cell, val rest: Store = Store.empty) {
     def valueToString(v: Any): String =
       if (v.isInstanceOf[Store]) "{" + v + "}"
       else if (v.isInstanceOf[List[Any]]) "[" + vectorToString(v.asInstanceOf[List[Any]]) + "]"
+      else if (v == null) "null"
       else v.toString
     
     "(" + head._1 + "," + valueToString(head._2) + ")" + (if (rest == empty) "" else "," + rest)
