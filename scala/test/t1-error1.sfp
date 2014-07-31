@@ -1,0 +1,9 @@
+	a = 1
+	b = true
+	c = 0.5
+	d = null
+	e = "a string"
+a = true
+e = 1
+e = true
+

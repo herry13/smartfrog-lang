@@ -12,3 +12,9 @@ schema X {
 	}
 
 }
+main {
+	b isa X { }
+	global {
+		b.a = 5
+	}
+}

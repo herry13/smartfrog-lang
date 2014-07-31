@@ -8,7 +8,7 @@ object Reference {
 	override val rest = this
 	override def last = throw new Exception
 	override def prefix = throw new Exception
-	override def equals(that: Reference) = (this == that)
+	//override def equals(that: Reference) = (this == that)
 	override def toString = "[empty]"
   }
   
@@ -110,10 +110,20 @@ class Reference(val head: String, val _rest: Reference = Reference.empty) {
    * @param that a reference to be compared
    * @return true if this equals to given reference, otherwise false
    */
-  def equals(that: Reference): Boolean =
-    if (that == empty) false
+  override def equals(that: Any): Boolean = {
+    if (!that.isInstanceOf[Reference]) false
+    else (that.toString.equals(this.toString))
+    /*if (that.hashCode == this.hashCode) true
+    else if (!that.isInstanceOf[Reference]) false
+    else {
+      val r = that.asInstanceOf[Reference]
+      if (head.equals(r.head)) rest.equals(r.rest)
+      else false
+    }*/
+    /*if (that == empty) false
     else if (head.equals(that.head)) rest.equals(that.rest)
-    else false
+    else false*/
+  }
 
   /**
    * @param id an identifier to be searched in this reference

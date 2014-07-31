@@ -22,7 +22,7 @@ where [option] is:
   if (args.length <= 0) Console.println(help)
   else {
     try {
-      if (isInclude(args)) println(parseIncludeFile(args.tail.head, org.sf.lang.Reference.empty, Store.empty))
+      if (isInclude(args)) println(parseIncludeFileAtRoot(args.tail.head, Store.empty))
       else if (inJson(args)) println(parseFile(args.tail.head).toJson)
       else if (inYaml(args)) println(parseFile(args.tail.head).toYaml)
       else println(parseFile(args.head))
@@ -48,7 +48,7 @@ class Parser extends JavaTokenParsers {
   def Sfp: Parser[Store] =
     SfpContext ^^ (sc => {
         val r = new Reference("main")
-        val s1 = sc(org.sf.lang.Reference.empty, Store.empty)
+        val s1 = sc(Store.empty)
         val v1 = s1.find(r)
         val s2 = if (v1.isInstanceOf[Store]) s1.accept(r, v1.asInstanceOf[Store], r)
                  else throw new SemanticsException("[err11]", 11)
@@ -64,25 +64,29 @@ class Parser extends JavaTokenParsers {
 	  }
     )
   
-  def SfpContext: Parser[(Reference, Store) => Store] =
-    ( "schema" ~> Schema ~ SfpContext ^^ { case schema ~ sc => (ns: Reference, s: Store) => sc(ns, schema(s)) }
-    | "global" ~> Global ~ SfpContext ^^ { case global ~ sc => (ns: Reference, s: Store) => sc(ns, global(s)) }
-    | Assignment ~ SfpContext ^^ { case a ~ sc => (ns: Reference, s: Store) => sc(ns, a(ns, s)) }
-    | epsilon ^^ (x => (ns: Reference, s: Store) => s)
+  def SfpContext: Parser[Store => Store] =
+    ( "schema" ~> Schema ~ SfpContext ^^ { case schema ~ sc => (s: Store) => sc(schema(s)) }
+    | "global" ~> Global ~ SfpContext ^^ { case global ~ sc => (s: Store) => sc(global(s)) }
+    | Assignment ~ SfpContext ^^ { case a ~ sc => (s: Store) => sc(a(org.sf.lang.Reference.empty, s)) }
+    | epsilon ^^ (x => (s: Store) => s)
     )
   
   //==>> same as SF
-  def Body: Parser[(Reference, Store) => Store] =
-    ( "include" ~> stringLiteral ~ ";" ~ Body ^^ { case file ~ _ ~ b =>
-      	(ns: Reference, s: Store) => b(ns, parseIncludeFile(file.substring(1, file.length-1), ns, s))
+  def Block: Parser[(Reference, Store) => Store] =
+    ( "include" ~> stringLiteral ~ ";" ~ Block ^^ { case file ~ _ ~ b =>
+      	(ns: Reference, s: Store) => {
+      	  val filepath = file.substring(1, file.length-1)
+      	  if (ns.length == 0) b(ns, parseIncludeFileAtRoot(filepath, s))
+      	  else b(ns, parseIncludeFileInBlock(filepath, ns, s))
+      	}
       }
-    | "global" ~> Global ~ Body ^^ { case g ~ b =>
+    | "global" ~> Global ~ Block ^^ { case g ~ b =>
         (ns: Reference, s: Store) => b(ns, g(s))
       }
-	| Assignment ~ Body ^^ { case a ~ b =>
+    | Assignment ~ Block ^^ { case a ~ b =>
         (ns: Reference, s: Store) => b(ns, a(ns, s))
       }
-	| epsilon ^^ { x => (ns: Reference, s: Store) => s }
+    | epsilon ^^ { x => (ns: Reference, s: Store) => s }
 	)
   
   def Assignment: Parser[(Reference, Store) => Store] =
@@ -109,7 +113,7 @@ class Parser extends JavaTokenParsers {
     ( "extends".? ~> Reference ^^ { case r1 =>
         (ns: Reference, r: Reference, s: Store) => s.inherit(ns, r1, r)
       }
-    | "{" ~> Body <~ "}" ^^ { case b =>
+    | "{" ~> Block <~ "}" ^^ { case b =>
         (ns: Reference, r: Reference, s: Store) => b(r, s)
       }
     )
@@ -202,7 +206,7 @@ class Parser extends JavaTokenParsers {
     )
 
   def Schema: Parser[Store => Store] =
-    ident ~ SuperSchemaS ~ "{" ~ Body <~ "}" ^^ { case id ~ ss ~ _ ~ b =>
+    ident ~ SuperSchemaS ~ "{" ~ Block <~ "}" ^^ { case id ~ ss ~ _ ~ b =>
       (s: Store) => {
       	val r = new Reference(id)
       	val sv = ss(r, s.bind(r, Store.empty))
@@ -214,19 +218,19 @@ class Parser extends JavaTokenParsers {
   // TODO
   def TypeValue: Parser[Any] = ":" ~> Type | epsilon
   
-  def Type: Parser[Type] =
-    ( "[]" ~> tau ^^ (t => new ListType(t))
-    | "*" ~> tau ^^ (t => new RefType(t))
+  def Type: Parser[T] =
+    ( "[]" ~> tau ^^ (t => new TList(t))
+    | "*" ~> tau ^^ (t => new TRef(t))
     | tau
     )
 
-  def tau: Parser[Type] =
+  def tau: Parser[T] =
     ( "bool"
     | "num"
     | "str"
     | "obj"
     | ident
-    ) ^^ (t => new BasicType(t))
+    ) ^^ (t => new Tau(t))
     
   val eos: Parser[Any] = ";" | '\n'
   
@@ -342,17 +346,19 @@ class Parser extends JavaTokenParsers {
       case NoSuccess(msg, next) => throw new SemanticsException("[err0] invalid statement at " + next.pos, 0)
     }
   }
-    
-  def parseIncludeFile(filePath: String, ns: Reference, s: Store): Store = {
-    def helper(element: Parser[(Reference, Store) => Store]): Store = {
-      parseAll(element, Source.fromFile(filePath).mkString) match {
-    	case Success(el, _) => el(ns, s)
-    	case NoSuccess(msg, next) => throw new SemanticsException("[err0] invalid statement at " + next.pos, 0)
-      }
+  
+  def parseIncludeFileAtRoot(filePath: String, s: Store): Store = {
+    parseAll(SfpContext, Source.fromFile(filePath).mkString) match {
+      case Success(sfp, _) => sfp(s)
+      case NoSuccess(msg, next) => throw new SemanticsException("[err0] invalid statement at " + next.pos, 0)
     }
-    
-    if (ns.length > 0) helper(Body)
-    else helper(SfpContext)
+  }
+  
+  def parseIncludeFileInBlock(filePath: String, ns: Reference, s: Store): Store = {
+    parseAll(Block, Source.fromFile(filePath).mkString) match {
+      case Success(b, _) => b(ns, s)
+      case NoSuccess(msg, next) => throw new SemanticsException("[err0] invalid statement at " + next.pos, 0)
+    }
   }
     
   def parseFile(filePath: String): Store = parse(Source.fromFile(filePath).mkString)
