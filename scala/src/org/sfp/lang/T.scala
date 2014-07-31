@@ -32,7 +32,7 @@ class Env(val head: (Reference, T) = (org.sf.lang.Reference.empty, null), val ta
         val r = dest ++ attrs.head._1
         val tx = e.get(r)
         if (tx == null) copy(attrs.tail, e + (r, attrs.head._2))
-        else if (attrs.head._2 <= tx) copy(attrs.tail, e)
+        else if (attrs.head._2 <= tx) copy(attrs.tail, e)  // (Assign1)
         else throw new TypeError(201, "inherit: " + attrs.head._2 + "<:" + tx + "=" + (attrs.head._2 <= tx))
       }
     }

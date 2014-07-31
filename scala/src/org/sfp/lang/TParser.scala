@@ -105,26 +105,41 @@ class TParser extends JavaTokenParsers {
     | Reference ~ TypeValue ~ Value ^^ { case rvar ~ tt ~ v =>
         (ns: Reference, e: Env) => {
           val r = ns ++ rvar
-          val tr = e.get(r)
-          val tv = v(r, e)
-          if (tv == Undefined) throw new TypeError(12, "type value of " + r + "=" + tv)
-          else if (tt == Undefined) {
-            if (tr == null) e + (r, tv) // (Assign1)
-            else if (tv <= tr) e // (Assign2)
-            else throw new TypeError(13, tv + "<:" + tr + "=" + (tv <= tr))
-          }
+          if (tt == null) v(r, e)  // (Assign1) & (Assign2)
           else {
-            if (tr == null)
-              if (tv <= tt) e + (r, tt) // (Assign3)
-              else throw new TypeError(14, rvar + " - " + tv + " not <: " + tt)
-            else if (tv <= tt && tt <= tr) e // (Assign4)
-            else throw new TypeError(15, rvar + ": " + tv + "<:" + tt + "=" + (tv <= tt) +
-                                     ", " + tt + "<:" + tr + "=" + (tt <= tr))
+            val tr = e.get(r)
+            if (tr == null) v(r, e + (r, tt))  // (Assign3)
+            else if (tt <= tr) v(r, e)         // (Assign4)
+            else throw new TypeError(12, r + ": " + tt + "<:" + tr + "=" + (tt <= tr))
           }
         }
       }
     )
   
+  def Value: Parser[(Reference, Env) => Env] =
+    ( "=" ~> BasicValue <~ eos ^^ (bv => // TODO -- forward data reference
+        (r: Reference, e: Env) => {
+          val tr = e.get(r)
+          if (tr == null) e + (r, bv)  // (Assign1,2)
+          else if (bv <= tr) e         // (Assign3,4)
+          else throw new TypeError(13, r + ": " + bv + "<:" + tr + "=" + (bv <= tr))
+        }
+      )
+    | LinkReference <~ eos ^^ (l => // TODO -- forward link reference
+        (r: Reference, e: Env) => {
+          val tr = e.get(r)
+          val (rl, tl) = l(r, e)
+          if (tr == null) (e + (r, tl)).inherit(rl, r)  // (Assign1,2)
+          else if (tl <= tr) e                          // (Assign3,4)
+          else throw new TypeError(14, r + ": " + tl + "<:" + tr + "=" + (tl <= tr))
+        }
+      )
+    | SuperSchemaO ~ Prototypes ^^ { case ss ~ ps => // TODO
+        (r: Reference, e: Env) => ??? //ps(r, ss, e)
+      }
+    )
+
+  /*
   // TODO 
   def Prototypes: Parser[Env => Env] =
     ( Prototype ~ ("," ~> Prototypes).? ^^ { case p ~ ps =>
@@ -144,29 +159,17 @@ class TParser extends JavaTokenParsers {
         ??? //(ns: Reference, r: Reference, s: Store) => b(r, s)
       }
     )
-  
-  // TODO 
-  def Value: Parser[(Reference, Env) => T] =
-    ( "=" ~> BasicValue <~ eos ^^ (bv => (r: Reference, e: Env) => bv)
-    | LinkReference <~ eos ^^ (lr => (r: Reference, e: Env) => lr(r))
-    | SuperSchemaO ~ Prototypes ^^ { case ss ~ ps =>
-        ???
-        /*(ns: Reference, r: Reference, s: Store) => {
-          val sv = ss(r, s.bind(r, Store.empty))
-          ps(ns, r, sv)
-        }*/
-      }
+  */
+  def Prototypes: Parser[(Reference, String, Env) => Env] =
+    ( "{" ~> Block ~ "}" ~ Prototypes ^^ { case b ~ _ ~ ps => ??? }
+    | "extends" ~> Reference ~ Prototypes ^^ { case r ~ ps => ??? }
+    | eos ^^ (x => ???)
     )
-
+    
   // TODO 
-  def SuperSchemaO: Parser[Env => Env] =
-    ( "isa" ~> ident ^^ (id => {
-      	  //val rs = new Reference(id)
-          //(r: Reference, s: Store) => s.inherit(org.sf.lang.Reference.empty, rs, r)
-      	  ???
-        }
-      )
-    | epsilon ^^ (x => (e: Env) => e)
+  def SuperSchemaO: Parser[String] =
+    ( "isa" ~> ident
+    | epsilon ^^ (x => null)
     )
       
   def Reference: Parser[Reference] =
@@ -175,13 +178,17 @@ class TParser extends JavaTokenParsers {
     }
 	
   def DataReference: Parser[T] =
-    Reference ^^ (r => Undefined)
+    Reference ^^ (r => ???) // TODO
 
-  def LinkReference: Parser[Reference => T] =
+  def LinkReference: Parser[(Reference, Env) => (Reference, T)] =
     Reference ^^ (rp =>
-      (r: Reference) =>
+      (r: Reference, e: Env) =>
         if (rp.subseteqof(r)) throw new SemanticsException("[err4]", 4)
-        else Undefined
+        else {
+          val tr = e.get(r)
+          if (tr != null) (r, tr)
+          else ??? // TODO
+        }
     )
     
   /**
@@ -266,7 +273,7 @@ class TParser extends JavaTokenParsers {
   //--- type syntax ---//
   def TypeValue: Parser[T] =
     ( ":" ~> Type
-    | epsilon ^^ (t => Undefined)
+    | epsilon ^^ (t => null)
     )
   
   def Type: Parser[T] =
