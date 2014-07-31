@@ -1,6 +1,3 @@
-	a = 1
-	b = true
-	c = 0.5
-	d = null
-	e = "a string"
+d = null
+d:null = x
 

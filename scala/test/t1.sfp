@@ -1,6 +1,8 @@
-	a = 1
-	b = true
-	c = 0.5
-	d = null
-	e = "a string"
+a:num = 2
+a = 1
+b = true
+b:bool = false
+c = 0.5
+d = null
+e = "a string"
 

@@ -106,6 +106,10 @@ class Reference(val head: String, val _rest: Reference = Reference.empty) {
    */
   def subseteqof(that: Reference): Boolean = (this -- that) == empty
   
+  def <(that: Reference) = subsetof(that)
+  
+  def subsetof(that: Reference): Boolean = (this <= that) && !(this == that)
+  
   /**
    * @param that a reference to be compared
    * @return true if this equals to given reference, otherwise false

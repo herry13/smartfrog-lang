@@ -55,7 +55,10 @@ class TParser extends JavaTokenParsers {
         (e: Env) => sc(s(e))
       }
     | "global" ~> Global ~ SfpContext ^^ { case g ~ sc =>
-        (e: Env) => sc(g(e + (ref_global, glob)))
+        (e: Env) => {
+          val tg = glob  // (Glob)
+          sc(g(e + (ref_global, tg)))
+        }
       }
     | Assignment ~ SfpContext ^^ { case a ~ sc =>
         (e: Env) => sc(a(org.sf.lang.Reference.empty, e))
@@ -72,7 +75,10 @@ class TParser extends JavaTokenParsers {
         }
       }
     | "global" ~> Global ~ Block ^^ { case g ~ b =>
-        (ns: Reference, e: Env) => b(ns, g(e + (ref_global, glob)))
+        (ns: Reference, e: Env) => {
+          val tg = glob  // (Glob)
+          b(ns, g(e + (ref_global, tg)))
+        }
       }
 	| Assignment ~ Block ^^ { case a ~ b =>
         (ns: Reference, e: Env) => b(ns, a(ns, e))
@@ -80,14 +86,18 @@ class TParser extends JavaTokenParsers {
 	| epsilon ^^ { x => (ns: Reference, e: Env) => e }
 	)
    
+  /**
+   * Error codes: 1x
+   */
   def Assignment: Parser[(Reference, Env) => Env] =
     ( "def" ~> Reference ~ Action ^^ { case rvar ~ a =>
         (ns: Reference, e: Env) => {
           val r = ns ++ rvar
           val tr = e.get(r)
+          val ta = act // (Act)
           val er =
             if (tr == null) e + (r, act)  // (Assign1)
-            else if (tr <= act) e      // (Assign2)
+            else if (tr <= ta) e      // (Assign2)
             else throw new TypeError(11, tr + " <- " + act)
           a(er)
         }
@@ -96,19 +106,20 @@ class TParser extends JavaTokenParsers {
         (ns: Reference, e: Env) => {
           val r = ns ++ rvar
           val tr = e.get(r)
-          val tv = v(e)
+          val tv = v(r, e)
           if (tv == Undefined) throw new TypeError(12, "type value of " + r + "=" + tv)
           else if (tt == Undefined) {
             if (tr == null) e + (r, tv) // (Assign1)
             else if (tv <= tr) e // (Assign2)
-            else throw new TypeError(13, tv + " not <: " + tr)
+            else throw new TypeError(13, tv + "<:" + tr + "=" + (tv <= tr))
           }
           else {
             if (tr == null)
               if (tv <= tt) e + (r, tt) // (Assign3)
               else throw new TypeError(14, rvar + " - " + tv + " not <: " + tt)
             else if (tv <= tt && tt <= tr) e // (Assign4)
-            else throw new TypeError(15, rvar + " - " + tv + " not <: " + tt + " or " + tt + " not <: " + tr)
+            else throw new TypeError(15, rvar + ": " + tv + "<:" + tt + "=" + (tv <= tt) +
+                                     ", " + tt + "<:" + tr + "=" + (tt <= tr))
           }
         }
       }
@@ -125,7 +136,7 @@ class TParser extends JavaTokenParsers {
     )
   
   // TODO 
-  def Prototype: Parser[Env => Env] =
+  def Prototype: Parser[(Reference, Env) => Env] =
     ( "extends".? ~> Reference ^^ { case r1 =>
         ??? //(ns: Reference, r: Reference, s: Store) => s.inherit(ns, r1, r)
       }
@@ -135,13 +146,9 @@ class TParser extends JavaTokenParsers {
     )
   
   // TODO 
-  def Value: Parser[Env => T] =
-    ( "=" ~> BasicValue <~ eos ^^ (bv =>
-        (e: Env) => bv
-      )
-    | LinkReference <~ eos ^^ (lr =>
-        ??? //(ns: Reference, r: Reference, s: Store) => s.bind(r, lr(r))
-      )
+  def Value: Parser[(Reference, Env) => T] =
+    ( "=" ~> BasicValue <~ eos ^^ (bv => (r: Reference, e: Env) => bv)
+    | LinkReference <~ eos ^^ (lr => (r: Reference, e: Env) => lr(r))
     | SuperSchemaO ~ Prototypes ^^ { case ss ~ ps =>
         ???
         /*(ns: Reference, r: Reference, s: Store) => {
@@ -150,24 +157,36 @@ class TParser extends JavaTokenParsers {
         }*/
       }
     )
-  
+
+  // TODO 
+  def SuperSchemaO: Parser[Env => Env] =
+    ( "isa" ~> ident ^^ (id => {
+      	  //val rs = new Reference(id)
+          //(r: Reference, s: Store) => s.inherit(org.sf.lang.Reference.empty, rs, r)
+      	  ???
+        }
+      )
+    | epsilon ^^ (x => (e: Env) => e)
+    )
+      
   def Reference: Parser[Reference] =
     ident ~ ("." ~> ident).* ^^ {
       case id ~ ids => new Reference(id, org.sf.lang.Reference(ids))
     }
 	
-  // TODO -- The type of data references must be resolved at 2nd pass. 
   def DataReference: Parser[T] =
-    Reference ^^ (x => new TRef(Undefined))
+    Reference ^^ (r => Undefined)
 
-  // TODO 
-  def LinkReference: Parser[Reference => LinkReference] =
+  def LinkReference: Parser[Reference => T] =
     Reference ^^ (rp =>
       (r: Reference) =>
         if (rp.subseteqof(r)) throw new SemanticsException("[err4]", 4)
-        else new LinkReference(rp)
+        else Undefined
     )
     
+  /**
+   * Error codes: 2x
+   */
   def Vector: Parser[T] =
     "[" ~>
     ( BasicValue ~ ("," ~> BasicValue).* ^^ { case x ~ xs => {
@@ -203,37 +222,45 @@ class TParser extends JavaTokenParsers {
     | DataReference
     )
   
-  // TODO 
-  def SuperSchemaO: Parser[Env => Env] =
-    ( "isa" ~> ident ^^ (id => {
-      	  //val rs = new Reference(id)
-          //(r: Reference, s: Store) => s.inherit(org.sf.lang.Reference.empty, rs, r)
-      	  ???
+  /**
+   * Error codes: 3x
+   */
+  def SuperSchemaS: Parser[(String, Env) => Env] =
+    ( "extends" ~> ident ^^ (ids =>
+        (id: String, e: Env) => {
+          val rid = new Reference(id)
+          val tid = e.get(rid)
+          if (tid != null) {
+            if (tid.isInstanceOf[TSchema]) throw new TypeError(31, "schema " + id + " is already exist")
+            else throw new TypeError(32, id + " is already exist and not a schema")
+          }
+          // (Type Schema)
+          val rids = new Reference(ids)
+          val tids = e.get(rids)
+          if (!tids.isInstanceOf[TSchema]) throw new TypeError(33, "schema " + ids + " is not exist")
+          // (Schema Subtype)
+          val e1 = e + (rid, new TSchema(new Tau(id, tids)))
+          // inherit attributes from super schema
+          e1.inherit(rids, rid)
         }
       )
-    | epsilon ^^ (x => (e: Env) => e)
-    )
-  
-  // TODO 
-  def SuperSchemaS: Parser[Env => Env] =
-    ( "extends" ~> ident ^^ (id => {
-      	  //val rs = new Reference(id)
-      	  //(r: Reference, s: Store) => s.inherit(org.sf.lang.Reference.empty, rs, r)
-          ???
+    | epsilon ^^ (x =>
+        (id: String, e: Env) => {
+          val rid = new Reference(id)
+          val tid = e.get(rid)
+          if (tid != null) {
+            if (tid.isInstanceOf[TSchema]) throw new TypeError(31, "schema " + id + " is already exist")
+            else throw new TypeError(32, id + " is already exist and not a schema")
+          }
+          // (Type Schema) & (Object Subtype)
+          e + (rid, new TSchema(new Tau(id, obj)))
         }
       )
-    | epsilon ^^ (x => (e: Env) => e)
     )
 
-  // TODO 
   def Schema: Parser[Env => Env] =
     ident ~ SuperSchemaS ~ "{" ~ Block <~ "}" ^^ { case id ~ ss ~ _ ~ b =>
-      /*(s: Store) => {
-      	val r = new Reference(id)
-      	val sv = ss(r, s.bind(r, Store.empty))
-      	b(r, sv)
-      }*/
-      ???
+      (e: Env) => b(new Reference(id), ss(id, e))
     }
   
   //--- type syntax ---//
