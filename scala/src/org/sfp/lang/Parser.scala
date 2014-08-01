@@ -100,17 +100,17 @@ class Parser extends JavaTokenParsers {
   
   //==>> same as SF
   def Prototypes: Parser[(Reference, Reference, Store) => Store] =
-    ( Prototype ~ ("," ~> Prototypes).? ^^ { case p ~ ps =>
+    ( Prototype ~ Prototypes.? ^^ { case p ~ ps =>
         (ns: Reference, r: Reference, s: Store) =>
           if (ps.isEmpty) p(ns, r, s)
           else ps.get(ns, r, p(ns, r, s))
       }
-    | epsilon ^^ { x => (ns: Reference, r: Reference, s: Store) => s }
+    | eos ^^ { x => (ns: Reference, r: Reference, s: Store) => s }
     )
   
   //==>> same as SF
   def Prototype: Parser[(Reference, Reference, Store) => Store] =
-    ( "extends".? ~> Reference ^^ { case r1 =>
+    ( "extends" ~> Reference ^^ { case r1 =>
         (ns: Reference, r: Reference, s: Store) => s.inherit(ns, r1, r)
       }
     | "{" ~> Block <~ "}" ^^ { case b =>

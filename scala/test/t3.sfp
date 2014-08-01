@@ -1,0 +1,17 @@
+schema X {
+	a = 1
+	b = "a string"
+}
+schema Y extends X {
+	a = 2
+}
+
+a isa X {
+	c = true
+}, { d = null; }
+b extends a, {
+  e = false
+}
+
+c extends a, b;
+

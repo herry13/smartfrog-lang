@@ -134,42 +134,99 @@ class TParser extends JavaTokenParsers {
           else throw new TypeError(14, r + ": " + tl + "<:" + tr + "=" + (tl <= tr))
         }
       )
-    | SuperSchemaO ~ Prototypes ^^ { case ss ~ ps => // TODO
-        (r: Reference, e: Env) => ??? //ps(r, ss, e)
+    | SuperSchemaO ~ Prototypes ^^ { case ss ~ ps =>
+        (r: Reference, e: Env) => {
+          val (tss, es) = ss(r, e)
+          ps(r, tss, es)
+        }
       }
     )
 
-  /*
-  // TODO 
-  def Prototypes: Parser[Env => Env] =
-    ( Prototype ~ ("," ~> Prototypes).? ^^ { case p ~ ps =>
-        ??? /*(ns: Reference, r: Reference, s: Store) =>
-          if (ps.isEmpty) p(ns, r, s)
-          else ps.get(ns, r, p(ns, r, s))*/
+  def Prototypes: Parser[(Reference, T, Env) => Env] =
+    ( Prototype ~ ("," ~> Prototype).* <~ eos ^^ { case proto1 ~ protos =>
+        (r_var: Reference, t_schema: T, e: Env) => {
+          val (t_proto1, e_proto1) = proto1(r_var, t_schema, null, e, true)
+          protos.foldRight[Env](e_proto1)(
+            (ps: ((Reference, T, T, Env, Boolean) => (T, Env)), es: Env) => {
+              val (_, e_proto) = ps(r_var, t_schema, t_proto1, es, false)
+              e_proto
+            }
+          )
+        }
       }
-    | epsilon ^^ { x => (e: Env) => ??? }
+    | eos ^^ { x =>
+        (r_var: Reference, t_schema: T, e: Env) => {
+          val t_var = e.get(r_var)
+          if (t_schema == null) {                // (Object1)
+            if (t_var == null) e + (r_var, obj)  // (Assign1)
+            else if (obj <= t_var) e             // (Assign2)
+            else throw new TypeError(44, r_var + ": " + obj + " !<: " + t_var)
+          }
+          else e  // do nothing - schema has been checked in SuperSchemaO
+        }
+      }
     )
   
-  // TODO 
-  def Prototype: Parser[(Reference, Env) => Env] =
-    ( "extends".? ~> Reference ^^ { case r1 =>
-        ??? //(ns: Reference, r: Reference, s: Store) => s.inherit(ns, r1, r)
+  def Prototype: Parser[(Reference, T, T, Env, Boolean) => (T, Env)] =
+    ( "extends".? ~> Reference ^^ { case r_proto =>
+        (r_var: Reference, t_schema: T, t_proto1: T, e: Env, firstProto: Boolean) => {
+          val t_proto = e.get(r_proto)
+          if (!(t_proto <= obj)) throw new TypeError(46, r_var + ": " + r_proto + " is not an object")
+          val t_var = e.get(r_var)
+          if (firstProto) {
+            val es = if (t_schema == null) {                    // (Object3)
+                       if (t_var == null) e + (r_var, t_proto)  // (Assign1)
+                       else if (t_proto <= t_var) e             // (Assign2)
+                       else throw new TypeError(47, r_var + ": " + r_proto + " !<: " + t_var)
+                     }
+                     else {  // (Object4)
+                       if (t_proto <= t_schema) e
+                       else throw new TypeError(48, r_var + ": " + r_proto + " !<: " + t_schema)
+                     }
+            (t_proto, es.inherit(r_proto, r_var))
+          }
+          else {
+            if (t_schema == null && !(t_proto <= t_proto1))       // (Object3)
+              throw new TypeError(49, r_var + ": " + t_proto + " !<: " + t_proto1)
+            else if (t_schema != null && !(t_proto <= t_schema))  // (Object4)
+              throw new TypeError(50, r_var + ": " + t_proto + " !<: " + t_schema)
+            (t_proto, e.inherit(r_proto, r_var))
+          }
+        }
       }
-    | "{" ~> Block <~ "}" ^^ { case b =>
-        ??? //(ns: Reference, r: Reference, s: Store) => b(r, s)
+    | "{" ~> Block <~ "}" ^^ { case block =>
+        (r_var: Reference, t_schema: T, t_proto1: T, e: Env, firstProto: Boolean) => {
+          val t_var = e.get(r_var)
+          val es = if (firstProto && t_schema == null) {  // (Object2)
+                     if (t_var == null) e + (r_var, obj)
+                     else if (obj <= t_var) e
+                     else throw new TypeError(45, r_var + ": " + obj + " !<: " + t_var)
+                   }
+                   else e  // do nothing - schema has been checked in SuperSchemaO
+          val t_proto = if (firstProto) obj else null
+          (t_proto, block(r_var, es)) // expand the block
+        }
       }
-    )
-  */
-  def Prototypes: Parser[(Reference, String, Env) => Env] =
-    ( "{" ~> Block ~ "}" ~ Prototypes ^^ { case b ~ _ ~ ps => ??? }
-    | "extends" ~> Reference ~ Prototypes ^^ { case r ~ ps => ??? }
-    | eos ^^ (x => ???)
     )
     
-  // TODO 
-  def SuperSchemaO: Parser[String] =
-    ( "isa" ~> ident
-    | epsilon ^^ (x => null)
+  def SuperSchemaO: Parser[(Reference, Env) => (T, Env)] =
+    ( "isa" ~> ident ^^ (id_schema =>
+        (r_var: Reference, e: Env) => {
+          val r_schema = new Reference(id_schema)  // reference of schema
+          val t_schema = e.get(r_schema)           // TSchema
+          if (t_schema == null) throw new TypeError(41, "schema " + id_schema + " is not exist")
+          else if (!t_schema.isInstanceOf[TSchema]) throw new TypeError(42, id_schema + " is not a schema")
+          else {
+            val t_var = e.get(r_var)  // type of variable
+            val tau_schema = t_schema.asInstanceOf[TSchema].tau
+            val es = if (t_var == null) e + (r_var, tau_schema)   // (Object4, 5) & (Assign1)
+                     else if (tau_schema <= t_var) e              // (Object4, 5) & (Assign2)
+                     else throw new TypeError(43, r_var + ": schema " + tau_schema + " !<: " + t_var)
+            (tau_schema, es.inherit(r_schema, r_var))  // inherit schema
+          }
+        }
+      )
+    | epsilon ^^ (x => (r: Reference, e: Env) => (null, e))  // Object1,2,3)
     )
       
   def Reference: Parser[Reference] =
