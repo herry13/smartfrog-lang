@@ -19,11 +19,10 @@ sudo apt-get install -qq ocaml
 echo "=> compiling csf..."
 cd ocaml
 make dist
-cd ..
+
+cd ../test
 
 # run test script for csf
-echo "=> run csf test script"
-cd test
 bash -ex travis-ocaml.sh
 
 
