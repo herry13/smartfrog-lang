@@ -19,23 +19,34 @@ sudo apt-get install -qq ocaml
 echo "=> compiling csf..."
 cd ocaml
 make dist
-
-cd ../test
+cd ..
 
 # run test script for csf
+cd test
 bash -ex travis-ocaml.sh
-
+cd ..
 
 #######################################
 # sfParser: scala compiler
 #######################################
 
+cd test
 bash -ex travis-scala.sh
+cd ..
 
 
 #######################################
 # hsf: haskell compiler
 #######################################
 
-bash -ex travis-haskell.sh
+# install Haskell from apt
+sudo apt-get install -qq ghc
+cabal install Parsec MissingH Safe QuickCheck
+cd haskell
+make
+cd ..
 
+# run test script for hsf
+cd test
+bash -ex travis-haskell.sh
+cd ..
