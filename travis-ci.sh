@@ -41,6 +41,7 @@ cd ..
 
 # install Haskell from apt
 sudo apt-get install -qq ghc cabal-install
+cabal update
 cabal install Parsec MissingH Safe QuickCheck
 cd haskell
 make
