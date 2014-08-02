@@ -7,9 +7,9 @@
 #
 #######################################
 
-#########
+#######################################
 # csf : ocaml compiler
-#########
+#######################################
 
 # install OCaml from apt
 sudo apt-get update -qq
@@ -24,5 +24,12 @@ cd ..
 # run test script for csf
 echo "=> run csf test script"
 cd test
-#bash -ex runCsf.sh
 bash -ex travis-csf.sh
+
+
+
+#######################################
+# sfParser: scala compiler
+#######################################
+
+bash -ex travis-scala.sh
