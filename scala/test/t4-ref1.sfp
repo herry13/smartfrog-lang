@@ -1,0 +1,16 @@
+a = b;  // *?
+b = 1;  // num
+c = b;  // *num
+
+d = 2;  // *num
+a = d;  // *num <: *?
+
+e = d;  // *num
+e = f;  // *? <: *num
+f = 3;  // num
+
+x = y
+y = z
+z = 1
+
+

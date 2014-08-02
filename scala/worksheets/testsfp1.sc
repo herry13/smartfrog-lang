@@ -14,12 +14,14 @@ object testsfp1 {
                                                   
   org.sfp.lang.T.Undefined == org.sfp.lang.T.Undefined*/
   
-  val e = new org.sfp.lang.Env()                  //> e  : org.sfp.lang.Env = org.sfp.lang.Env@5ea6a4a0
+  val e = new org.sfp.lang.Env()                  //> e  : org.sfp.lang.Env = (empty)
   val r = new org.sf.lang.Reference("a")          //> r  : org.sf.lang.Reference = a
-  val e1 = e + (r, org.sfp.lang.T.num)            //> e1  : org.sfp.lang.Env = org.sfp.lang.Env@1815401b
+  val e1 = e + (r, org.sfp.lang.T.num)            //> e1  : org.sfp.lang.Env = (a,num)
+                                                  //| (empty)
   e1.get(r)                                       //> res0: org.sfp.lang.T = num
   val r1 = new org.sf.lang.Reference("a")         //> r1  : org.sf.lang.Reference = a
   e1.get(r1)                                      //> res1: org.sfp.lang.T = num
 
   r.equals(r1)                                    //> res2: Boolean = true
+  
 }

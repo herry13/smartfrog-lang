@@ -5,4 +5,5 @@ b:bool = false
 c = 0.5
 d = null
 e = "a string"
+vec = [1, 2]
 

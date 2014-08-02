@@ -46,7 +46,8 @@ class TParser extends JavaTokenParsers {
         }
         else throw new SemanticsException("[err11]", 11)*/
         
-        sc(new Env())
+        val e = sc(new Env())
+        e.eval(e)
 	  }
     )
   
@@ -56,8 +57,12 @@ class TParser extends JavaTokenParsers {
       }
     | "global" ~> Global ~ SfpContext ^^ { case g ~ sc =>
         (e: Env) => {
+          val tr = e.get(ref_global)
           val tg = glob  // (Glob)
-          sc(g(e + (ref_global, tg)))
+          val er = if (tr == null) e + (ref_global, tg)
+                   else if (tr <= tg) e
+                   else throw new TypeError(17, ref_global + " is not global constraints")
+          sc(g(er))
         }
       }
     | Assignment ~ SfpContext ^^ { case a ~ sc =>
@@ -76,8 +81,12 @@ class TParser extends JavaTokenParsers {
       }
     | "global" ~> Global ~ Block ^^ { case g ~ b =>
         (ns: Reference, e: Env) => {
+          val tr = e.get(ref_global)
           val tg = glob  // (Glob)
-          b(ns, g(e + (ref_global, tg)))
+          val er = if (tr == null) e + (ref_global, tg)
+                   else if (tr <= tg) e
+                   else throw new TypeError(16, ref_global + " is not global constraints")
+          b(ns, g(er))
         }
       }
 	| Assignment ~ Block ^^ { case a ~ b =>
@@ -97,7 +106,7 @@ class TParser extends JavaTokenParsers {
           val ta = act // (Act)
           val er =
             if (tr == null) e + (r, act)  // (Assign1)
-            else if (tr <= ta) e      // (Assign2)
+            else if (tr <= ta) e          // (Assign2)
             else throw new TypeError(11, tr + " <- " + act)
           a(er)
         }
@@ -119,19 +128,39 @@ class TParser extends JavaTokenParsers {
   def Value: Parser[(Reference, Env) => Env] =
     ( "=" ~> BasicValue <~ eos ^^ (bv => // TODO -- forward data reference
         (r: Reference, e: Env) => {
-          val tr = e.get(r)
-          if (tr == null) e + (r, bv)  // (Assign1,2)
-          else if (bv <= tr) e         // (Assign3,4)
-          else throw new TypeError(13, r + ": " + bv + "<:" + tr + "=" + (bv <= tr))
+          val t_var = e.get(r)
+          val t_val = bv(e)
+          if (t_var == null) {
+            if (t_val == Undefined ||
+                (t_val.isInstanceOf[TVec] && t_val.asInstanceOf[TVec].tau == Undefined) ||
+                (t_val.isInstanceOf[TRef] && t_val.asInstanceOf[TRef].tau == Undefined))
+              throw new TypeError(13, "cannot assign undefined type to undefined variable")
+            e + (r, t_val)  // (Assign1,2)
+          }
+          else if (t_val <= t_var) e         // (Assign3,4)
+          else if (t_var.isInstanceOf[TForward] && t_var.asInstanceOf[TForward].plausible(t_val)) {
+            t_var.asInstanceOf[TForward].add(t_val)
+            e
+          }
+          else if (t_val.isInstanceOf[TForward] && t_val.asInstanceOf[TForward].plausible(t_var)) {
+            val t = new TDataRef()
+            t.tlist = t_var :: t_val.asInstanceOf[TForward].tlist
+            e + (r, t)
+          }
+          else throw new TypeError(14, r + ": " + t_val + " !<: " + t_var + "\n" + e)
         }
       )
     | LinkReference <~ eos ^^ (l => // TODO -- forward link reference
         (r: Reference, e: Env) => {
-          val tr = e.get(r)
-          val (rl, tl) = l(r, e)
-          if (tr == null) (e + (r, tl)).inherit(rl, r)  // (Assign1,2)
-          else if (tl <= tr) e                          // (Assign3,4)
-          else throw new TypeError(14, r + ": " + tl + "<:" + tr + "=" + (tl <= tr))
+          val t_var = e.get(r)
+          val (rl, t_link) = l(r, e)
+          if (t_var == null) (e + (r, t_link)).inherit(rl, r)  // (Assign1,2)
+          else if (t_link <= t_var) e.inherit(rl, r)           // (Assign3,4)
+          else if (t_var.isInstanceOf[TForward] && t_var.asInstanceOf[TForward].plausible(t_link)) {
+            t_var.asInstanceOf[TForward].add(t_link)
+            e.inherit(rl, r)
+          }
+          else throw new TypeError(15, r + ": " + t_link + " !<: " + t_var)
         }
       )
     | SuperSchemaO ~ Prototypes ^^ { case ss ~ ps =>
@@ -234,55 +263,72 @@ class TParser extends JavaTokenParsers {
       case id ~ ids => new Reference(id, org.sf.lang.Reference(ids))
     }
 	
-  def DataReference: Parser[T] =
-    Reference ^^ (r => ???) // TODO
+  def DataReference: Parser[Env => T] =
+    Reference ^^ (r =>
+      (e: Env) => {
+        val t_ref = e.get(r)
+        if (t_ref == null) {
+          val t = new TDataRef()
+          t.add(r)
+          t
+        }
+        else new TRef(t_ref)
+      }
+    )
 
   def LinkReference: Parser[(Reference, Env) => (Reference, T)] =
-    Reference ^^ (rp =>
+    Reference ^^ (rl =>
       (r: Reference, e: Env) =>
-        if (rp.subseteqof(r)) throw new SemanticsException("[err4]", 4)
+        if (rl.subseteqof(r)) throw new SemanticsException("[err4]", 4)
         else {
-          val tr = e.get(r)
-          if (tr != null) (r, tr)
-          else ??? // TODO
+          val t_ref = e.get(rl)
+          if (t_ref == null) {
+            val t = new TLinkRef()
+            t.add(rl)
+            (rl, t)
+          }
+          else (rl, t_ref)
         }
     )
     
   /**
    * Error codes: 2x
    */
-  def Vector: Parser[T] =
+  def Vector: Parser[Env => T] =
     "[" ~>
-    ( BasicValue ~ ("," ~> BasicValue).* ^^ { case x ~ xs => {
+    ( BasicValue ~ ("," ~> BasicValue).* ^^ { case x ~ xs =>
+        (e: Env) => {
           // (Vec)
-          val t = x
+          val t = x(e)
           if (xs.length > 0) xs.forall(
-            (tx: T) =>
+            (x: (Env => T)) => {
+              val tx = x(e)
               if (tx.equals(t)) true
               else throw new TypeError(21, "vec - " + t + "!=" + tx)
+            }
           )
-          new TList(t)
+          new TVec(t)
         }
       }
-    | epsilon ^^ (x => Undefined)
+    | epsilon ^^ (x => (e: Env) => new TVec(Undefined))
     ) <~ "]"
 
-  def Number: Parser[T] =
-    floatingPointNumber ^^ (n => num) // (Num)
+  def Number: Parser[Any] =
+    floatingPointNumber
 
-  def Null: Parser[T] = "null" ^^ (x => _null) // (Null)
+  def Null: Parser[Any] = "null"
   
-  def Boolean: Parser[T] =
-    ( "true" ^^ (x => bool)  // (Bool)
-    | "false" ^^ (x => bool) // (Bool)
+  def Boolean: Parser[Any] =
+    ( "true"
+    | "false"
     )
   
-  def BasicValue: Parser[T] =
-    ( Boolean
-    | Number
-    | stringLiteral ^^ (t => str) // (Str)
-    | Null
-    | Vector
+  def BasicValue: Parser[Env => T] =
+    ( Boolean       ^^ (x => (e: Env) => bool)   // (Bool)
+    | Number        ^^ (x => (e: Env) => num)    // (Num)
+    | stringLiteral ^^ (x => (e: Env) => str)    // (Str)
+    | Null          ^^ (x => (e: Env) => _null)  // (Null)
+    | Vector              
     | DataReference
     )
   
@@ -334,7 +380,7 @@ class TParser extends JavaTokenParsers {
     )
   
   def Type: Parser[T] =
-    ( "[]" ~> tau ^^ (t => new TList(t))
+    ( "[]" ~> tau ^^ (t => new TVec(t))
     | "*" ~> tau ^^ (t => new TRef(t))
     | tau
     )
@@ -350,32 +396,20 @@ class TParser extends JavaTokenParsers {
   //--- global ---//
   // TODO 
   def Global: Parser[Env => Env] =
-    Conjunction ^^ (gc =>
-      /*(s: Store) => {
-        val r = new Reference("global")
-        val gs = s.find(r)
-        if (gs == Store.undefined) s.bind(r, gc)
-        else if (gs.isInstanceOf[Constraint]) {
-          val f = new Conjunction(List(gs.asInstanceOf[Constraint], gc))
-          s.bind(r, f)
-        }
-        else throw new SemanticsException("[err201] global is not a constraint", 201)
-      }*/
-      ???
-    )
+    Conjunction ^^ (gc => ???)
   
   // TODO 
   def Conjunction: Parser[Env => Env] =
     "{" ~>
-    ( ConstraintStatement.+ ^^ (cs => ???) //new Conjunction(cs))
-    | epsilon ^^ (cs => ???) //new Conjunction(List()))
+    ( ConstraintStatement.+ ^^ (cs => ???)
+    | epsilon ^^ (cs => ???)
     ) <~ "}"
     
   // TODO 
   def Disjunction: Parser[Env => Env] =
     "(" ~>
-    ( ConstraintStatement.+ ^^ (cs => ???) //new Disjunction(cs))
-    | epsilon ^^ (cs => ???) //new Disjunction(List()))
+    ( ConstraintStatement.+ ^^ (cs => ???)
+    | epsilon ^^ (cs => ???)
     ) <~ ")"
     
   // TODO 
@@ -391,82 +425,59 @@ class TParser extends JavaTokenParsers {
    
   // TODO 
   def Equal: Parser[Env => Env] =
-    Reference ~ "=" ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv =>
-      ??? //new Equal(r, bv)
-    }
+    Reference ~ "=" ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv => ??? }
   
   // TODO 
   def NotEqual: Parser[Env => Env] =
-    Reference ~ "!=" ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv =>
-      ??? //new NotEqual(r, bv)
-    }
+    Reference ~ "!=" ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv => ??? }
   
   // TODO 
   def Implication: Parser[Env => Env] = 
-    "if" ~> Conjunction ~ "then" ~ Conjunction ^^ { case premise ~ _ ~ conclusion =>
-      ??? //new Implication(premise, conclusion)
-    }
+    "if" ~> Conjunction ~ "then" ~ Conjunction ^^ { case premise ~ _ ~ conclusion => ??? }
   
   // TODO 
   def Negation: Parser[Env => Env] =
-    "not" ~> ConstraintStatement ^^ (cs =>
-      ??? //new Negation(cs)
-    )
+    "not" ~> ConstraintStatement ^^ (cs => ??? )
     
   // TODO 
   def MemberOfList: Parser[Env => Env] =
-    Reference ~ "in" ~ Vector <~ eos ^^ { case r ~ _ ~ vec =>
-      ??? //new MemberOfList(r, vec)
-    }
+    Reference ~ "in" ~ Vector <~ eos ^^ { case r ~ _ ~ vec => ??? }
     
   // TODO 
   def Action: Parser[Env => Env] =
     "(" ~> Parameters ~ ")" ~ "{" ~ Cost ~ "condition" ~ Condition ~ "effect" ~ Effects <~ "}" ^^ {
-      case ps ~ _ ~ _ ~ cost ~ _ ~ cond ~ _ ~ eff =>
-        ??? //new Action(ps, cost, cond, eff)
+      case ps ~ _ ~ _ ~ cost ~ _ ~ cond ~ _ ~ eff => ???
     }
   
   // TODO 
   def Parameters: Parser[Env => Env] =
-    ( Parameter ~ ("," ~> Parameter).* ^^ { case p ~ ps => ??? } //p :: ps }
-    | epsilon ^^ (x => ???) //List())
+    ( Parameter ~ ("," ~> Parameter).* ^^ { case p ~ ps => ??? }
+    | epsilon ^^ (x => ???)
     )
     
   // TODO 
   def Parameter: Parser[Env => Env] =
-    ident ~ ":" ~ Type ^^ { case id ~ _ ~ t => ??? } //new Parameter(id, t) }
+    ident ~ ":" ~ Type ^^ { case id ~ _ ~ t => ??? }
     
   // TODO 
   def Cost: Parser[Integer] =
-    ( "cost" ~> "=" ~> Number <~ eos ^^ (n => ???
-        /*if (n.isInstanceOf[Integer]) n.asInstanceOf[Integer]
-        else throw new SemanticsException("[err301]", 301)*/
-      )
+    ( "cost" ~> "=" ~> Number <~ eos ^^ (n => ???)
     | epsilon ^^ (x => 1)
     )
     
   // TODO 
   def Condition: Parser[Env => Env] =
     ( Conjunction
-    | epsilon ^^ (x => ???) //True)
+    | epsilon ^^ (x => ???)
     )
     
   // TODO 
   def Effects: Parser[Env => Env] =
-    "{" ~> Effect.+ <~ "}" ^^ (effs => {
-        /*val eff1 = effs.head(null)
-        effs.tail.foldRight[Effect](eff1)(
-          (ef: Effect => Effect, effs: Effect) => ef(effs)
-        )*/
-        ???
-      }
-    )
+    "{" ~> Effect.+ <~ "}" ^^ (effs => { ??? })
     
   // TODO 
   def Effect: Parser[Env => Env] =
-    Reference ~ "=" ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv =>
-      ??? //(eff: Effect) => new SimpleEffect(r, bv, eff)
-    }
+    Reference ~ "=" ~ BasicValue <~ eos ^^ { case r ~ _ ~ bv => ??? }
     
   //--- helper functions ---//
   val epsilon: Parser[Any] = ""

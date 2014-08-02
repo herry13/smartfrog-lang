@@ -13,9 +13,11 @@ class Env(val head: (Reference, T) = (org.sf.lang.Reference.empty, null), val ta
     
   def exists(t: T): Boolean =
     if (t.isInstanceOf[Tau]) (head._2 == t) || (tail.exists(t))
-    else if (t.isInstanceOf[TList]) exists(t.asInstanceOf[TList].tau)  // (Type Vec)
+    else if (t.isInstanceOf[TVec]) exists(t.asInstanceOf[TVec].tau)  // (Type Vec)
     else if (t.isInstanceOf[TRef]) exists(t.asInstanceOf[TRef].tau)    // (Type Ref)
     else ???
+    
+  def exists(r: Reference) = get(r) != null
     
   def replacePrefix(prefix: Reference): Env =
     if (isEmpty) null
@@ -40,11 +42,22 @@ class Env(val head: (Reference, T) = (org.sf.lang.Reference.empty, null), val ta
   }
   
   def isEmpty: Boolean = (head._2 == null)
+
+  def eval(e: Env): Env = {
+    val e1 =
+      if (head._2.isInstanceOf[TForward]) {
+        val t = head._2.asInstanceOf[TForward].eval(e)
+        if (t == null) throw new TypeError(501, "type of " + head._1 + " cannot be determined")
+        else e + (head._1, t)
+      }
+      else e
+    if (tail == null) e1 else tail.eval(e1)
+  }
   
   override def toString =
     if (isEmpty) "(empty)"
     else if (tail == null) head.toString
-    else head + "," + tail
+    else head + "\n" + tail
 }
 
 object T {
@@ -68,11 +81,55 @@ object T {
     override def <=(that: T) = (that == this)
     override def toString = "Undefined"
   }
+  
+  val x = List(y)
+  val y = 1
 }
 
 trait T {
   def <=(that: T): Boolean
   def toRef: Reference = throw new TypeError(101, "not a schema")
+}
+
+trait TForward extends T {
+  var tlist: List[Any] = List()
+  override def <=(that: T) = false
+  def plausible(that: T) = true
+  def add(that: T): Unit = tlist ++= List(that)
+  def add(that: Reference): Unit = tlist ++= List(that)
+  def eval(e: Env): T = {
+    val t1 = getType(tlist.head, e)
+    if (tlist.forall((x: Any) => getType(x, e) <= t1)) t1
+    else throw new TypeError(502, "vector elements have incompatible types")
+  }
+  def getType(v: Any, e: Env): T
+}
+
+class TDataRef extends TForward {
+  override def plausible(that: T) = (that.isInstanceOf[TRef] || that.isInstanceOf[TDataRef])
+  override def toString = "*?" + tlist
+  override def getType(item: Any, e: Env): T = {
+    if (item.isInstanceOf[T]) item.asInstanceOf[T]
+    else if (item.isInstanceOf[Reference]) {
+      val t_item = e.get(item.asInstanceOf[Reference])
+      if (t_item.isInstanceOf[TForward]) new TRef(t_item.asInstanceOf[TForward].eval(e))
+      else new TRef(t_item)
+    }
+    else ???
+  }
+}
+
+class TLinkRef extends TForward {
+  override def toString = "!" + tlist
+  override def getType(item: Any, e: Env): T = {
+    if (item.isInstanceOf[T]) item.asInstanceOf[T]
+    else if (item.isInstanceOf[Reference]) {
+      val t_item = e.get(item.asInstanceOf[Reference])
+      if (t_item.isInstanceOf[TForward]) t_item.asInstanceOf[TForward].eval(e)
+      else t_item
+    }
+    else ???
+  }
 }
 
 class Tau(val name: String, val parent: T = null) extends T {
@@ -91,19 +148,20 @@ class Tau(val name: String, val parent: T = null) extends T {
   override def toString = if (parent == null) name else name + "<:" + parent
 }
 
-class TList(val tau: T) extends T {
+class TVec(val tau: T) extends T {
   override def equals(that: Any) = {
-    if (that.isInstanceOf[TList]) that.asInstanceOf[TList].tau.equals(tau)
+    if (that.isInstanceOf[TVec]) that.asInstanceOf[TVec].tau.equals(tau)
     else false
   }
   override def <=(that: T) = {
-    (that == this) || // (Reflex)
-    (that.isInstanceOf[TList] && tau <= that.asInstanceOf[TList].tau) // (Vec Subtype)
+    (that == TVec.this) ||                                          // (Reflex)
+    (that.isInstanceOf[TVec] && tau <= that.asInstanceOf[TVec].tau) // (Vec Subtype)
   }
   override def toString = "[]" + tau.toString
 }
 
 class TRef(val tau: T) extends T {
+  assert(!tau.isInstanceOf[TForward], "a reference of a forward reference is not allowed")
   override def equals(that: Any) = {
     if (that.isInstanceOf[TRef]) that.asInstanceOf[TRef].tau.equals(tau)
     else false
@@ -117,7 +175,7 @@ class TRef(val tau: T) extends T {
 
 class TSchema(val tau: Tau) extends T {
   override def <=(that: T) = (that == this)
-  override def toString = "[" + tau + "]"
+  override def toString = "$" + tau
 }
 
 class TypeError(val code: Integer, val msg: String) extends Exception {
