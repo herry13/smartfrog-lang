@@ -24,7 +24,7 @@ cd ..
 # run test script for csf
 echo "=> run csf test script"
 cd test
-bash -ex travis-csf.sh
+bash -ex travis-ocaml.sh
 
 
 #######################################

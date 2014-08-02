@@ -1,5 +1,7 @@
 # [SmartFrog](http://smartfrog.org) Language Compiler
 
+[![Build Status](https://travis-ci.org/herry13/smartfrog-lang.svg?branch=master)](https://travis-ci.org/herry13/smartfrog-lang)
+
 These compilers are the implementations of the formal semantic of core subset of [SmartFrog](http://smartfrog.org) (SF) language.
 
 There are three implementations:
