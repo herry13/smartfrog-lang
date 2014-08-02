@@ -8,17 +8,21 @@
 #######################################
 
 #########
-# OCaml
+# csf : ocaml compiler
 #########
 
 # install OCaml from apt
 sudo apt-get update -qq
 sudo apt-get install -qq ocaml
 
-# compile OCaml compiler
+# compile csf
+echo "=> compiling csf..."
 cd ocaml
 make dist
 cd ..
-cd test
-./runCsf
+
+# run test script for csf
+echo "=> run csf test script"
+cd ../test
+bash -ex runCsf
 
