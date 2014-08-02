@@ -13,6 +13,11 @@ There are three implementations:
 Please read the **readme** file of each implementation for usage instructions.
 
 
+## Build Status
+
+The above build status is the test results of Scala and OCaml compiler using[Travis-CI](https://travis-ci.org/herry13/smartfrog-lang) platform. Unfortunately, the Haskell compiler has not been integrated yet.
+
+
 ## License
 
 [BSD License](https://raw.githubusercontent.com/herry13/smartfrog-lang/master/LICENSE)
