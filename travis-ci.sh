@@ -25,4 +25,4 @@ cd ..
 echo "=> run csf test script"
 cd test
 #bash -ex runCsf.sh
-bash -ex test-csf.sh
+bash -ex travis-csf.sh
