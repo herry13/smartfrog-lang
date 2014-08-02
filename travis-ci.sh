@@ -23,6 +23,6 @@ cd ..
 
 # run test script for csf
 echo "=> run csf test script"
-cd ../test
+cd test
 bash -ex runCsf
 
