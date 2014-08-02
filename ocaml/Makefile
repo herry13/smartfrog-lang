@@ -41,3 +41,10 @@ darwin: dist
 
 linux: dist
 	@mv -f csf dist/linux
+
+install-ocaml:
+	# install OCaml from apt
+	sudo apt-get update -qq
+	sudo apt-get install -qq ocaml
+
+travis: install-ocaml dist

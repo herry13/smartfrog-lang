@@ -11,14 +11,9 @@
 # csf : ocaml compiler
 #######################################
 
-# install OCaml from apt
-sudo apt-get update -qq
-sudo apt-get install -qq ocaml
-
 # compile csf
-echo "=> compiling csf..."
 cd ocaml
-make dist
+make travis
 cd ..
 
 # run test script for csf
@@ -32,22 +27,4 @@ cd ..
 
 cd test
 bash -ex travis-scala.sh
-cd ..
-
-
-#######################################
-# hsf: haskell compiler
-#######################################
-
-# install Haskell from apt
-sudo apt-get install -qq ghc cabal-install libgmp10 libgmp-dev
-#cabal update
-#cabal install Parsec MissingH Safe QuickCheck
-#cd haskell
-#make
-#cd ..
-
-# run test script for hsf
-cd test
-bash -ex travis-haskell.sh
 cd ..

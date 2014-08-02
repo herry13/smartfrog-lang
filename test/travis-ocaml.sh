@@ -1,6 +1,8 @@
 #!/bin/bash
 
 csf="../ocaml/csf"
+
+# valid SF specifications
 $csf ./commutative1a.sf
 $csf ./commutative1b.sf
 $csf ./cyclic-prototype.sf

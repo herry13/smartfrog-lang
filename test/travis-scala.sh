@@ -2,7 +2,7 @@
 
 sfParser="../scala/sfParser"
 
-# complete SF spec
+# valid SF specifications
 $sfParser ./commutative1a.sf
 $sfParser ./commutative1b.sf
 $sfParser ./cyclic-prototype.sf
