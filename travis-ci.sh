@@ -24,5 +24,5 @@ cd ..
 # run test script for csf
 echo "=> run csf test script"
 cd test
-bash -ex runCsf.sh
-
+#bash -ex runCsf.sh
+bash -ex test-csf.sh
