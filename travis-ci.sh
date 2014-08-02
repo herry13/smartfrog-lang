@@ -27,9 +27,16 @@ cd test
 bash -ex travis-csf.sh
 
 
-
 #######################################
 # sfParser: scala compiler
 #######################################
 
 bash -ex travis-scala.sh
+
+
+#######################################
+# hsf: haskell compiler
+#######################################
+
+bash -ex travis-haskell.sh
+
