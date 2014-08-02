@@ -1,10 +1,10 @@
-(***
+(**
  * sfhelper.ml - helper functions
  * author: Herry (herry13@gmail.com)
  *
  * changelog:
  * 22.07.2014 - first released
- ***)
+ *)
 
 open Sfdomain
 
@@ -12,9 +12,9 @@ open Sfdomain
  * lexer helper type and functions
  *******************************************************************)
 
-(***
+(**
  * The Lexstack type.
- ***)
+ *)
 type 'a t =
 	{
 		mutable stack    : (string * in_channel * Lexing.lexbuf) list;
@@ -24,9 +24,9 @@ type 'a t =
 		lexfunc          : Lexing.lexbuf -> 'a;
 	}
 
-(***
+(**
  * Create a lexstack with an initial top level filename and the lexer function
- ***)
+ *)
 let create top_filename lexer_function =
 	let chan = open_in top_filename in
 	{
@@ -37,24 +37,24 @@ let create top_filename lexer_function =
 		lexfunc = lexer_function
 	}
 
-(***
+(**
  * Get the current lexeme.
- ***)
+ *)
 let lexeme ls = Lexing.lexeme ls.lexbuf
 
-(***
+(**
  * Get filename, line number and column number of current lexeme.
- ***)
+ *)
 let current_pos ls =
 	let pos = Lexing.lexeme_end_p ls.lexbuf in
 	let linepos = pos.Lexing.pos_cnum - pos.Lexing.pos_bol - String.length (Lexing.lexeme ls.lexbuf) in
 	ls.filename, pos.Lexing.pos_lnum, linepos
 
-(***
+(**
  * The next token need to accept an unused dummy lexbuf so that
  * a closure consisting of the function and a lexstack can be passed
  * to the ocamlyacc generated parser.
- ***)
+ *)
 let rec get_token ls dummy_lexbuf =
 	let token = ls.lexfunc ls.lexbuf in
 	match token with
@@ -90,13 +90,13 @@ let rec get_token ls dummy_lexbuf =
 		)
   | _ -> token
 
-(***
+(**
  * Catch the exception, when it is a parse error (Parse_error)
  * then throw a failure containing a string of error message,
  * otherwise just throw again the exception
  *
  * TODO - sometime error line and column number does not match
- ***)
+ *)
 and check_error e lexstack =
 	match e with
 	| Parsing.Parse_error ->
@@ -109,17 +109,18 @@ and check_error e lexstack =
 	
 
 (*******************************************************************
- * helper functions to convert semantics domain to YAML, JSON, plain SF, or XML
+ * helper functions to convert semantics domain to YAML, JSON,
+ * plain SF, or XML
  *******************************************************************)
 
-(***
+(**
  * convert reference (list of string) to string
- ***)	
+ *)	
 let string_of_ref r = "$." ^ String.concat ":" r
 
-(***
+(**
  * convert a store to YAML
- ***)
+ *)
 let rec yaml_of_store s = yaml_of_store1 s ""
 
 and yaml_of_store1 s tab =
@@ -152,9 +153,9 @@ and yaml_of_basic v =
 	| Ref r -> string_of_ref r
 	| Vec vec -> "[" ^ (yaml_of_vec vec) ^ "]"
 
-(***
+(**
  * convert a store to a plain SF
- ***)
+ *)
 and sf_of_store s = sf_of_store1 s ""
 
 and sf_of_store1 s tab =
@@ -190,9 +191,9 @@ and sf_of_basic v =
 	| Ref r -> "DATA " ^ String.concat ":" r
 	| Vec vec -> "[|" ^ (sf_of_vec vec) ^ "|]"
 
-(***
+(**
  * convert a store to JSON
- ***)
+ *)
 and json_of_store s = "{" ^ (json_of_store1 s) ^ "}"
 
 and json_of_store1 s =
@@ -225,12 +226,12 @@ and json_of_vec vec =
 		let h = json_of_basic head in
 		if tail = [] then h else h ^ "," ^ (json_of_vec tail)
 
-(***
+(**
  * convert a store to XML
  * generate XML of given store
  * - attribute started with '_' is treated as parent's XML attribute
  * - attribute started without '_' is treated as element
- ***)
+ *)
 and xml_of_store s : string = xml_of_store1 s
 
 and xml_of_store1 s : string =
@@ -248,7 +249,7 @@ and xml_of_store1 s : string =
 				if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
 
 and attribute_of_store s : string =
-	let attr = String.trim (accumulate_attribute s) in
+	let attr = accumulate_attribute s in
 	if (String.length attr) > 0 then " " ^ attr else attr
 
 and is_attribute id = ((String.get id 0) = ' ')
