@@ -13,6 +13,7 @@ $csf ./herry4.sf
 $csf ./herry6.sf
 $csf ./main1.sf
 $csf ./main2.sf
+$csf ./main3.sf
 $csf ./paul0.sf
 $csf ./paul2.sf
 $csf ./paul3.sf

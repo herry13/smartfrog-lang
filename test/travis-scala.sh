@@ -13,6 +13,7 @@ $sfParser ./herry4.sf
 $sfParser ./herry6.sf
 $sfParser ./main1.sf
 $sfParser ./main2.sf
+$sfParser ./main3.sf
 $sfParser ./paul0.sf
 $sfParser ./paul2.sf
 $sfParser ./paul3.sf
