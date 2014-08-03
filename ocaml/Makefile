@@ -1,14 +1,17 @@
 .PHONY: build clean clean-all dist
 
-LIB=str.cma
-
 build: csf
 
-csf: csf.ml sfhelper.cmo sfdomain.cmo sflexer.cmo sfparser.cmo
-	ocamlc -c csf.ml
-	ocamlc -o csf $(LIB) sfdomain.cmo sflexer.cmo sfparser.cmo sfhelper.cmo csf.cmo
+LIB=sfast.cmo sflexer.cmo sfparser.cmo sfhelper.cmo sfdomain.cmo sfdomainhelper.cmo sfvaluation.cmo csf.cmo
 
-sfparser.cmo: sfdomain.cmo
+csf: csf.ml sfhelper.cmo sfvaluation.cmo
+	ocamlc -c csf.ml
+	ocamlc -o csf $(LIB)
+
+sfast.cmo: sfast.ml
+	ocamlc -c sfast.ml
+
+sfparser.cmo: sfparser.mly sfast.cmo
 	ocamlyacc sfparser.mly
 	ocamlc -c sfparser.mli
 	ocamlc -c sfparser.ml
@@ -17,11 +20,15 @@ sflexer.cmo: sflexer.mll sfparser.cmo
 	ocamllex sflexer.mll
 	ocamlc -c sflexer.ml
 
-sfdomain.cmo: sfdomain.ml
-	ocamlc -c sfdomain.ml
-
 sfhelper.cmo: sfhelper.ml sfparser.cmo sflexer.cmo
 	ocamlc -c sfhelper.ml
+
+sfdomain.cmo: sfdomain.ml sfdomainhelper.ml
+	ocamlc -c sfdomain.ml
+	ocamlc -c sfdomainhelper.ml
+
+sfvaluation.cmo: sfvaluation.ml sfdomain.cmo
+	ocamlc -c sfvaluation.ml
 
 clean:
 	@rm -f *.cmo *.mli *.cmi sfparser.ml sflexer.ml
@@ -33,18 +40,8 @@ dist: build clean
 
 clean-build: clean-all build
 
-test: clean-all build
-	@./test.sh
-
 darwin: dist
 	@mv -f csf dist/darwin
 
 linux: dist
 	@mv -f csf dist/linux
-
-install-ocaml:
-	# install OCaml from apt
-	sudo apt-get update -qq
-	sudo apt-get install -qq ocaml
-
-travis: install-ocaml dist

@@ -19,6 +19,17 @@
 				pos with pos_bol = lexbuf.lex_curr_pos;
 				pos_lnum = pos.pos_lnum + 1
 			}
+
+	(* keywords *)
+	let keywords = ["true"; "false"; "null"; "extends"; "DATA"]
+
+	let is_keyword id =
+		let rec check id words =
+			match words with
+			| head :: tail -> if head = id then true else check id tail
+			| _ -> false
+		in
+		check id keywords
 }
 
 (* regular expressions *)
@@ -57,15 +68,19 @@ rule token =
 	| ']'         { RBRACKET }
 	| ';'         { EOS }
 	| ':'         { SEP }
-	| int         { INT (int_of_string (Lexing.lexeme lexbuf)) }
-	| float       { FLOAT (float_of_string (Lexing.lexeme lexbuf)) }
-	| true_value  { BOOL true }
-	| false_value { BOOL false }
+	| int         { INT (Lexing.lexeme lexbuf) }
+	| float       { FLOAT (Lexing.lexeme lexbuf) }
+	| true_value  { BOOL "true" }
+	| false_value { BOOL "false" }
 	| null_value  { NULL }
 	| extends     { EXTENDS }
 	| data_ref    { DATA }
 	| '"'         { STRING (read_string (Buffer.create 17) lexbuf) }
-	| ident       { ID (Lexing.lexeme lexbuf) }
+	| ident       {
+	                let id = Lexing.lexeme lexbuf in
+	                if is_keyword id then raise (SyntaxError (id ^ " is a keyword"))
+	                else ID id
+	              }
 	| eof         { EOF }
 
 and read_string buf =
