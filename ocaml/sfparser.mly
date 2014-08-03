@@ -84,7 +84,7 @@ items:
     | basic             { [$1] }
 
 link_reference:
-    | reference { fun r -> if $1 <= r then failure 4 else Link $1 }
+    | reference { fun r -> if ref_prefixeq_ref $1 r then failure 4 else Link $1 }
 
 data_reference:
     | reference { $1 }

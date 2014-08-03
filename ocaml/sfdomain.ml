@@ -22,9 +22,6 @@ and store   = cell list
  * helpers
  *******************************************************************)
 
-(* reference of main component *)
-let ref_of_main = ["sfConfig"]
-
 (***
  * receive and print semantics error message
  * @code int error code
@@ -56,10 +53,6 @@ let rec ref_plus_id r id =
 	| [] -> [id]
 	| head::tail -> head :: (ref_plus_id tail id)
 
-let id_plus_id id1 id2 = id1 :: id2 :: []
- 
-let rec id_plus_ref id r = id :: r
-
 let rec ref_plus_ref r1 r2 =
 	match r1 with
 	| [] -> r2
@@ -71,16 +64,9 @@ let rec ref_minus_ref r1 r2 =
 	else if (List.hd r1) = (List.hd r2) then ref_minus_ref (List.tl r1) (List.tl r2)
 	else r1
 
-let rec (==) r1 r2 : bool =
-	if r1 = [] then
-		if r2 = [] then true else false
-	else if r2 = [] then false
-	else if (List.hd r1) = (List.hd r2) then (List.tl r1) == (List.tl r2)
-	else false
+let rec ref_prefixeq_ref r1 r2 : bool = if (ref_minus_ref r1 r2) = [] then true else false;;
 
-let rec (<=) r1 r2 : bool = if (ref_minus_ref r1 r2) = [] then true else false;;
-
-let rec (<) r1 r2 : bool = ( (r1 <= r2) && not (r1 == r2) )
+let rec ref_prefix_ref r1 r2 : bool = ( (ref_prefixeq_ref r1 r2) && not (r1 = r2) )
 
 let rec trace base r =
 	match r with
@@ -132,7 +118,7 @@ and get_link s ns r rl acc =
 				let nsq = ref_plus_ref nsp rl in
 				match vp with
 				| Val (Basic (Link rm)) -> get_link s (prefix nsq) r rm (SetRef.add rl acc)
-				| _ -> if nsq <= r then failure 106 else (nsq, vp)
+				| _ -> if ref_prefixeq_ref nsq r then failure 106 else (nsq, vp)
 			)
 
 and put s id v : store =
