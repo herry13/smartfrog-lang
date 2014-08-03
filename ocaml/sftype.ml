@@ -23,9 +23,9 @@ let string_of_env e =
 	let rec str_of_env e s =
 		match e with
 		| (r1, t1) :: tail ->
-			let buf = (string_of_ref r1) ^ ":" ^ (string_of_type t1) in
+			let buf = (string_of_ref r1) ^ " : " ^ (string_of_type t1) in
 			if tail = [] then s ^ buf
-			else str_of_env e (s ^ buf ^ ",")
+			else str_of_env tail (s ^ buf ^ "\n")
 		| _ -> s
 	in
 	str_of_env e ""
@@ -47,16 +47,16 @@ let rec dom e r =
 
 let rec has_type e t =
 	match t with
-	| Tundefined                      -> false
-	| Tvec tv                         -> has_type e tv           (* (Type Vec)    *)
-	| Tref tr                         -> has_type e (Tbasic tr)  (* (Type Ref)    *)
-	| Tbasic Tbool              -> true                          (* (Type Bool)   *)
-	| Tbasic Tnum               -> true                          (* (Type Num)    *)
-	| Tbasic Tstr               -> true                          (* (Type Str)    *)
-	| Tbasic Tnull              -> true                          (* (Type Null)   *)
-	| Tbasic Tobj               -> true                          (* (Type Object) *)
-	| Tbasic Tact               -> true                          (* (Type Action) *)
-	| Tbasic Tglob              -> true                          (* (Type Global) *)
+	| Tundefined                -> false
+	| Tvec tv                   -> has_type e tv           (* (Type Vec)    *)
+	| Tref tr                   -> has_type e (Tbasic tr)  (* (Type Ref)    *)
+	| Tbasic Tbool              -> true                    (* (Type Bool)   *)
+	| Tbasic Tnum               -> true                    (* (Type Num)    *)
+	| Tbasic Tstr               -> true                    (* (Type Str)    *)
+	| Tbasic Tnull              -> true                    (* (Type Null)   *)
+	| Tbasic Tobj               -> true                    (* (Type Object) *)
+	| Tbasic Tact               -> true                    (* (Type Action) *)
+	| Tbasic Tglob              -> true                    (* (Type Global) *)
 	| Tbasic (Tschema (sid, _)) ->
 		match e with
 		| []                                                    -> false
@@ -66,6 +66,11 @@ let rec has_type e t =
 let bind e r t =
 	if (type_of e r) != Undefined then failure 1 ("cannot bind an existing variable " ^ (string_of_ref r))
 	else (r, t) :: e
+
+let rec has_prefix e prefix =
+	if prefix = [] then e
+	else if e = [] then []
+	else List.fold_left (fun ex (r, t) -> print_string ((string_of_ref prefix) ^ " < " ^ (string_of_ref r) ^ " = " ^ (string_of_bool (prefix < r)) ^ "\n"); if prefix < r then (r, t) :: ex else ex) [] e
 
 let rec (<:) t1 t2 =
 	if t1 = t2 then true                                                  (* (Reflex)         *)
@@ -80,7 +85,7 @@ let rec (<:) t1 t2 =
 
 
 (*******************************************************************
- * type reference rules
+ * type inference rules
  *******************************************************************)
 
 let sfBoolean b = Tbasic Tbool
@@ -131,7 +136,11 @@ and sfBasicValue bv =
 		| Vector vec -> sfVector vec e
 		| DR dr      -> sfDataReference dr e
 
-let inherit_env e ns proto r = e (* TODO *)
+let inherit_env e ns proto r =
+	print_string ("inherit " ^ (string_of_ref proto) ^ "\n");
+	let ex = has_prefix e proto in
+	print_string ((string_of_env ex) ^ "\n\n");
+	e (* TODO *)
 
 let rec sfPrototype proto =
 	fun ns r e ->
@@ -154,6 +163,17 @@ and sfBlock block =
 	fun ns e ->
 		match block with
 		| A_B (a, b) -> sfBlock b ns (sfAssignment a ns e)
-		| EmptyBlock   -> e
+		| EmptyBlock -> e
 
-and sfSpecification b = sfBlock b [] []
+and sfSpecification sf = sfBlock sf [] []
+
+
+(**************
+ * test
+ **************)
+
+(* let test =
+	let e1 = bind [] ["a"] (Tbasic Tobj) in
+	let e2 = bind e1 ["a"] (Tbasic Tnum) in
+	print_string (string_of_env e2);
+	print_string "\n" *)
