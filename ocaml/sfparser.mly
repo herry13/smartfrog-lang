@@ -47,9 +47,9 @@ included:
 	| body EOF { $1 }
 
 body:
-	| assignment body { fun ns s -> $2 ns ($1 ns s) }
-	| SF_INCLUDE EOS  { $1 }
-	|                 { fun ns s -> s }
+	| assignment body     { fun ns s -> $2 ns ($1 ns s) }
+	| SF_INCLUDE EOS body { fun ns s -> $3 ns ($1 ns s) }
+	|                     { fun ns s -> s }
 
 assignment:
 	| reference value { fun ns s -> $2 ns (ref_plus_ref ns $1) s }
