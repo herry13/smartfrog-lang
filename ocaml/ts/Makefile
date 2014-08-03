@@ -2,9 +2,11 @@
 
 build: csf
 
-csf: csf.ml sfhelper.cmo sfast.cmo sflexer.cmo sfparser.cmo
+LIB=sfast.cmo sflexer.cmo sfparser.cmo sfhelper.cmo sfdomain.cmo sfdomainhelper.cmo sfvaluation.cmo csf.cmo
+
+csf: csf.ml sfhelper.cmo sfvaluation.cmo
 	ocamlc -c csf.ml
-	ocamlc -o csf $(LIB) sfast.cmo sflexer.cmo sfparser.cmo sfhelper.cmo csf.cmo
+	ocamlc -o csf $(LIB)
 
 sfast.cmo: sfast.ml
 	ocamlc -c sfast.ml
@@ -20,6 +22,13 @@ sflexer.cmo: sflexer.mll sfparser.cmo
 
 sfhelper.cmo: sfhelper.ml sfparser.cmo sflexer.cmo
 	ocamlc -c sfhelper.ml
+
+sfdomain.cmo: sfdomain.ml sfdomainhelper.ml
+	ocamlc -c sfdomain.ml
+	ocamlc -c sfdomainhelper.ml
+
+sfvaluation.cmo: sfvaluation.ml sfdomain.cmo
+	ocamlc -c sfvaluation.ml
 
 clean:
 	@rm -f *.cmo *.mli *.cmi sfparser.ml sflexer.ml
