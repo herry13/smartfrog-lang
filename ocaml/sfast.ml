@@ -1,26 +1,40 @@
 (*******************************************************************
  * abstract syntax tree
  *******************************************************************)
-type _SF  = _B
-and  _B   = AB of _A * _B
-          | EB
-and  _A   = _R * _V
-and  _V   = BV of _BV
-          | LR of _LR
-          | P of _P
-and  _P   = RP of _R * _P
-          | BP of _B * _P
-          | EP
-and  _BV  = Bool of string
-          | Num of string
-          | Str of string
-          | Null
-          | Vec of _Vec
-          | DR of _DR
-and  _LR  = _R
-and  _DR  = _R
-and  _Vec = _BV list
-and  _R   = string list
+type sf            = block
+and  block         = A_B of assignment * block
+                   | EmptyBlock
+and  assignment    = reference * _type * value
+and  value         = BV of basicValue
+                   | LR of linkReference
+                   | P of prototype
+and  prototype     = R_P of reference * prototype
+                   | B_P of block * prototype
+                   | EmptyPrototype
+and  basicValue    = Boolean of string
+                   | Number of string
+                   | String of string
+                   | Null
+                   | Vector of vector
+                   | DR of dataReference
+and  linkReference = reference
+and  dataReference = reference
+and  vector        = basicValue list
+and  reference     = string list
+
+(** type syntax **)
+and _type     = Tbasic of basicType
+              | Tvec of basicType
+              | Tref of basicType
+              | Tundefined
+and basicType = Tbool
+              | Tnum
+              | Tstr
+              | Tobj
+              | Tid of string
+              | Tnull
+              | Tact
+              | Tglob
 
 (*******************************************************************
  * functions to convert elements of abstract syntax tree to string
@@ -29,12 +43,12 @@ let rec string_of_sf sf = string_of_b sf
 
 and string_of_b b =
 	match b with
-	| AB (a, b) -> (string_of_a a) ^ "\n" ^ (string_of_b b)
-	| EB -> ""
+	| A_B (a, b) -> (string_of_a a) ^ "\n" ^ (string_of_b b)
+	| EmptyBlock -> ""
 
 and string_of_a a =
 	match a with
-	| (r, v) -> (string_of_r r) ^ (string_of_v v)
+	| (r, t, v) -> (string_of_r r) ^ ":" ^ (string_of_type t) ^ (string_of_v v)
 
 and string_of_v v =
 	match v with
@@ -44,17 +58,17 @@ and string_of_v v =
 
 and string_of_p p =
 	match p with
-	| RP (r, p) -> " extends " ^ (string_of_r r) ^ (string_of_p p)
-	| BP (b, p) -> " extends {\n" ^ (string_of_b b) ^ "}\n" ^ (string_of_p p)
-	| EP -> ""
+	| R_P (r, p) -> " extends " ^ (string_of_r r) ^ (string_of_p p)
+	| B_P (b, p) -> " extends {\n" ^ (string_of_b b) ^ "}\n" ^ (string_of_p p)
+	| EmptyPrototype -> ""
 
 and string_of_bv bv =
 	match bv with
-	| Bool b -> b
-	| Num n -> n
-	| Str s -> s
+	| Boolean b -> b
+	| Number n -> n
+	| String s -> s
 	| Null -> "NULL"
-	| Vec vec -> "[" ^ (string_of_vec vec) ^ "]"
+	| Vector vec -> "[" ^ (string_of_vec vec) ^ "]"
 	| DR dr -> "DATA " ^ (string_of_r dr)
 
 and string_of_vec vec =
@@ -64,3 +78,21 @@ and string_of_vec vec =
 	| head :: tail -> (string_of_bv head) ^ "," ^ (string_of_vec tail)
 
 and string_of_r r = String.concat ":" r
+
+and string_of_type t =
+	match t with
+	| Tbasic bt  -> string_of_basic_type bt
+	| Tvec bt    -> "[]" ^ (string_of_basic_type bt)
+	| Tref bt    -> "*" ^ (string_of_basic_type bt)
+	| Tundefined -> "?"
+
+and string_of_basic_type t =
+	match t with
+	| Tbool  -> "bool"
+	| Tnum   -> "num"
+	| Tstr   -> "str"
+	| Tobj   -> "obj"
+	| Tid id -> id
+	| Tnull  -> "null"
+	| Tact   -> "act"
+	| Tglob  -> "glob"

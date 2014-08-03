@@ -4,26 +4,23 @@
 type number = Int of int
             | Float of float
 and vector  = basic list
-and basic   = Bool of bool
-            | Num of number
-            | Str of string
+and basic   = Boolean of bool
+            | Number of number
+            | String of string
             | Null
-            | Vec of vector
+            | Vector of vector
             | Ref of string list
-			| Link of string list
+            | Link of string list
 and value   = Basic of basic
             | Store of store
 and _value  = Val of value
             | Undefined
 and cell    = string * value
-and store   = cell list
+and store   = cell list 
 
 (*******************************************************************
  * helpers
  *******************************************************************)
-
-(* reference of main component *)
-let ref_of_main = ["sfConfig"]
 
 (***
  * receive and print semantics error message
@@ -51,19 +48,15 @@ let rec prefix r =
 	| [] -> []
 	| head::tail -> if tail = [] then [] else head :: (prefix tail)
 
-let rec ref_plus_id r id =
+let rec (<<) r id =
 	match r with
 	| [] -> [id]
-	| head::tail -> head :: (ref_plus_id tail id)
+	| id :: rs -> id :: (rs << id)
 
-let id_plus_id id1 id2 = id1 :: id2 :: []
- 
-let rec id_plus_ref id r = id :: r
-
-let rec ref_plus_ref r1 r2 =
+let rec (++) r1 r2 =
 	match r1 with
 	| [] -> r2
-	| id::rs -> if r2 = [] then r1 else id :: (ref_plus_ref rs r2)
+	| id :: rs -> if r2 = [] then r1 else id :: (rs ++ r2)
 
 let rec ref_minus_ref r1 r2 =
 	if r1 = [] then []
@@ -88,9 +81,12 @@ let rec trace base r =
 	| "THIS" :: rs -> trace base rs
 	| "ROOT" :: rs -> trace [] rs
 	| "PARENT" :: rs -> if base = [] then failure 102 else trace (prefix base) rs
-	| id :: rs -> trace (ref_plus_id base id) rs
+	| id :: rs -> trace (base << id) rs
 
 let simplify r = trace [] r
+
+
+(** store functions **)
 
 let rec find s r : _value =
 	match (s, r) with
@@ -108,8 +104,8 @@ let rec find s r : _value =
 and resolve s ns r =
 	match r with
 	| "ROOT" :: rs -> ([], find s (simplify rs))
-	| "PARENT" :: rs -> if ns = [] then failure 101 else (prefix ns, find s (simplify (ref_plus_ref (prefix ns) rs)))
-	| "THIS" :: rs -> (ns, find s (simplify (ref_plus_ref ns rs)))
+	| "PARENT" :: rs -> if ns = [] then failure 101 else (prefix ns, find s (simplify ((prefix ns) ++ rs)))
+	| "THIS" :: rs -> (ns, find s (simplify (ns ++ rs)))
 	| _ ->
 		if ns = [] then ([], find s (simplify r))
 		else
@@ -129,7 +125,7 @@ and get_link s ns r rl acc =
 		match (resolve s ns rl) with
 		| nsp, vp ->
 			(
-				let nsq = ref_plus_ref nsp rl in
+				let nsq = nsp ++ rl in
 				match vp with
 				| Val (Basic (Link rm)) -> get_link s (prefix nsq) r rm (SetRef.add rl acc)
 				| _ -> if nsq <= r then failure 106 else (nsq, vp)
@@ -148,7 +144,7 @@ and put s id v : store =
 and copy dest src pfx : store =
 	match src with
 	| [] -> dest
-	| (ids,vs)::tail -> copy (bind dest (ref_plus_id pfx ids) vs) tail pfx
+	| (ids,vs)::tail -> copy (bind dest (pfx << ids) vs) tail pfx
 
 and bind s r v : store =
 	match r with
@@ -180,7 +176,7 @@ and replace_link s ns cell nss =
 	match cell with
 	| id, v ->
 		(
-			let rp = ref_plus_id ns id in
+			let rp = ns << id in
 			match v with
 			| Basic (Link rl) ->
 				(

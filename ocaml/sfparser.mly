@@ -18,28 +18,28 @@ open Sfast
 %token <string> STRING
 %token <string> ID
 %token <string> INCLUDE
-%token <Sfast._B -> Sfast._B> SF_INCLUDE
+%token <Sfast.block -> Sfast.block> SF_INCLUDE
 %token EXTENDS COMMA DATA BEGIN END SEP NULL LBRACKET RBRACKET EOS EOF
 
 /* entry point for main-file is 'sf', for included-file is 'included' */
 %start sf included
-%type <Sfast._SF> sf
-%type <Sfast._B -> Sfast._B> included
+%type <Sfast.sf> sf
+%type <Sfast.block -> Sfast.block> included
 
 %%
 sf:
-	| body EOF { $1 EB }
+	| body EOF { $1 EmptyBlock }
 
 included:
 	| body EOF { $1 }
 
 body:
-	| assignment body      { fun b -> AB ($1, $2 b) }
+	| assignment body      { fun b -> A_B ($1, $2 b) }
 	| SF_INCLUDE EOS body  { fun b -> $1 ($3 b) }
 	|                      { fun b -> b }
 
 assignment:
-	| reference value { ($1, $2) }
+	| reference value { ($1, Sfast.Tundefined, $2) }
 
 value:
 	| basic EOS          { BV $1 }
@@ -48,20 +48,20 @@ value:
 
 prototypes:
     | prototype COMMA prototypes { $1 $3 }
-    | prototype                  { $1 EP }
+    | prototype                  { $1 EmptyPrototype }
 
 prototype:
-    | BEGIN body END { fun p -> BP ($2 EB, p) }
-    | reference      { fun p -> RP ($1, p) } 
+    | BEGIN body END { fun p -> B_P ($2 EmptyBlock, p) }
+    | reference      { fun p -> R_P ($1, p) } 
 
 basic:
-    | BOOL                { Bool $1 }
-    | INT                 { Num $1 }
-    | FLOAT               { Num $1 }
-    | STRING              { Str $1 }
+    | BOOL                { Boolean $1 }
+    | INT                 { Number $1 }
+    | FLOAT               { Number $1 }
+    | STRING              { String $1 }
     | DATA data_reference { DR $2 }
     | NULL                { Null }
-    | vectors             { Vec $1 }
+    | vectors             { Vector $1 }
 
 vectors:
     | LBRACKET items RBRACKET { $2 }

@@ -37,12 +37,12 @@ and yaml_of_vec vec =
 
 and yaml_of_basic v =
 	match v with
-	| Bool b -> string_of_bool b
-	| Num (Int i) -> string_of_int i
-	| Num (Float f) -> string_of_float f
-	| Str s -> s
+	| Boolean b -> string_of_bool b
+	| Number (Int i) -> string_of_int i
+	| Number (Float f) -> string_of_float f
+	| String s -> s
 	| Null -> "null"
-	| Vec vec -> "[" ^ (yaml_of_vec vec) ^ "]"
+	| Vector vec -> "[" ^ (yaml_of_vec vec) ^ "]"
 	| Ref r -> string_of_ref r
 	| Link lr -> "link " ^ string_of_ref lr
 
@@ -76,12 +76,12 @@ and sf_of_vec vec =
 
 and sf_of_basic v =
 	match v with
-	| Bool b -> string_of_bool b
-	| Num (Int i) -> string_of_int i
-	| Num (Float f) -> string_of_float f
-	| Str s -> s
+	| Boolean b -> string_of_bool b
+	| Number (Int i) -> string_of_int i
+	| Number (Float f) -> string_of_float f
+	| String s -> s
 	| Null -> "null"
-	| Vec vec -> "[" ^ (sf_of_vec vec) ^ "]"
+	| Vector vec -> "[" ^ (sf_of_vec vec) ^ "]"
 	| Ref r -> "DATA " ^ String.concat ":" r
 	| Link lr -> " " ^ String.concat ":" lr
 
@@ -105,12 +105,12 @@ and json_of_store1 s =
 
 and json_of_basic v =
 	match v with
-	| Bool b -> string_of_bool b
-	| Num (Int i) -> string_of_int i
-	| Num (Float f) -> string_of_float f
-	| Str s -> "\"" ^ s ^ "\""
+	| Boolean b -> string_of_bool b
+	| Number (Int i) -> string_of_int i
+	| Number (Float f) -> string_of_float f
+	| String s -> "\"" ^ s ^ "\""
 	| Null -> "null"
-	| Vec vec -> "[" ^ (json_of_vec vec) ^ "]"
+	| Vector vec -> "[" ^ (json_of_vec vec) ^ "]"
 	| Ref r -> "\"" ^ (string_of_ref r) ^ "\""
 	| Link lr -> "\"link " ^(string_of_ref lr) ^ "\""
 
@@ -155,7 +155,7 @@ and accumulate_attribute s : string =
 	| (ids,vs) :: tail ->
 		if is_attribute ids then
 			match vs with
-			| Store _ | Basic (Vec _) -> raise (Failure "XML attr may not a component or vector")
+			| Store _ | Basic (Vector _) -> raise (Failure "XML attr may not a component or vector")
 			| Basic b -> " " ^ string_of_attribute ids b ^ accumulate_attribute tail
 		else accumulate_attribute tail
 
@@ -164,12 +164,12 @@ and string_of_attribute id v =
 
 and xml_of_basic v : string =
 	match v with
-	| Bool b -> string_of_bool b
-	| Num (Int i) -> string_of_int i
-	| Num (Float f) -> string_of_float f
-	| Str s -> s
+	| Boolean b -> string_of_bool b
+	| Number (Int i) -> string_of_int i
+	| Number (Float f) -> string_of_float f
+	| String s -> s
 	| Null -> "</null>"
-	| Vec vec -> "<vector>" ^ (xml_of_vec vec) ^ "</vector>"
+	| Vector vec -> "<vector>" ^ (xml_of_vec vec) ^ "</vector>"
 	| Ref r -> string_of_ref r
 	| Link lr -> "<link>" ^ (string_of_ref lr) ^ "</link>"
 
