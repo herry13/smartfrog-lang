@@ -65,17 +65,10 @@ let rec ref_plus_ref r1 r2 =
 	| [] -> r2
 	| id::rs -> if r2 = [] then r1 else id :: (ref_plus_ref rs r2)
 
-(*
 let rec ref_minus_ref r1 r2 =
 	if r1 = [] then []
 	else if r2 = [] then r1
 	else if (List.hd r1) = (List.hd r2) then ref_minus_ref (List.tl r1) (List.tl r2)
-	else r1
-*)
-let rec (--) r1 r2 =
-	if r1 = [] then []
-	else if r2 = [] then r1
-	else if (List.hd r1) = (List.hd r2) then (List.tl r1) -- (List.tl r2)
 	else r1
 
 let rec (==) r1 r2 =
@@ -85,7 +78,7 @@ let rec (==) r1 r2 =
 	else if (List.hd r1) = (List.hd r2) then (List.tl r1) == (List.tl r2)
 	else false
 
-let rec (<=) r1 r2 = ((r1 -- r2) = [])
+let rec (<=) r1 r2 = (ref_minus_ref r1 r2) = []
 
 let rec (<) r1 r2 = ( (r1 <= r2) && not (r1 == r2) )
 
