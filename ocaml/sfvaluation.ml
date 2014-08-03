@@ -16,10 +16,6 @@ let sfReference r = r
 let sfDataReference dr = Sfdomain.Ref (sfReference dr)
 
 let sfLinkReference lr = fun r -> Sfdomain.Link lr
-(*	let rp = sfReference lr in
-	print_string (String.concat ":" rp);
-	fun r -> print_string (String.concat ":" r); if rp <= r then Sfdomain.failure 4 else Sfdomain.Link rp
-*)
 
 let rec sfVector vec =
 	let rec eval v =

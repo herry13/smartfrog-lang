@@ -24,6 +24,7 @@ let help = "usage: csf [option] <sf-file>" ^
 		   "\n  -yaml   print store in YAML" ^
 		   "\n  -xml    print store in XML" ^
            "\n  -ast    print abstract syntax tree" ^
+           "\n  -type   print type environment" ^
            "\n\n"
 
 (**
@@ -44,6 +45,9 @@ let rec parse_file opt file =
 	in
 	let str =
 		if opt = "-ast" then Sfast.string_of_sf ast
+		else if opt = "-type" then
+			let env = Sftype.sfSpecification ast in
+			Sftype.string_of_env env
 		else
 			let store = eval_value ast in
 			if opt = "-yaml" then Sfdomainhelper.yaml_of_store store

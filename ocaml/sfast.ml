@@ -24,17 +24,17 @@ and  reference     = string list
 
 (** type syntax **)
 and _type     = Tbasic of basicType
-              | Tvec of basicType
+              | Tvec of _type
               | Tref of basicType
               | Tundefined
-and basicType = Tbool
-              | Tnum
-              | Tstr
-              | Tobj
-              | Tid of string
-              | Tnull
-              | Tact
-              | Tglob
+and basicType = Tbool                         (* (Type Bool)   *)
+              | Tnum                          (* (Type Num)    *)
+              | Tstr                          (* (Type Str)    *)
+              | Tobj                          (* (Type Object) *)
+              | Tschema of string * basicType (* (Type Schema) *)
+              | Tnull                         (* (Type Null)   *)
+              | Tact                          (* (Type Action) *)
+              | Tglob                         (* (Type Global) *)
 
 (*******************************************************************
  * functions to convert elements of abstract syntax tree to string
@@ -82,17 +82,17 @@ and string_of_r r = String.concat ":" r
 and string_of_type t =
 	match t with
 	| Tbasic bt  -> string_of_basic_type bt
-	| Tvec bt    -> "[]" ^ (string_of_basic_type bt)
+	| Tvec bt    -> "[]" ^ (string_of_type bt)
 	| Tref bt    -> "*" ^ (string_of_basic_type bt)
 	| Tundefined -> "?"
 
 and string_of_basic_type t =
 	match t with
-	| Tbool  -> "bool"
-	| Tnum   -> "num"
-	| Tstr   -> "str"
-	| Tobj   -> "obj"
-	| Tid id -> id
-	| Tnull  -> "null"
-	| Tact   -> "act"
-	| Tglob  -> "glob"
+	| Tbool               -> "bool"
+	| Tnum                -> "num"
+	| Tstr                -> "str"
+	| Tobj                -> "obj"
+	| Tschema (id, super) -> "$" ^ id ^ "<:" ^ (string_of_basic_type super)
+	| Tnull               -> "null"
+	| Tact                -> "act"
+	| Tglob               -> "glob"
