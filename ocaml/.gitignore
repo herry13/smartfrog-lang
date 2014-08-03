@@ -2,3 +2,6 @@
 *.o
 *.mli
 *.cmo
+.paths
+.project
+.settings
