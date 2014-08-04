@@ -1,5 +1,7 @@
 .PHONY: build clean clean-all dist
 
+# 0 = OCaml bytecode
+# 1 = native
 NATIVE=0
 
 build: csf
