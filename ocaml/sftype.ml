@@ -60,7 +60,7 @@ let rec domain e r =
 let rec has_type e t =
 	match t with
 	| TUndefined                -> false
-	| TLazy (ns, r, islink)     -> true
+	| TLazy (r, islink)         -> true
 	| TVec tv                   -> has_type e tv           (* (Type Vec)    *)
 	| TRef tr                   -> has_type e (TBasic tr)  (* (Type Ref)    *)
 	| TBasic TBool              -> true                    (* (Type Bool)   *)
@@ -174,29 +174,40 @@ let assign e r t t_value =
 		else failure 9 "not satisfy rule (Assign2) & (Assign4)"
 
 let rec resolve_tlazy e ns r acc =
-	if SetRef.exists (fun rx -> rx = r) acc then failure 11 ("cyclic reference: " ^ (string_of_ref r))
+	if SetRef.exists (fun rx -> rx = r) acc then failure 11 ("cyclic reference " ^ (string_of_ref r))
 	else
 		match resolve e ns r with
-		| _, Undefined              -> failure 10 ("undefined reference: " ^ (string_of_ref r))
-		| nsp, Type TLazy (tns, tr, islink) ->
+		| _, Undefined                 -> failure 10 ("undefined reference " ^ (string_of_ref r) ^ " in " ^ (string_of_ref ns))
+		| nsp, Type TLazy (tr, islink) ->
 			let rp = ref_plus_ref nsp r in
 			if ref_prefixeq_ref rp tr then failure 11 ("implicit cyclic reference" ^ (string_of_ref tr))
-			else resolve_tlazy e tns tr (SetRef.add rp acc)
-		| _, Type t                 -> t
+			else resolve_tlazy e rp tr (SetRef.add rp acc)
+		| _, Type t                    -> t
 
 let resolve_tlazy_of_env e =
+	let sfconfig = ["sfConfig"] in
 	let rec iter e src dest =
 		match src with
 		| [] -> dest
 		| (r, t) :: tail ->
-			let result =
-				match t with
-				| TLazy (tns, tr, islink) -> (r, (resolve_tlazy e tns tr SetRef.empty)) :: dest
-				| _                       -> (r, t) :: dest
-			in
-			iter e tail result
+			if not (ref_prefixeq_ref sfconfig r) || r = sfconfig then iter e tail dest
+			else
+				let result =
+					match t with
+					| TLazy (tr, islink) ->
+						let tx =					
+							match resolve_tlazy e r tr SetRef.empty with
+							| TBasic t -> if islink then TBasic t else TRef t
+							| t        -> t
+						in
+						(List.tl r, tx) :: dest
+					| _  -> (List.tl r, t) :: dest
+				in
+				iter e tail result
 	in
 	iter e e []
+
+let second_pass_of_env e = resolve_tlazy_of_env e
 
 (*******************************************************************
  * type inference rules
@@ -220,13 +231,12 @@ let sfDataReference dr =  (* (Deref Data) *)
 	fun e ns ->
 		let r = (sfReference dr) in
 		match resolve e ns r with
-		| _, Type (TLazy (nsz, rz, islink)) -> TLazy (nsz, rz, islink)
+		| _, Type (TLazy (rz, islink)) -> TLazy (rz, islink)
 		| _, Type (TBasic t) -> TRef t
 		| _, Type (TRef t)   -> TRef t
 		| _, Type (TVec _)   -> failure 101 ("dereference of " ^ (string_of_ref r) ^ " is a vector")
 		| _, Type TUndefined -> failure 102 ("dereference of " ^ (string_of_ref r) ^ " is TUndefined")
-		| _, Undefined       -> TLazy (ns, r, false)
-			(* failure 103 ("dereference of " ^ (string_of_ref r) ^ " is undefined") *)
+		| _, Undefined       -> TLazy (r, false)
 
 let sfLinkReference lr =  (* (Deref Link) *)
 	(**
@@ -236,7 +246,7 @@ let sfLinkReference lr =  (* (Deref Link) *)
 	fun e ns r ->
 		let link = sfReference lr in
 		match resolve e ns link with
-		| _, Undefined -> TLazy (ns, link, true) (* failure 104 "dereference of link reference is undefined" *)
+		| _, Undefined -> TLazy (link, true) (* failure 104 "dereference of link reference is undefined" *)
 		| _, Type t    -> t
 
 let rec sfVector vec =
@@ -332,5 +342,6 @@ and sfBlock block =
 
 and sfSpecification sf =
 	let e1 = sfBlock sf [] [] in
-	resolve_tlazy_of_env e1
+	second_pass_of_env e1
+	(* e1 *)
 

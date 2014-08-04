@@ -26,7 +26,7 @@ and  reference     = string list
 and _type     = TBasic of basicType
               | TVec   of _type
               | TRef   of basicType
-              | TLazy  of reference * reference * bool  (* ns r [islink] *)
+              | TLazy  of reference * bool  (* r [islink] *)
               | TUndefined
 and basicType = TBool                         (* (Type Bool)   *)
               | TNum                          (* (Type Num)    *)
@@ -85,7 +85,7 @@ and string_of_type t =
 	| TBasic bt         -> string_of_basic_type bt
 	| TVec bt           -> "[]" ^ (string_of_type bt)
 	| TRef bt           -> "*" ^ (string_of_basic_type bt)
-	| TLazy (ns, r, islink) -> "?(" ^ (if islink then "" else "*") ^ (String.concat "." ns) ^ "," ^ (String.concat "." r) ^ ")"
+	| TLazy (r, islink) -> "?(" ^ (if islink then "" else "*") ^ (String.concat "." r) ^ ")"
 	| TUndefined        -> "!"
 
 and string_of_basic_type t =
