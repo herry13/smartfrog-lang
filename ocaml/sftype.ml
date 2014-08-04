@@ -204,12 +204,23 @@ and sfBasicValue bv =
 		| Vector vec -> sfVector vec e ns
 		| DR dr      -> sfDataReference dr e ns
 
-let rec sfPrototype proto =
+let rec sfPrototype proto first =
 	fun ns r e ->
 		match proto with
-		| B_P (pb, p)    -> sfPrototype p ns r (sfBlock pb r e)
-		| R_P (pr, p)    -> sfPrototype p ns r (inherit_env e ns (sfReference pr) r)
-		| EmptyPrototype -> e
+		| EmptyPrototype ->
+			if first then assign e r TUndefined (TBasic TObject)  (* (Proto1) *)
+			else e
+		| B_P (pb, p)    ->
+			let e_block = if first then assign e r TUndefined (TBasic TObject) else e  (* (Proto2) *)
+			in
+			sfPrototype p false ns r (sfBlock pb r e_block)
+		| R_P (pr, p)    ->
+			let proto = sfReference pr in
+			match resolve e ns proto with
+			| _, Undefined    -> failure 106 ("prototype is not found: " ^ (string_of_ref proto))
+			| _, Type t_proto ->
+				let e_proto = assign e r TUndefined t_proto in             (* (Proto3) & (Proto4) *)
+				sfPrototype p false ns r (inherit_env e_proto ns proto r)  (* TODO: Proto3 & Proto4 can be combined (simplified) *)
 
 and sfValue v =
 	(**
@@ -221,7 +232,8 @@ and sfValue v =
 		match v with
 		| BV bv   -> assign e r t (sfBasicValue bv e ns)
 		| LR link -> assign e r t (sfLinkReference link e ns)
-		| P proto -> sfPrototype proto ns r (bind e r (TBasic TObject))
+		| P proto -> sfPrototype proto true ns r e
+(* sfPrototype proto ns r (bind e r (TBasic TObject)) *)
 
 and sfAssignment (r, t, v) =
 	fun ns e -> sfValue v ns (ref_plus_ref ns r) t e
