@@ -17,7 +17,7 @@ and env = var list
 
 let failure code msg = raise (Failure ("[err" ^ string_of_int(code) ^ "] " ^ msg))
 
-let string_of_ref r = String.concat "." r
+let string_of_ref r = String.concat ":" r
 
 let string_of_env e =
 	let rec str_of_env e s =
@@ -73,9 +73,27 @@ let rec has_type e t =
 		| (_, (TBasic (TSchema (side, _)))) :: tail -> if sid = side then true else has_type tail t  (* (Type Schema) *)
 		| (_, _) :: tail                            -> has_type tail t
 
+(* return true if type 't1' is a sub-type of 't2', otherwise false *)
+let rec (<:) t1 t2 =
+	if t1 = t2 then true                                                  (* (Reflex)         *)
+	else
+		match t1, t2 with
+		| TBasic (TSchema _), TBasic TObject -> true                      (* (Object Subtype) *)
+		| TBasic (TSchema (sid1, super1)), _ -> TBasic super1 <: t2       (* (Trans)          *)
+		| TVec tv1, TVec tv2                 -> tv1 <: tv2                (* (Vec Subtype)    *)
+		| TRef tr1, TRef tr2                 -> TBasic tr1 <: TBasic tr2  (* (Ref Subtype)    *)
+		| TBasic TNull, TRef _               -> true                      (* (Ref Null)       *)
+		| _, _ -> false
+
 (* bind type 't' to variable 'r' into environment 'e' *)
 let bind e r t =
-	if (type_of e r) != Undefined then failure 1 ("cannot bind an existing variable " ^ (string_of_ref r))
+	if (type_of e r) != Undefined then failure 1 ("cannot bind type to an existing variable " ^ (string_of_ref r))
+	else if (List.length r) > 1 then
+		match type_of e (prefix r) with
+		| Undefined -> failure 2 ("prefix of " ^ (string_of_ref r) ^ " is not defined")
+		| Type t    ->
+			if t <: TBasic TObject then (r, t) :: e
+			else failure 3 ("prefix of " ^ (string_of_ref r) ^ " is not a component")
 	else (r, t) :: e
 
 (**
@@ -96,18 +114,6 @@ let rec env_of_ref env ref cut =
 				else e
 		) [] env
 
-(* return true if type 't1' is a sub-type of 't2', otherwise false *)
-let rec (<:) t1 t2 =
-	if t1 = t2 then true                                                  (* (Reflex)         *)
-	else
-		match t1, t2 with
-		| TBasic (TSchema _), TBasic TObject -> true                      (* (Object Subtype) *)
-		| TBasic (TSchema (sid1, super1)), _ -> TBasic super1 <: t2       (* (Trans)          *)
-		| TVec tv1, TVec tv2                 -> tv1 <: tv2                (* (Vec Subtype)    *)
-		| TRef tr1, TRef tr2                 -> TBasic tr1 <: TBasic tr2  (* (Ref Subtype)    *)
-		| TBasic TNull, TRef _               -> true                      (* (Ref Null)       *)
-		| _, _ -> false
-
 (**
  * @param e  type environment
  * @param ns namespace where the reference will be resolved
@@ -116,7 +122,7 @@ let rec (<:) t1 t2 =
 let rec resolve e ns r =
 	match r with
 	| "ROOT"   :: rs -> ([], type_of e (simplify rs))
-	| "PARENT" :: rs -> if ns = [] then failure 2 "PARENT of root namespace is impossible"
+	| "PARENT" :: rs -> if ns = [] then failure 4 "PARENT of root namespace is impossible"
 	                    else (prefix ns, type_of e (simplify (ref_plus_ref (prefix ns) rs)))
 	| "THIS"   :: rs -> (ns, type_of e (simplify (ref_plus_ref ns rs)))
 	| _              ->
@@ -130,9 +136,9 @@ let rec resolve e ns r =
 let inherit_env e ns proto r =
 	let get_proto =
 		match resolve e ns proto with
-		| _, Undefined             -> failure 3 ("prototype is not found: " ^ (string_of_ref proto))
+		| _, Undefined             -> failure 5 ("prototype is not found: " ^ (string_of_ref proto))
 		| nsx, Type TBasic TObject -> ref_plus_ref nsx proto
-		| _, Type t                -> failure 4 ("invalid prototype: " ^ (string_of_type t))
+		| _, Type t                -> failure 6 ("invalid prototype: " ^ (string_of_type t))
 	in
 	let ref_proto = get_proto in
 	let e_proto = env_of_ref e ref_proto true in
@@ -143,13 +149,13 @@ let assign e r t t_value =
 	| Undefined  ->
 		if t = TUndefined then bind e r t_value      (* (Assign1) *)
 		else if t_value <: t then bind e r t         (* (Assign3) *)
-		else failure 5 "not satisfy rule (Assign3)"
+		else failure 7 "not satisfy rule (Assign3)"
 	| Type t_var ->
 		if t = TUndefined then
 			if t_value <: t_var then e                           (* (Assign2) *)
-			else failure 6 "not satisfy rule (Assign2)"
+			else failure 8 "not satisfy rule (Assign2)"
 		else if (t_value <: t) && (t <: t_var) then e            (* (Assign4) *)
-		else failure 7 "not satisfy rule (Assign2) & (Assign4)"
+		else failure 9 "not satisfy rule (Assign2) & (Assign4)"
 
 
 (*******************************************************************
@@ -233,7 +239,6 @@ and sfValue v =
 		| BV bv   -> assign e r t (sfBasicValue bv e ns)
 		| LR link -> assign e r t (sfLinkReference link e ns)
 		| P proto -> sfPrototype proto true ns r e
-(* sfPrototype proto ns r (bind e r (TBasic TObject)) *)
 
 and sfAssignment (r, t, v) =
 	fun ns e -> sfValue v ns (ref_plus_ref ns r) t e
