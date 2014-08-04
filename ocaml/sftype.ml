@@ -15,9 +15,9 @@ and env = var list
  * helper functions
  *******************************************************************)
 
-let failure code msg = raise (Failure ("[err" ^ string_of_int(code) ^ "] " ^ msg))
+let failure code msg = raise (Failure ("[type-err" ^ string_of_int(code) ^ "] " ^ msg))
 
-let string_of_ref r = String.concat ":" r
+let string_of_ref r = String.concat "." r
 
 let string_of_env e =
 	let rec str_of_env e s =
@@ -90,9 +90,9 @@ let bind e r t =
 	if (type_of e r) != Undefined then failure 1 ("cannot bind type to an existing variable " ^ (string_of_ref r))
 	else if (List.length r) > 1 then
 		match type_of e (prefix r) with
-		| Undefined -> failure 2 ("prefix of " ^ (string_of_ref r) ^ " is not defined")
-		| Type t    ->
-			if t <: TBasic TObject then (r, t) :: e
+		| Undefined     -> failure 2 ("prefix of " ^ (string_of_ref r) ^ " is not defined")
+		| Type t_prefix ->
+			if t_prefix <: TBasic TObject then (r, t) :: e
 			else failure 3 ("prefix of " ^ (string_of_ref r) ^ " is not a component")
 	else (r, t) :: e
 
@@ -138,7 +138,7 @@ let inherit_env e ns proto r =
 		match resolve e ns proto with
 		| _, Undefined             -> failure 5 ("prototype is not found: " ^ (string_of_ref proto))
 		| nsx, Type TBasic TObject -> ref_plus_ref nsx proto
-		| _, Type t                -> failure 6 ("invalid prototype: " ^ (string_of_type t))
+		| _, Type t                -> failure 6 ("invalid prototype " ^ (string_of_ref r) ^ ":" ^ (string_of_type t))
 	in
 	let ref_proto = get_proto in
 	let e_proto = env_of_ref e ref_proto true in
@@ -153,7 +153,7 @@ let assign e r t t_value =
 	| Type t_var ->
 		if t = TUndefined then
 			if t_value <: t_var then e                           (* (Assign2) *)
-			else failure 8 "not satisfy rule (Assign2)"
+			else failure 8 ("not satisfy rule (Assign2) " ^ (string_of_ref r) ^ " " ^ (string_of_type t_value) ^ " " ^ (string_of_type t_var))
 		else if (t_value <: t) && (t <: t_var) then e            (* (Assign4) *)
 		else failure 9 "not satisfy rule (Assign2) & (Assign4)"
 
@@ -210,23 +210,26 @@ and sfBasicValue bv =
 		| Vector vec -> sfVector vec e ns
 		| DR dr      -> sfDataReference dr e ns
 
-let rec sfPrototype proto first =
+let rec sfPrototype proto first t_val =
 	fun ns r e ->
 		match proto with
 		| EmptyPrototype ->
-			if first then assign e r TUndefined (TBasic TObject)  (* (Proto1) *)
+			if first then assign e r t_val (TBasic TObject)  (* (Proto1) *)
 			else e
 		| B_P (pb, p)    ->
-			let e_block = if first then assign e r TUndefined (TBasic TObject) else e  (* (Proto2) *)
+			let e_block = if first then assign e r t_val (TBasic TObject) else e  (* (Proto2) *)
 			in
-			sfPrototype p false ns r (sfBlock pb r e_block)
+			let t_block = if first then TBasic TObject else t_val
+			in
+			sfPrototype p false t_block ns r (sfBlock pb r e_block)
 		| R_P (pr, p)    ->
 			let proto = sfReference pr in
 			match resolve e ns proto with
 			| _, Undefined    -> failure 106 ("prototype is not found: " ^ (string_of_ref proto))
-			| _, Type t_proto ->
-				let e_proto = assign e r TUndefined t_proto in             (* (Proto3) & (Proto4) *)
-				sfPrototype p false ns r (inherit_env e_proto ns proto r)  (* TODO: Proto3 & Proto4 can be combined (simplified) *)
+			| _, Type t ->
+				let e_proto = assign e r t_val t in                      (* (Proto3) & (Proto4) *)
+				let t_proto = if first then t else t_val in
+				sfPrototype p false t_proto ns r (inherit_env e_proto ns proto r)
 
 and sfValue v =
 	(**
@@ -238,7 +241,7 @@ and sfValue v =
 		match v with
 		| BV bv   -> assign e r t (sfBasicValue bv e ns)
 		| LR link -> assign e r t (sfLinkReference link e ns)
-		| P proto -> sfPrototype proto true ns r e
+		| P proto -> sfPrototype proto true TUndefined ns r e
 
 and sfAssignment (r, t, v) =
 	fun ns e -> sfValue v ns (ref_plus_ref ns r) t e
