@@ -30,21 +30,31 @@ let string_of_env e =
 	in
 	str_of_env e ""
 
+(** alias functions from module Sfdomain **)
+let ref_plus_ref = Sfdomain.ref_plus_ref;;
+let ref_minus_ref = Sfdomain.ref_minus_ref;;
+let prefix = Sfdomain.prefix;;
+let ref_prefix_ref = Sfdomain.ref_prefix_ref;;
+let simplify = Sfdomain.simplify;;
+let trace = Sfdomain.trace;;
 
 (*******************************************************************
  * type checking rules
  *******************************************************************)
 
+(** return the type of variable 'r' **)
 let rec type_of e r =
 	match e with
 	| []               -> Undefined
-	| (vr, vt) :: tail -> if r == vr then Type vt else type_of tail r
+	| (vr, vt) :: tail -> if r = vr then Type vt else type_of tail r
 
+(** return true if variable 'r' is in environment 'e', otherwise false *)
 let rec dom e r =
 	match e with
 	| []               -> false
-	| (vr, vt) :: tail -> if r == vr then true else (dom e r)
+	| (vr, vt) :: tail -> if r = vr then true else (dom e r)
 
+(* return true if type 't' is available in environment 'e', otherwise false *)
 let rec has_type e t =
 	match t with
 	| Tundefined                -> false
@@ -63,15 +73,30 @@ let rec has_type e t =
 		| (_, (Tbasic (Tschema (side, _)))) :: tail -> if sid = side then true else has_type tail t  (* (Type Schema) *)
 		| (_, _) :: tail                                        -> has_type tail t
 
+(* bind type 't' to variable 'r' into environment 'e' *)
 let bind e r t =
 	if (type_of e r) != Undefined then failure 1 ("cannot bind an existing variable " ^ (string_of_ref r))
 	else (r, t) :: e
 
-let rec has_prefix e prefix =
-	if prefix = [] then e
-	else if e = [] then []
-	else List.fold_left (fun ex (r, t) -> print_string ((string_of_ref prefix) ^ " < " ^ (string_of_ref r) ^ " = " ^ (string_of_bool (prefix < r)) ^ "\n"); if prefix < r then (r, t) :: ex else ex) [] e
+(**
+ * return part of environment 'env' where 'ref' is the prefix of the variables
+ * the prefix of variables will be removed when 'cut' is true, otherwise
+ * the variables will have original references
+ *)
+let rec env_of_ref env ref cut =
+	if ref = [] then env
+	else if env = [] then []
+	else
+		List.fold_left
+		(
+			fun e (r, t) ->
+				if ref_prefix_ref ref r then
+					let re = if cut then (ref_minus_ref r ref) else r in
+					(re, t) :: e
+				else e
+		) [] env
 
+(* return true if type 't1' is a sub-type of 't2', otherwise false *)
 let rec (<:) t1 t2 =
 	if t1 = t2 then true                                                  (* (Reflex)         *)
 	else
@@ -136,11 +161,30 @@ and sfBasicValue bv =
 		| Vector vec -> sfVector vec e
 		| DR dr      -> sfDataReference dr e
 
+let rec resolve e ns r =
+	match r with
+	| "ROOT"   :: rs -> ([], type_of e (simplify rs))
+	| "PARENT" :: rs -> if ns = [] then failure 10 "PARENT of root namespace is impossible"
+	                    else (prefix ns, type_of e (simplify (ref_plus_ref (prefix ns) rs)))
+	| "THIS"   :: rs -> (ns, type_of e (simplify (ref_plus_ref ns rs)))
+	| _              ->
+		if ns = [] then ([], type_of e r)
+		else
+			let t = type_of e (trace ns r) in
+			match t with
+			| Undefined -> resolve e (prefix ns) r
+			| _ -> (ns, t)
+
 let inherit_env e ns proto r =
-	print_string ("inherit " ^ (string_of_ref proto) ^ "\n");
-	let ex = has_prefix e proto in
-	print_string ((string_of_env ex) ^ "\n\n");
-	e (* TODO *)
+	let get_proto =
+		match resolve e ns proto with
+		| _, Undefined          -> failure 12 ("prototype is not found: " ^ (string_of_ref proto))
+		| nsx, Type Tbasic Tobj -> ref_plus_ref nsx proto
+		| _, Type t             -> failure 13 ("invalid prototype: " ^ (string_of_type t))
+	in
+	let ref_proto = get_proto in
+	let e_proto = env_of_ref e ref_proto true in
+	List.fold_left (fun ep (rep, tep) -> ((ref_plus_ref r rep), tep) :: ep) e e_proto
 
 let rec sfPrototype proto =
 	fun ns r e ->
@@ -157,7 +201,7 @@ and sfValue v =
 		| P proto -> sfPrototype proto ns r (bind e r (Tbasic Tobj))
 
 and sfAssignment (r, t, v) =
-	fun ns e -> sfValue v ns (Sfdomain.(++) ns r) e
+	fun ns e -> sfValue v ns (ref_plus_ref ns r) e
 
 and sfBlock block =
 	fun ns e ->
@@ -168,12 +212,4 @@ and sfBlock block =
 and sfSpecification sf = sfBlock sf [] []
 
 
-(**************
- * test
- **************)
 
-(* let test =
-	let e1 = bind [] ["a"] (Tbasic Tobj) in
-	let e2 = bind e1 ["a"] (Tbasic Tnum) in
-	print_string (string_of_env e2);
-	print_string "\n" *)

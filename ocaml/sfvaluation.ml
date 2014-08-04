@@ -50,7 +50,7 @@ and sfValue v =
 
 (** 't' (type) is ignored since this function only evaluates the value **)
 and sfAssignment (r, t, v) =
-	fun ns s -> sfValue v ns (Sfdomain.(++) ns r) s
+	fun ns s -> sfValue v ns (Sfdomain.ref_plus_ref ns r) s
 
 and sfBlock block =
 	fun ns s ->
