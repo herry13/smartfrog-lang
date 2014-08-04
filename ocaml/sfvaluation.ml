@@ -1,13 +1,13 @@
 open Sfast
 
-let sfBoolean b = if b = "true" then Sfdomain.Bool true else Sfdomain.Bool false
+let sfBoolean b = if b = "true" then Sfdomain.Boolean true else Sfdomain.Boolean false
 
 let sfNumber n =
 	let f = float_of_string n in
 	let i = int_of_float f in
-	if f = (float_of_int i) then Sfdomain.Num (Sfdomain.Int i) else Sfdomain.Num (Sfdomain.Float f)
+	if f = (float_of_int i) then Sfdomain.Number (Sfdomain.Int i) else Sfdomain.Number (Sfdomain.Float f)
 
-let sfString s = Sfdomain.Str s
+let sfString s = Sfdomain.String s
 
 let sfNull = Sfdomain.Null
 
@@ -25,23 +25,23 @@ let rec sfVector vec =
 		| [] -> []
 		| head :: tail -> (sfBasicValue head) :: (eval tail)
 	in
-	Sfdomain.Vec (eval vec)
+	Sfdomain.Vector (eval vec)
 
 and sfBasicValue bv =
 	match bv with
-	| Bool b  -> sfBoolean b
-	| Num n   -> sfNumber n
-	| Str s   -> sfString s
+	| Boolean b  -> sfBoolean b
+	| Number n   -> sfNumber n
+	| String s   -> sfString s
 	| Null    -> sfNull
-	| Vec vec -> sfVector vec
+	| Vector vec -> sfVector vec
 	| DR dr   -> sfDataReference dr
 
 let rec sfPrototype ps =
 	fun ns r s ->
 		match ps with
-		| BP (pb, p) -> sfPrototype p ns r (sfBlock pb r s)
-		| RP (pr, p) -> sfPrototype p ns r (Sfdomain.inherit_proto s ns (sfReference pr) r)
-		| EP         -> s
+		| B_P (pb, p) -> sfPrototype p ns r (sfBlock pb r s)
+		| R_P (pr, p) -> sfPrototype p ns r (Sfdomain.inherit_proto s ns (sfReference pr) r)
+		| EmptyPrototype    -> s
 
 and sfValue v =
 	fun ns r s ->
@@ -50,14 +50,15 @@ and sfValue v =
 		| LR lr -> Sfdomain.bind s r (Sfdomain.Basic (sfLinkReference lr r))
 		| P p   -> sfPrototype p ns r (Sfdomain.bind s r (Sfdomain.Store []))
 
-and sfAssignment (r, v) =
+(** 't' (type) is ignored since this function only evaluates the value **)
+and sfAssignment (r, t, v) =
 	fun ns s -> sfValue v ns (Sfdomain.ref_plus_ref ns r) s
 
 and sfBlock block =
 	fun ns s ->
 		match block with
-		| AB (a, b) -> sfBlock b ns (sfAssignment a ns s)
-		| EB             -> s
+		| A_B (a, b) -> sfBlock b ns (sfAssignment a ns s)
+		| EmptyBlock   -> s
 
 and sfSpecification b =
 	let r = ["sfConfig"] in

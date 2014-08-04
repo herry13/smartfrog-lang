@@ -24,6 +24,7 @@ let help = "usage: csf [option] <sf-file>" ^
 		   "\n  -yaml   print store in YAML" ^
 		   "\n  -xml    print store in XML" ^
            "\n  -ast    print abstract syntax tree" ^
+           "\n  -type   print type environment" ^
            "\n\n"
 
 (**
@@ -31,7 +32,7 @@ let help = "usage: csf [option] <sf-file>" ^
  *
  * @param file file to be parsed
  * @param opt  an option       
- * @return Sfast._SF an SF abstract syntax tree
+ * @return Sfast.sf an SF abstract syntax tree
  *)
 let rec parse_file opt file =
 	let dummy_lexbuf = Lexing.from_string "" in
@@ -40,10 +41,13 @@ let rec parse_file opt file =
 		try
 			Sfparser.sf (Sfhelper.get_token lexstack) dummy_lexbuf
 		with
-			e -> Sfhelper.check_error e lexstack Sfast.EB
+			e -> Sfhelper.check_error e lexstack Sfast.EmptyBlock
 	in
 	let str =
 		if opt = "-ast" then Sfast.string_of_sf ast
+		else if opt = "-type" then
+			let env = Sftype.sfSpecification ast in
+			Sftype.string_of_env env
 		else
 			let store = eval_value ast in
 			if opt = "-yaml" then Sfdomainhelper.yaml_of_store store

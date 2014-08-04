@@ -2,6 +2,10 @@
 *.o
 *.mli
 *.cmo
+*.cmi
+csf
+sflexer.ml
+sfparser.ml
 .paths
 .project
 .settings

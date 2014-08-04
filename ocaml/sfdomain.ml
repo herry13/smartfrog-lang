@@ -4,19 +4,19 @@
 type number = Int of int
             | Float of float
 and vector  = basic list
-and basic   = Bool of bool
-            | Num of number
-            | Str of string
+and basic   = Boolean of bool
+            | Number of number
+            | String of string
             | Null
-            | Vec of vector
+            | Vector of vector
             | Ref of string list
-			| Link of string list
+            | Link of string list
 and value   = Basic of basic
             | Store of store
 and _value  = Val of value
             | Undefined
 and cell    = string * value
-and store   = cell list
+and store   = cell list 
 
 (*******************************************************************
  * helpers
@@ -48,15 +48,9 @@ let rec prefix r =
 	| [] -> []
 	| head::tail -> if tail = [] then [] else head :: (prefix tail)
 
-let rec ref_plus_id r id =
-	match r with
-	| [] -> [id]
-	| head::tail -> head :: (ref_plus_id tail id)
+let ref_plus_ref r1 r2 = List.concat [r1; r2]
 
-let rec ref_plus_ref r1 r2 =
-	match r1 with
-	| [] -> r2
-	| id::rs -> if r2 = [] then r1 else id :: (ref_plus_ref rs r2)
+let ref_plus_id r id = ref_plus_ref r [id]
 
 let rec ref_minus_ref r1 r2 =
 	if r1 = [] then []
@@ -64,9 +58,9 @@ let rec ref_minus_ref r1 r2 =
 	else if (List.hd r1) = (List.hd r2) then ref_minus_ref (List.tl r1) (List.tl r2)
 	else r1
 
-let rec ref_prefixeq_ref r1 r2 : bool = if (ref_minus_ref r1 r2) = [] then true else false;;
+let ref_prefixeq_ref r1 r2 = (ref_minus_ref r1 r2) = []
 
-let rec ref_prefix_ref r1 r2 : bool = ( (ref_prefixeq_ref r1 r2) && not (r1 = r2) )
+let ref_prefix_ref r1 r2 = ( (ref_prefixeq_ref r1 r2) && not (r1 = r2) )
 
 let rec trace base r =
 	match r with
@@ -77,6 +71,9 @@ let rec trace base r =
 	| id :: rs -> trace (ref_plus_id base id) rs
 
 let simplify r = trace [] r
+
+
+(** store functions **)
 
 let rec find s r : _value =
 	match (s, r) with
