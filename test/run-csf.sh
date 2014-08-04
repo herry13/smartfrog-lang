@@ -2,7 +2,8 @@
 
 BASEDIR="$(dirname "$0")"
 LISADIR="$BASEDIR/LISA2014paper"
-BIN="$BASEDIR/../ocaml/csf"
+OPT="-type"
+BIN="$BASEDIR/../ocaml/csf $OPT"
 
 function test {
 	if [[ -f $1 && "${1##*.}" = "sf" ]]; then
@@ -16,14 +17,18 @@ function test {
 	fi
 }
 
-echo "Running tests..."
-
-for file in $BASEDIR/*; do
+echo "=== running tests ==="
+filelist="good-test-files.txt"
+for file in $(cat $filelist); do
 	test $file
 done
 
-for file in $LISADIR/*; do
-	test $file
-done
+#for file in $BASEDIR/*; do
+#	test $file
+#done
+#
+#for file in $LISADIR/*; do
+#	test $file
+#done
 
-echo "...done!"
+echo "=== done ==="

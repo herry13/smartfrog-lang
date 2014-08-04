@@ -1,0 +1,14 @@
+sfConfig extends {
+	a extends {
+		b 1;
+	}
+	c a;
+	d DATA c;
+	e DATA d;
+	a:b 2;
+	v1 [1];
+	v2 [[DATA a], [DATA d], [DATA e]];
+
+	obj1 extends a
+}
+
