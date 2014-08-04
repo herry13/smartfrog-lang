@@ -23,18 +23,18 @@ and  vector        = basicValue list
 and  reference     = string list
 
 (** type syntax **)
-and _type     = Tbasic of basicType
-              | Tvec of _type
-              | Tref of basicType
-              | Tundefined
-and basicType = Tbool                         (* (Type Bool)   *)
-              | Tnum                          (* (Type Num)    *)
-              | Tstr                          (* (Type Str)    *)
-              | Tobj                          (* (Type Object) *)
-              | Tschema of string * basicType (* (Type Schema) *)
-              | Tnull                         (* (Type Null)   *)
-              | Tact                          (* (Type Action) *)
-              | Tglob                         (* (Type Global) *)
+and _type     = TBasic of basicType
+              | TVec of _type
+              | TRef of basicType
+              | TUndefined
+and basicType = TBool                         (* (Type Bool)   *)
+              | TNum                          (* (Type Num)    *)
+              | TStr                          (* (Type Str)    *)
+              | TObject                       (* (Type Object) *)
+              | TSchema of string * basicType (* (Type Schema) *)
+              | TNull                         (* (Type Null)   *)
+              | TAction                       (* (Type Action) *)
+              | TGlobal                       (* (Type Global) *)
 
 (*******************************************************************
  * functions to convert elements of abstract syntax tree to string
@@ -81,18 +81,18 @@ and string_of_r r = String.concat ":" r
 
 and string_of_type t =
 	match t with
-	| Tbasic bt  -> string_of_basic_type bt
-	| Tvec bt    -> "[]" ^ (string_of_type bt)
-	| Tref bt    -> "*" ^ (string_of_basic_type bt)
-	| Tundefined -> "?"
+	| TBasic bt  -> string_of_basic_type bt
+	| TVec bt    -> "[]" ^ (string_of_type bt)
+	| TRef bt    -> "*" ^ (string_of_basic_type bt)
+	| TUndefined -> "?"
 
 and string_of_basic_type t =
 	match t with
-	| Tbool               -> "bool"
-	| Tnum                -> "num"
-	| Tstr                -> "str"
-	| Tobj                -> "obj"
-	| Tschema (id, super) -> "$" ^ id ^ "<:" ^ (string_of_basic_type super)
-	| Tnull               -> "null"
-	| Tact                -> "act"
-	| Tglob               -> "glob"
+	| TBool               -> "bool"
+	| TNum                -> "num"
+	| TStr                -> "str"
+	| TObject                -> "obj"
+	| TSchema (id, super) -> "$" ^ id ^ "<:" ^ (string_of_basic_type super)
+	| TNull               -> "null"
+	| TAction                -> "act"
+	| TGlobal               -> "glob"

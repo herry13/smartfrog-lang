@@ -39,7 +39,7 @@ body:
 	|                      { fun b -> b }
 
 assignment:
-	| reference value { ($1, Sfast.Tundefined, $2) }
+	| reference value { ($1, Sfast.TUndefined, $2) }
 
 value:
 	| basic EOS          { BV $1 }

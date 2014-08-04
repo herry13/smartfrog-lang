@@ -57,20 +57,20 @@ let rec dom e r =
 (* return true if type 't' is available in environment 'e', otherwise false *)
 let rec has_type e t =
 	match t with
-	| Tundefined                -> false
-	| Tvec tv                   -> has_type e tv           (* (Type Vec)    *)
-	| Tref tr                   -> has_type e (Tbasic tr)  (* (Type Ref)    *)
-	| Tbasic Tbool              -> true                    (* (Type Bool)   *)
-	| Tbasic Tnum               -> true                    (* (Type Num)    *)
-	| Tbasic Tstr               -> true                    (* (Type Str)    *)
-	| Tbasic Tnull              -> true                    (* (Type Null)   *)
-	| Tbasic Tobj               -> true                    (* (Type Object) *)
-	| Tbasic Tact               -> true                    (* (Type Action) *)
-	| Tbasic Tglob              -> true                    (* (Type Global) *)
-	| Tbasic (Tschema (sid, _)) ->
+	| TUndefined                -> false
+	| TVec tv                   -> has_type e tv           (* (Type Vec)    *)
+	| TRef tr                   -> has_type e (TBasic tr)  (* (Type Ref)    *)
+	| TBasic TBool              -> true                    (* (Type Bool)   *)
+	| TBasic TNum               -> true                    (* (Type Num)    *)
+	| TBasic TStr               -> true                    (* (Type Str)    *)
+	| TBasic TNull              -> true                    (* (Type Null)   *)
+	| TBasic TObject               -> true                    (* (Type Object) *)
+	| TBasic TAction               -> true                    (* (Type Action) *)
+	| TBasic TGlobal              -> true                    (* (Type Global) *)
+	| TBasic (TSchema (sid, _)) ->
 		match e with
 		| []                                                    -> false
-		| (_, (Tbasic (Tschema (side, _)))) :: tail -> if sid = side then true else has_type tail t  (* (Type Schema) *)
+		| (_, (TBasic (TSchema (side, _)))) :: tail -> if sid = side then true else has_type tail t  (* (Type Schema) *)
 		| (_, _) :: tail                                        -> has_type tail t
 
 (* bind type 't' to variable 'r' into environment 'e' *)
@@ -101,11 +101,11 @@ let rec (<:) t1 t2 =
 	if t1 = t2 then true                                                  (* (Reflex)         *)
 	else
 		match t1, t2 with
-		| Tbasic (Tschema _), Tbasic Tobj    -> true                      (* (Object Subtype) *)
-		| Tbasic (Tschema (sid1, super1)), _ -> Tbasic super1 <: t2       (* (Trans)          *)
-		| Tvec tv1, Tvec tv2                 -> tv1 <: tv2                (* (Vec Subtype)    *)
-		| Tref tr1, Tref tr2                 -> Tbasic tr1 <: Tbasic tr2  (* (Ref Subtype)    *)
-		| Tbasic Tnull, Tref _               -> true                      (* (Ref Null)       *)
+		| TBasic (TSchema _), TBasic TObject    -> true                      (* (Object Subtype) *)
+		| TBasic (TSchema (sid1, super1)), _ -> TBasic super1 <: t2       (* (Trans)          *)
+		| TVec tv1, TVec tv2                 -> tv1 <: tv2                (* (Vec Subtype)    *)
+		| TRef tr1, TRef tr2                 -> TBasic tr1 <: TBasic tr2  (* (Ref Subtype)    *)
+		| TBasic TNull, TRef _               -> true                      (* (Ref Null)       *)
 		| _, _ -> false
 
 
@@ -113,23 +113,23 @@ let rec (<:) t1 t2 =
  * type inference rules
  *******************************************************************)
 
-let sfBoolean b = Tbasic Tbool
+let sfBoolean b = TBasic TBool
 
-let sfNumber n = Tbasic Tnum
+let sfNumber n = TBasic TNum
 
-let sfString s = Tbasic Tstr
+let sfString s = TBasic TStr
 
-let sfNull = Tbasic Tnull
+let sfNull = TBasic TNull
 
 let sfReference r = r
 
 let sfDataReference dr =
 	fun e ->
 		match type_of e (sfReference dr) with
-		| Type (Tbasic t) -> Tref t
-		| Type (Tref t)   -> Tref t
-		| Type (Tvec _)   -> failure 101 "dereference of data reference is a vector"
-		| Type Tundefined -> failure 102 "dereference of data reference is Tundefined"
+		| Type (TBasic t) -> TRef t
+		| Type (TRef t)   -> TRef t
+		| Type (TVec _)   -> failure 101 "dereference of data reference is a vector"
+		| Type TUndefined -> failure 102 "dereference of data reference is TUndefined"
 		| Undefined       -> failure 103 "dereference of data reference is undefined"
 
 let sfLinkReference lr =
@@ -142,14 +142,14 @@ let rec sfVector vec =
 	fun e ->
 		let rec eval v =
 			match v with
-			| [] -> Tundefined
+			| [] -> TUndefined
 			| head :: [] -> sfBasicValue head e
 			| head :: tail ->
 				let t_head = sfBasicValue head e in
 				if t_head = eval tail then t_head
 				else failure 105 "types of vector elements are different"
 		in
-		Tvec (eval vec)
+		TVec (eval vec)
 
 and sfBasicValue bv =
 	fun e ->
@@ -179,7 +179,7 @@ let inherit_env e ns proto r =
 	let get_proto =
 		match resolve e ns proto with
 		| _, Undefined          -> failure 12 ("prototype is not found: " ^ (string_of_ref proto))
-		| nsx, Type Tbasic Tobj -> ref_plus_ref nsx proto
+		| nsx, Type TBasic TObject -> ref_plus_ref nsx proto
 		| _, Type t             -> failure 13 ("invalid prototype: " ^ (string_of_type t))
 	in
 	let ref_proto = get_proto in
@@ -198,7 +198,7 @@ and sfValue v =
 		match v with
 		| BV bv   -> bind e r (sfBasicValue bv e)
 		| LR link -> bind e r (sfLinkReference link e)
-		| P proto -> sfPrototype proto ns r (bind e r (Tbasic Tobj))
+		| P proto -> sfPrototype proto ns r (bind e r (TBasic TObject))
 
 and sfAssignment (r, t, v) =
 	fun ns e -> sfValue v ns (ref_plus_ref ns r) e
