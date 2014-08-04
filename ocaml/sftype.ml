@@ -153,7 +153,7 @@ let assign e r t t_value =
 	| Type t_var ->
 		if t = TUndefined then
 			if t_value <: t_var then e                           (* (Assign2) *)
-			else failure 8 ("not satisfy rule (Assign2) " ^ (string_of_ref r) ^ " " ^ (string_of_type t_value) ^ " " ^ (string_of_type t_var))
+			else failure 8 "not satisfy rule (Assign2) "
 		else if (t_value <: t) && (t <: t_var) then e            (* (Assign4) *)
 		else failure 9 "not satisfy rule (Assign2) & (Assign4)"
 
@@ -173,6 +173,10 @@ let sfNull = TBasic TNull       (* (Null) *)
 let sfReference r = r
 
 let sfDataReference dr =  (* (Deref Data) *)
+	(**
+	 * @param ns namespace
+	 * @param e  type environment
+	 *)
 	fun e ns ->
 		match resolve e ns (sfReference dr) with
 		| _, Type (TBasic t) -> TRef t
@@ -182,12 +186,20 @@ let sfDataReference dr =  (* (Deref Data) *)
 		| _, Undefined       -> failure 103 "dereference of data reference is undefined"
 
 let sfLinkReference lr =  (* (Deref Link) *)
+	(**
+	 * @param ns namespace
+	 * @param e  type environment
+	 *)
 	fun e ns ->
 		match resolve e ns (sfReference lr) with
 		| _, Undefined -> failure 104 "dereference of link reference is undefined"
 		| _, Type t    -> t
 
 let rec sfVector vec =
+	(**
+	 * @param ns namespace
+	 * @param e  type environment
+	 *)
 	fun e ns ->
 		let rec eval v =  (* (Vec) *)
 			match v with
@@ -201,6 +213,10 @@ let rec sfVector vec =
 		TVec (eval vec)
 
 and sfBasicValue bv =
+	(**
+	 * @param ns namespace
+	 * @param e  type environment
+	 *)
 	fun e ns ->
 		match bv with
 		| Boolean b  -> sfBoolean b
@@ -210,7 +226,17 @@ and sfBasicValue bv =
 		| Vector vec -> sfVector vec e ns
 		| DR dr      -> sfDataReference dr e ns
 
+(**
+ * @param proto prototype AST element
+ * @param first true if this is the first prototype, otherwise false
+ * @param t_val the type of the first prototype
+ *)
 let rec sfPrototype proto first t_val =
+	(**
+	 * @param ns namespace
+	 * @param r  target variable
+	 * @param e  type environment
+	 *)
 	fun ns r e ->
 		match proto with
 		| EmptyPrototype ->
@@ -244,9 +270,17 @@ and sfValue v =
 		| P proto -> sfPrototype proto true TUndefined ns r e
 
 and sfAssignment (r, t, v) =
+	(**
+	 * @param ns namespace
+	 * @param e  type environment
+	 *)
 	fun ns e -> sfValue v ns (ref_plus_ref ns r) t e
 
 and sfBlock block =
+	(**
+	 * @param ns namespace
+	 * @param e  type environment
+	 *)
 	fun ns e ->
 		match block with
 		| A_B (a, b) -> sfBlock b ns (sfAssignment a ns e)
