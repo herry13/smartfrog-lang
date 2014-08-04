@@ -1,40 +1,56 @@
 .PHONY: build clean clean-all dist
 
+NATIVE=0
+
 build: csf
 
-LIB=sfsyntax.cmo sflexer.cmo sfparser.cmo sfhelper.cmo sfdomain.cmo sfdomainhelper.cmo sfvaluation.cmo sftype.cmo csf.cmo
+ifeq ($(NATIVE),1)
+# native compiler
+COMPILER=ocamlopt
+else
+# byte code compiler
+COMPILER=ocamlc
+endif
+
+BYTECODELIB=sfsyntax.cmo sflexer.cmo sfparser.cmo sfhelper.cmo sfdomain.cmo sfdomainhelper.cmo sfvaluation.cmo sftype.cmo csf.cmo
+
+NATIVELIB=sfsyntax.cmx sflexer.cmx sfparser.cmx sfhelper.cmx sfdomain.cmx sfdomainhelper.cmx sfvaluation.cmx sftype.cmx csf.cmx
 
 csf: csf.ml sfhelper.cmo sfvaluation.cmo sftype.cmo
-	ocamlc -c csf.ml
-	ocamlc -o csf $(LIB)
+	$(COMPILER) -c csf.ml
+ifeq ($(COMPILER),ocamlc)
+	$(COMPILER) -o csf $(BYTECODELIB)
+else
+	$(COMPILER) -o csf $(NATIVELIB)
+endif
 
 sfsyntax.cmo: sfsyntax.ml
-	ocamlc -c sfsyntax.ml
+	$(COMPILER) -c sfsyntax.ml
 
 sfparser.cmo: sfparser.mly sfsyntax.cmo
 	ocamlyacc sfparser.mly
-	ocamlc -c sfparser.mli
-	ocamlc -c sfparser.ml
+	$(COMPILER) -c sfparser.mli
+	$(COMPILER) -c sfparser.ml
 
 sflexer.cmo: sflexer.mll sfparser.cmo
 	ocamllex sflexer.mll
-	ocamlc -c sflexer.ml
+	$(COMPILER) -c sflexer.ml
 
 sfhelper.cmo: sfhelper.ml sfparser.cmo sflexer.cmo
-	ocamlc -c sfhelper.ml
+	$(COMPILER) -c sfhelper.ml
 
 sfdomain.cmo: sfdomain.ml sfdomainhelper.ml
-	ocamlc -c sfdomain.ml
-	ocamlc -c sfdomainhelper.ml
+	$(COMPILER) -c sfdomain.ml
+	$(COMPILER) -c sfdomainhelper.ml
 
 sfvaluation.cmo: sfvaluation.ml sfdomain.cmo
-	ocamlc -c sfvaluation.ml
+	$(COMPILER) -c sfvaluation.ml
 
 sftype.cmo: sftype.ml
-	ocamlc -c sftype.ml
+	$(COMPILER) -c sftype.ml
 
 clean:
-	@rm -f *.cmo *.mli *.cmi sfparser.ml sflexer.ml
+	@rm -f *.cmo *.mli *.cmi *.o *.cmx sfparser.ml sflexer.ml
 
 clean-all: clean
 	@rm -f csf
