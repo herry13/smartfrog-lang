@@ -34,9 +34,11 @@ let string_of_env e =
 let ref_plus_ref = Sfdomain.ref_plus_ref;;
 let ref_minus_ref = Sfdomain.ref_minus_ref;;
 let prefix = Sfdomain.prefix;;
+let ref_prefixeq_ref = Sfdomain.ref_prefixeq_ref;;
 let ref_prefix_ref = Sfdomain.ref_prefix_ref;;
 let simplify = Sfdomain.simplify;;
 let trace = Sfdomain.trace;;
+module SetRef = Sfdomain.SetRef
 
 (*******************************************************************
  * type checking rules
@@ -58,6 +60,7 @@ let rec domain e r =
 let rec has_type e t =
 	match t with
 	| TUndefined                -> false
+	| TLazy (ns, r, islink)     -> true
 	| TVec tv                   -> has_type e tv           (* (Type Vec)    *)
 	| TRef tr                   -> has_type e (TBasic tr)  (* (Type Ref)    *)
 	| TBasic TBool              -> true                    (* (Type Bool)   *)
@@ -96,6 +99,7 @@ let bind e r t =
 			else failure 3 ("prefix of " ^ (string_of_ref r) ^ " is not a component")
 	else (r, t) :: e
 
+
 (**
  * return part of environment 'env' where 'ref' is the prefix of the variables
  * the prefix of variables will be removed when 'cut' is true, otherwise
@@ -133,6 +137,12 @@ let rec resolve e ns r =
 			| Undefined -> resolve e (prefix ns) r
 			| _ -> (ns, t)
 
+(**
+ * @param e     type environment
+ * @param ns    namespace where references will be resolved
+ * @param proto reference of prototype
+ * @param r     target variable
+ *)
 let inherit_env e ns proto r =
 	let get_proto =
 		match resolve e ns proto with
@@ -144,6 +154,12 @@ let inherit_env e ns proto r =
 	let e_proto = env_of_ref e ref_proto true in
 	List.fold_left (fun ep (rep, tep) -> ((ref_plus_ref r rep), tep) :: ep) e e_proto
 
+(**
+ * @param e       type environment
+ * @param r       reference of the variable
+ * @param t       pre-defined type
+ * @param t_value type of value which will be assigned
+ *)
 let assign e r t t_value =
 	match type_of e r with
 	| Undefined  ->
@@ -157,6 +173,30 @@ let assign e r t t_value =
 		else if (t_value <: t) && (t <: t_var) then e            (* (Assign4) *)
 		else failure 9 "not satisfy rule (Assign2) & (Assign4)"
 
+let rec resolve_tlazy e ns r acc =
+	if SetRef.exists (fun rx -> rx = r) acc then failure 11 ("cyclic reference: " ^ (string_of_ref r))
+	else
+		match resolve e ns r with
+		| _, Undefined              -> failure 10 ("undefined reference: " ^ (string_of_ref r))
+		| nsp, Type TLazy (tns, tr, islink) ->
+			let rp = ref_plus_ref nsp r in
+			if ref_prefixeq_ref rp tr then failure 11 ("implicit cyclic reference" ^ (string_of_ref tr))
+			else resolve_tlazy e tns tr (SetRef.add rp acc)
+		| _, Type t                 -> t
+
+let resolve_tlazy_of_env e =
+	let rec iter e src dest =
+		match src with
+		| [] -> dest
+		| (r, t) :: tail ->
+			let result =
+				match t with
+				| TLazy (tns, tr, islink) -> (r, (resolve_tlazy e tns tr SetRef.empty)) :: dest
+				| _                       -> (r, t) :: dest
+			in
+			iter e tail result
+	in
+	iter e e []
 
 (*******************************************************************
  * type inference rules
@@ -178,21 +218,25 @@ let sfDataReference dr =  (* (Deref Data) *)
 	 * @param e  type environment
 	 *)
 	fun e ns ->
-		match resolve e ns (sfReference dr) with
+		let r = (sfReference dr) in
+		match resolve e ns r with
+		| _, Type (TLazy (nsz, rz, islink)) -> TLazy (nsz, rz, islink)
 		| _, Type (TBasic t) -> TRef t
 		| _, Type (TRef t)   -> TRef t
-		| _, Type (TVec _)   -> failure 101 "dereference of data reference is a vector"
-		| _, Type TUndefined -> failure 102 "dereference of data reference is TUndefined"
-		| _, Undefined       -> failure 103 "dereference of data reference is undefined"
+		| _, Type (TVec _)   -> failure 101 ("dereference of " ^ (string_of_ref r) ^ " is a vector")
+		| _, Type TUndefined -> failure 102 ("dereference of " ^ (string_of_ref r) ^ " is TUndefined")
+		| _, Undefined       -> TLazy (ns, r, false)
+			(* failure 103 ("dereference of " ^ (string_of_ref r) ^ " is undefined") *)
 
 let sfLinkReference lr =  (* (Deref Link) *)
 	(**
 	 * @param ns namespace
 	 * @param e  type environment
 	 *)
-	fun e ns ->
-		match resolve e ns (sfReference lr) with
-		| _, Undefined -> failure 104 "dereference of link reference is undefined"
+	fun e ns r ->
+		let link = sfReference lr in
+		match resolve e ns link with
+		| _, Undefined -> TLazy (ns, link, true) (* failure 104 "dereference of link reference is undefined" *)
 		| _, Type t    -> t
 
 let rec sfVector vec =
@@ -251,8 +295,8 @@ let rec sfPrototype proto first t_val =
 		| R_P (pr, p)    ->
 			let proto = sfReference pr in
 			match resolve e ns proto with
-			| _, Undefined    -> failure 106 ("prototype is not found: " ^ (string_of_ref proto))
-			| _, Type t ->
+			| _, Undefined -> failure 106 ("prototype is not found: " ^ (string_of_ref proto))
+			| _, Type t    ->
 				let e_proto = assign e r t_val t in                      (* (Proto3) & (Proto4) *)
 				let t_proto = if first then t else t_val in
 				sfPrototype p false t_proto ns r (inherit_env e_proto ns proto r)
@@ -266,7 +310,7 @@ and sfValue v =
 	fun ns r t e ->
 		match v with
 		| BV bv   -> assign e r t (sfBasicValue bv e ns)
-		| LR link -> assign e r t (sfLinkReference link e ns)
+		| LR link -> assign e r t (sfLinkReference link e ns r)
 		| P proto -> sfPrototype proto true TUndefined ns r e
 
 and sfAssignment (r, t, v) =
@@ -286,7 +330,7 @@ and sfBlock block =
 		| A_B (a, b) -> sfBlock b ns (sfAssignment a ns e)
 		| EmptyBlock -> e
 
-and sfSpecification sf = sfBlock sf [] []
-
-
+and sfSpecification sf =
+	let e1 = sfBlock sf [] [] in
+	resolve_tlazy_of_env e1
 
