@@ -112,10 +112,10 @@ and get_link s ns r rl acc =
 		match (resolve s ns rl) with
 		| nsp, vp ->
 			(
-				let nsq = ref_plus_ref nsp rl in
+				let rp = ref_plus_ref nsp rl in
 				match vp with
-				| Val (Basic (Link rm)) -> get_link s (prefix nsq) r rm (SetRef.add rl acc)
-				| _ -> if ref_prefixeq_ref nsq r then failure 106 else (nsq, vp)
+				| Val (Basic (Link rm)) -> get_link s (prefix rp) r rm (SetRef.add rp acc)
+				| _ -> if ref_prefixeq_ref rp r then failure 106 else (rp, vp)
 			)
 
 and put s id v : store =
