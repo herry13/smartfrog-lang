@@ -6,7 +6,7 @@
  * 22.07.2014 - first released
  *)
 
-open Sfast
+open Sfsyntax
 
 (*******************************************************************
  * lexer helper type and functions

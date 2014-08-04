@@ -1,4 +1,4 @@
-open Sfast
+open Sfsyntax
 
 let sfBoolean b = if b = "true" then Sfdomain.Boolean true else Sfdomain.Boolean false
 

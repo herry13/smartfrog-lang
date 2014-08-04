@@ -2,16 +2,16 @@
 
 build: csf
 
-LIB=sfast.cmo sflexer.cmo sfparser.cmo sfhelper.cmo sfdomain.cmo sfdomainhelper.cmo sfvaluation.cmo sftype.cmo csf.cmo
+LIB=sfsyntax.cmo sflexer.cmo sfparser.cmo sfhelper.cmo sfdomain.cmo sfdomainhelper.cmo sfvaluation.cmo sftype.cmo csf.cmo
 
 csf: csf.ml sfhelper.cmo sfvaluation.cmo sftype.cmo
 	ocamlc -c csf.ml
 	ocamlc -o csf $(LIB)
 
-sfast.cmo: sfast.ml
-	ocamlc -c sfast.ml
+sfsyntax.cmo: sfsyntax.ml
+	ocamlc -c sfsyntax.ml
 
-sfparser.cmo: sfparser.mly sfast.cmo
+sfparser.cmo: sfparser.mly sfsyntax.cmo
 	ocamlyacc sfparser.mly
 	ocamlc -c sfparser.mli
 	ocamlc -c sfparser.ml

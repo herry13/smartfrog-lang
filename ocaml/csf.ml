@@ -32,7 +32,7 @@ let help = "usage: csf [option] <sf-file>" ^
  *
  * @param file file to be parsed
  * @param opt  an option       
- * @return Sfast.sf an SF abstract syntax tree
+ * @return Sfsyntax.sf an SF abstract syntax tree
  *)
 let rec parse_file opt file =
 	let dummy_lexbuf = Lexing.from_string "" in
@@ -41,10 +41,10 @@ let rec parse_file opt file =
 		try
 			Sfparser.sf (Sfhelper.get_token lexstack) dummy_lexbuf
 		with
-			e -> Sfhelper.check_error e lexstack Sfast.EmptyBlock
+			e -> Sfhelper.check_error e lexstack Sfsyntax.EmptyBlock
 	in
 	let str =
-		if opt = "-ast" then Sfast.string_of_sf ast
+		if opt = "-ast" then Sfsyntax.string_of_sf ast
 		else if opt = "-type" then
 			let env = Sftype.sfSpecification ast in
 			Sftype.string_of_env env

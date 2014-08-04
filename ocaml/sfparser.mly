@@ -8,7 +8,7 @@
 
 %{
 
-open Sfast
+open Sfsyntax
 
 %}
 
@@ -18,13 +18,13 @@ open Sfast
 %token <string> STRING
 %token <string> ID
 %token <string> INCLUDE
-%token <Sfast.block -> Sfast.block> SF_INCLUDE
+%token <Sfsyntax.block -> Sfsyntax.block> SF_INCLUDE
 %token EXTENDS COMMA DATA BEGIN END SEP NULL LBRACKET RBRACKET EOS EOF
 
 /* entry point for main-file is 'sf', for included-file is 'included' */
 %start sf included
-%type <Sfast.sf> sf
-%type <Sfast.block -> Sfast.block> included
+%type <Sfsyntax.sf> sf
+%type <Sfsyntax.block -> Sfsyntax.block> included
 
 %%
 sf:
@@ -39,7 +39,7 @@ body:
 	|                      { fun b -> b }
 
 assignment:
-	| reference value { ($1, Sfast.TUndefined, $2) }
+	| reference value { ($1, Sfsyntax.TUndefined, $2) }
 
 value:
 	| basic EOS          { BV $1 }
