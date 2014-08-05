@@ -17,7 +17,7 @@ let sfDataReference dr = Sfdomain.Ref (sfReference dr)
 
 let sfLinkReference lr =
 	let rp = sfReference lr in
-	fun r -> if Sfdomain.ref_prefixeq_ref rp r then Sfdomain.failure 4 else Sfdomain.Link rp
+	fun r -> if Sfdomain.ref_prefixeq_ref rp r then Sfdomain.error 4 else Sfdomain.Link rp
 
 let rec sfVector vec =
 	let rec eval v =
@@ -67,10 +67,10 @@ and sfSpecification b =
 	let s2 =
 		match v1 with
 		| Sfdomain.Val (Sfdomain.Store s) -> Sfdomain.accept s1 r s r
-		| _ -> Sfdomain.failure 9
+		| _ -> Sfdomain.error 9
 	in
 	let v2 = Sfdomain.find s2 r in
 	match v2 with
 	| Sfdomain.Val (Sfdomain.Store s) -> s
-	| _ -> Sfdomain.failure 9
+	| _ -> Sfdomain.error 9
 

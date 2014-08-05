@@ -22,13 +22,13 @@ and store   = cell list
  * helpers
  *******************************************************************)
 
+exception SfError of int * string
+
 (***
  * receive and print semantics error message
  * @code int error code
  ***)
-let failure code =
-	prerr_string ("[err" ^ string_of_int(code) ^ "]\n");
-	exit code
+let error code = raise (SfError (code, "[err" ^ (string_of_int code) ^ "]"))
 
 (* Module set of reference *)
 module SetRef = Set.Make
@@ -79,7 +79,7 @@ let rec trace base r =
 	| [] -> base
 	| "THIS" :: rs -> trace base rs
 	| "ROOT" :: rs -> trace [] rs
-	| "PARENT" :: rs -> if base = [] then failure 102 else trace (prefix base) rs
+	| "PARENT" :: rs -> if base = [] then error 102 else trace (prefix base) rs
 	| id :: rs -> trace (ref_plus_id base id) rs
 
 let (@<<) base r = trace base r
@@ -107,7 +107,7 @@ let rec find s r : _value =
 and resolve s ns r =
 	match r with
 	| "ROOT" :: rs -> ([], find s !!rs)
-	| "PARENT" :: rs -> if ns = [] then failure 101 else (prefix ns, find s !!((prefix ns) @++ rs))
+	| "PARENT" :: rs -> if ns = [] then error 101 else (prefix ns, find s !!((prefix ns) @++ rs))
 	| "THIS" :: rs -> (ns, find s !!(ns @++ rs))
 	| _ ->
 		if ns = [] then ([], find s !!r)
@@ -120,10 +120,10 @@ and resolve s ns r =
 and resolve_link s ns r lr =
 	match lr with
 	| Link rl -> get_link s ns r rl SetRef.empty
-	| _ -> failure 104
+	| _ -> error 104
 
 and get_link s ns r rl acc =
-	if SetRef.exists (fun rx -> rx = rl) acc then failure 105
+	if SetRef.exists (fun rx -> rx = rl) acc then error 105
 	else 
 		match (resolve s ns rl) with
 		| nsp, vp ->
@@ -131,7 +131,7 @@ and get_link s ns r rl acc =
 				let rp = nsp @++ rl in
 				match vp with
 				| Val (Basic (Link rm)) -> get_link s (prefix rp) r rm (SetRef.add rp acc)
-				| _ -> if rp @<= r then failure 106 else (rp, vp)
+				| _ -> if rp @<= r then error 106 else (rp, vp)
 			)
 
 and put s id v : store =
@@ -151,17 +151,17 @@ and copy dest src pfx : store =
 
 and bind s r v : store =
 	match r with
-	| [] -> failure 3
+	| [] -> error 3
 	| id :: rs ->
 		if rs = [] then put s id v
 		else
 			match s with
-			| [] -> failure 2
+			| [] -> error 2
 			| (ids,vs) :: tail ->
 				if ids = id then
 					match vs with
 					| Store child -> (id, Store (bind child rs v)) :: tail
-					| _ -> failure 1
+					| _ -> error 1
 				else (ids,vs) :: bind tail r v
 
 and inherit_proto s ns proto r : store =
@@ -171,9 +171,9 @@ and inherit_proto s ns proto r : store =
 		(
 			match resolve_link s ns r (Link rq) with
 			| _, Val (Store vq) -> copy s vq r
-			| _, _ -> failure 7
+			| _, _ -> error 7
 		)
-	| _, _ -> failure 6
+	| _, _ -> error 6
 
 and replace_link s ns cell nss =
 	match cell with
@@ -184,7 +184,7 @@ and replace_link s ns cell nss =
 			| Basic (Link rl) ->
 				(
 					match resolve_link s nss rp (Link rl) with
-					| _, Undefined -> failure 110
+					| _, Undefined -> error 110
 					| nsp, Val vp ->
 						(
 							let sp = bind s rp vp in

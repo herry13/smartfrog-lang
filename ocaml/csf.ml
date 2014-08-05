@@ -44,16 +44,20 @@ let rec parse_file opt file =
 			e -> Sfhelper.check_error e lexstack Sfsyntax.EmptyBlock
 	in
 	let str =
-		if opt = "-ast" then Sfsyntax.string_of_sf ast
-		else if opt = "-type" then
-			let env = Sftype.sfSpecification ast in
-			Sftype.string_of_env env
-		else
-			let store = eval_value ast in
-			if opt = "-yaml" then Sfdomainhelper.yaml_of_store store
-			else if opt = "-sf" then Sfdomainhelper.sf_of_store store
-			else if opt = "-xml" then Sfdomainhelper.xml_of_store store
-			else Sfdomainhelper.json_of_store store
+		try
+			if opt = "-ast" then Sfsyntax.string_of_sf ast
+			else if opt = "-type" then
+				let env = Sftype.sfSpecification ast in
+				Sftype.string_of_env env
+			else
+				let store = eval_value ast in
+				if opt = "-yaml" then Sfdomainhelper.yaml_of_store store
+				else if opt = "-sf" then Sfdomainhelper.sf_of_store store
+				else if opt = "-xml" then Sfdomainhelper.xml_of_store store
+				else Sfdomainhelper.json_of_store store
+		with
+		| Sftype.TypeError (code, msg) -> prerr_string (msg ^ "\n"); exit code
+		| Sfdomain.SfError (code, msg) -> prerr_string (msg ^ "\n"); exit code
 	in
 	print_string (str ^ "\n")
 

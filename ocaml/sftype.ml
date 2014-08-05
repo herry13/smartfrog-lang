@@ -13,7 +13,9 @@ and env = var list
  * helper functions
  *******************************************************************)
 
-let error code msg = raise (Failure ("[type-err" ^ string_of_int(code) ^ "] " ^ msg))
+exception TypeError of int * string
+
+let error code msg = raise (TypeError (code, "[type-err" ^ string_of_int(code) ^ "] " ^ msg))
 
 let (!^) r = String.concat "." r
 
@@ -39,7 +41,7 @@ let (@<<)  = Sfdomain.trace;;
 module SetRef = Sfdomain.SetRef
 
 (*******************************************************************
- * type assignment rules
+ * typing judgement functions
  *******************************************************************)
 
 (** return the type of variable 'r' **)
@@ -53,6 +55,23 @@ let rec domain e r =
 	match e with
 	| []               -> false
 	| (vr, vt) :: tail -> if r = vr then true else (domain tail r)
+
+(* return true if type 't1' is a sub-type of 't2', otherwise false *)
+let rec (<:) t1 t2 =                                                      (* Subtyping rules  *)
+	if t1 = t2 then true                                                  (* (Reflex)         *)
+	else
+		match t1, t2 with
+		| TBasic (TSchema _), TBasic TObject -> true                      (* (Object Subtype) *)
+		| TBasic (TSchema (sid1, super1)), _ -> TBasic super1 <: t2       (* (Trans)          *)
+		| TVec tv1, TVec tv2                 -> tv1 <: tv2                (* (Vec Subtype)    *)
+		| TRef tr1, TRef tr2                 -> TBasic tr1 <: TBasic tr2  (* (Ref Subtype)    *)
+		| TBasic TNull, TRef _               -> true                      (* (Ref Null)       *)
+		| _, _ -> false
+
+
+(*******************************************************************
+ * well-formed environments and types functions
+ *******************************************************************)
 
 (* return true if type 't' is available in environment 'e', otherwise false *)
 let rec has_type e t =
@@ -75,17 +94,10 @@ let rec has_type e t =
 		                                               else has_type tail t
 		| (_, _) :: tail                            -> has_type tail t
 
-(* return true if type 't1' is a sub-type of 't2', otherwise false *)
-let rec (<:) t1 t2 =
-	if t1 = t2 then true                                                  (* (Reflex)         *)
-	else
-		match t1, t2 with
-		| TBasic (TSchema _), TBasic TObject -> true                      (* (Object Subtype) *)
-		| TBasic (TSchema (sid1, super1)), _ -> TBasic super1 <: t2       (* (Trans)          *)
-		| TVec tv1, TVec tv2                 -> tv1 <: tv2                (* (Vec Subtype)    *)
-		| TRef tr1, TRef tr2                 -> TBasic tr1 <: TBasic tr2  (* (Ref Subtype)    *)
-		| TBasic TNull, TRef _               -> true                      (* (Ref Null)       *)
-		| _, _ -> false
+
+(*******************************************************************
+ * type assignment functions
+ *******************************************************************)
 
 (* bind type 't' to variable 'r' into environment 'e' *)
 let bind e r t =
@@ -97,6 +109,25 @@ let bind e r t =
 			if t_prefix <: TBasic TObject then (r, t) :: e
 			else error 3 ("prefix of " ^ !^r ^ " is not a component")
 	else (r, t) :: e
+
+(**
+ * @param e       type environment
+ * @param r       reference of the variable
+ * @param t       pre-defined type
+ * @param t_value type of value which will be assigned
+ *)
+let assign e r t t_value =
+	match (type_of e r), t, t_value with
+	| Undefined, TUndefined, _                             -> bind e r t_value                          (* (Assign1) *)
+	| Undefined, t, _ when t_value <: t                    -> bind e r t                                (* (Assign3) *)
+	| Undefined, t, TForward (r, islink)                   -> (r, t) :: (r, TForward (r, islink)) :: e  (* TODO (Assign5) *)
+	| Undefined, _, _                                      -> error 7 "not satisfy rule (Assign3)"
+	| Type (TForward (r, islink)), _, _                    -> (r, t) :: (r, t_value) :: e
+	| Type t_var, TUndefined, _ when t_value <: t_var      -> e                                         (* (Assign2) *)
+	| Type t_var, TUndefined, TForward (r, islink)         -> (r, TForward (r, islink)) :: e            (* TODO (Assign6) *)
+	| Type t_var, TUndefined, _                            -> error 8 "not satisfy rule (Assign2)"
+	| Type t_var, _, _ when (t_value <: t) && (t <: t_var) -> e                                         (* (Assign4) *)
+	| Type t_var, _, _                                     -> error 9 "not satisfy rule (Assign2) & (Assign4)"
 
 (**
  * TODO
@@ -136,6 +167,12 @@ let rec resolve e ns r =
 			if t = Undefined then resolve e (prefix ns) r
 			else (ns, t)
 
+(**
+ * TODO
+ * @param e     type environment
+ * @param proto prototype reference whose attributes to be copied
+ * @param dest  reference of destination
+ *)
 let copy e proto dest =
 	let e_proto = env_of_ref e proto true in
 	List.fold_left (fun ep (rep, tep) -> (dest @++ rep, tep) :: ep) e e_proto
@@ -156,24 +193,9 @@ let inherit_env e ns proto r =
 	in
 	copy e get_proto r
 
-(**
- * @param e       type environment
- * @param r       reference of the variable
- * @param t       pre-defined type
- * @param t_value type of value which will be assigned
- *)
-let assign e r t t_value =
-	match (type_of e r), t, t_value with
-	| Undefined, TUndefined, _                             -> bind e r t_value                          (* (Assign1) *)
-	| Undefined, t, _ when t_value <: t                    -> bind e r t                                (* (Assign3) *)
-	| Undefined, t, TForward (r, islink)                   -> (r, t) :: (r, TForward (r, islink)) :: e  (* TODO (Assign5) *)
-	| Undefined, _, _                                      -> error 7 "not satisfy rule (Assign3)"
-	| Type (TForward (r, islink)), _, _                    -> (r, t) :: (r, t_value) :: e
-	| Type t_var, TUndefined, _ when t_value <: t_var      -> e                                         (* (Assign2) *)
-	| Type t_var, TUndefined, TForward (r, islink)         -> (r, TForward (r, islink)) :: e            (* TODO (Assign6) *)
-	| Type t_var, TUndefined, _                            -> error 8 "not satisfy rule (Assign2)"
-	| Type t_var, _, _ when (t_value <: t) && (t <: t_var) -> e                                         (* (Assign4) *)
-	| Type t_var, _, _                                     -> error 9 "not satisfy rule (Assign2) & (Assign4)"
+(*******************************************************************
+ * second-pass type environment
+ *******************************************************************)
 
 (* TODO resolve forward type assignment for lazy & data reference *)
 let rec resolve_tforward e ns r acc =
@@ -234,7 +256,7 @@ let get_sfconfig e =
 	iter e []
 
 (*******************************************************************
- * type inference rules
+ * type inference functions
  *******************************************************************)
 
 let sfBoolean b = TBasic TBool  (* (Bool) *)
