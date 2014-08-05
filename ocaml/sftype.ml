@@ -1,6 +1,5 @@
 open Sfsyntax
 
-
 (*******************************************************************
  * type environment
  *******************************************************************)
@@ -10,20 +9,19 @@ type _t = Type of _type
 and var = string list * _type
 and env = var list
 
-
 (*******************************************************************
  * helper functions
  *******************************************************************)
 
-let failure code msg = raise (Failure ("[type-err" ^ string_of_int(code) ^ "] " ^ msg))
+let error code msg = raise (Failure ("[type-err" ^ string_of_int(code) ^ "] " ^ msg))
 
-let string_of_ref r = String.concat "." r
+let (!^) r = String.concat "." r
 
 let string_of_env e =
 	let rec str_of_env e s =
 		match e with
 		| (r1, t1) :: tail ->
-			let buf = (string_of_ref r1) ^ " : " ^ (string_of_type t1) in
+			let buf = (!^r1) ^ " : " ^ (string_of_type t1) in
 			if tail = [] then s ^ buf
 			else str_of_env tail (s ^ buf ^ "\n")
 		| _ -> s
@@ -31,13 +29,13 @@ let string_of_env e =
 	str_of_env e ""
 
 (** alias of functions from module Sfdomain **)
-let ref_plus_ref = Sfdomain.ref_plus_ref;;
-let ref_minus_ref = Sfdomain.ref_minus_ref;;
+let (@++)  = Sfdomain.ref_plus_ref;;
+let (@--)  = Sfdomain.ref_minus_ref;;
 let prefix = Sfdomain.prefix;;
-let ref_prefixeq_ref = Sfdomain.ref_prefixeq_ref;;
-let ref_prefix_ref = Sfdomain.ref_prefix_ref;;
-let simplify = Sfdomain.simplify;;
-let trace = Sfdomain.trace;;
+let (@<=)  = Sfdomain.ref_prefixeq_ref;;
+let (@<)   = Sfdomain.ref_prefix_ref;;
+let (!!)   = Sfdomain.simplify;;
+let (@<<)  = Sfdomain.trace;;
 module SetRef = Sfdomain.SetRef
 
 (*******************************************************************
@@ -60,7 +58,7 @@ let rec domain e r =
 let rec has_type e t =
 	match t with
 	| TUndefined                -> false
-	| TForward (r, islink)         -> true
+	| TForward (r, islink)      -> true                    (* TODO (Type Forward) *)
 	| TVec tv                   -> has_type e tv           (* (Type Vec)    *)
 	| TRef tr                   -> has_type e (TBasic tr)  (* (Type Ref)    *)
 	| TBasic TBool              -> true                    (* (Type Bool)   *)
@@ -73,7 +71,8 @@ let rec has_type e t =
 	| TBasic (TSchema (sid, _)) ->
 		match e with
 		| []                                        -> false
-		| (_, (TBasic (TSchema (side, _)))) :: tail -> if sid = side then true else has_type tail t  (* (Type Schema) *)
+		| (_, (TBasic (TSchema (side, _)))) :: tail -> if sid = side then true  (* (Type Schema) *)
+		                                               else has_type tail t
 		| (_, _) :: tail                            -> has_type tail t
 
 (* return true if type 't1' is a sub-type of 't2', otherwise false *)
@@ -90,16 +89,17 @@ let rec (<:) t1 t2 =
 
 (* bind type 't' to variable 'r' into environment 'e' *)
 let bind e r t =
-	if (type_of e r) != Undefined then failure 1 ("cannot bind type to an existing variable " ^ (string_of_ref r))
+	if (type_of e r) != Undefined then error 1 ("cannot bind type to an existing variable " ^ !^r)
 	else if (List.length r) > 1 then
 		match type_of e (prefix r) with
-		| Undefined     -> failure 2 ("prefix of " ^ (string_of_ref r) ^ " is not defined")
+		| Undefined     -> error 2 ("prefix of " ^ !^r ^ " is not defined")
 		| Type t_prefix ->
 			if t_prefix <: TBasic TObject then (r, t) :: e
-			else failure 3 ("prefix of " ^ (string_of_ref r) ^ " is not a component")
+			else error 3 ("prefix of " ^ !^r ^ " is not a component")
 	else (r, t) :: e
 
 (**
+ * TODO
  * return part of environment 'env' where 'ref' is the prefix of the variables
  * the prefix of variables will be removed when 'cut' is true, otherwise
  * the variables will have original references
@@ -111,35 +111,37 @@ let rec env_of_ref env ref cut =
 		List.fold_left
 		(
 			fun e (r, t) ->
-				if ref_prefix_ref ref r then
-					let re = if cut then (ref_minus_ref r ref) else r in
+				if ref @< r then
+					let re = if cut then (r @-- ref) else r in
 					(re, t) :: e
 				else e
 		) [] env
 
 (**
+ * TODO
  * @param e  type environment
  * @param ns namespace where the reference will be resolved
  * @param r  reference to be resolved
  *)
 let rec resolve e ns r =
 	match r with
-	| "ROOT"   :: rs -> ([], type_of e (simplify rs))
-	| "PARENT" :: rs -> if ns = [] then failure 4 "PARENT of root namespace is impossible"
-	                    else (prefix ns, type_of e (simplify (ref_plus_ref (prefix ns) rs)))
-	| "THIS"   :: rs -> (ns, type_of e (simplify (ref_plus_ref ns rs)))
+	| "ROOT"   :: rs -> ([], type_of e !!rs)
+	| "PARENT" :: rs -> if ns = [] then error 4 "PARENT of root namespace is impossible"
+	                    else (prefix ns, type_of e !!((prefix ns) @++ rs))
+	| "THIS"   :: rs -> (ns, type_of e !!(ns @++ rs))
 	| _              ->
 		if ns = [] then ([], type_of e r)
 		else
-			let t = type_of e (trace ns r) in
+			let t = type_of e (ns @<< r) in
 			if t = Undefined then resolve e (prefix ns) r
 			else (ns, t)
 
 let copy e proto dest =
 	let e_proto = env_of_ref e proto true in
-	List.fold_left (fun ep (rep, tep) -> ((ref_plus_ref dest rep), tep) :: ep) e e_proto
+	List.fold_left (fun ep (rep, tep) -> (dest @++ rep, tep) :: ep) e e_proto
 
 (**
+ * TODO
  * @param e     type environment
  * @param ns    namespace where references will be resolved
  * @param proto reference of prototype
@@ -148,9 +150,9 @@ let copy e proto dest =
 let inherit_env e ns proto r =
 	let get_proto =
 		match resolve e ns proto with
-		| _, Undefined             -> failure 5 ("prototype is not found: " ^ (string_of_ref proto))
-		| nsx, Type TBasic TObject -> ref_plus_ref nsx proto
-		| _, Type t                -> failure 6 ("invalid prototype " ^ (string_of_ref r) ^ ":" ^ (string_of_type t))
+		| _, Undefined             -> error 5 ("prototype is not found: " ^ !^proto)
+		| nsx, Type TBasic TObject -> nsx @++ proto
+		| _, Type t                -> error 6 ("invalid prototype " ^ !^r ^ ":" ^ (string_of_type t))
 	in
 	copy e get_proto r
 
@@ -161,60 +163,62 @@ let inherit_env e ns proto r =
  * @param t_value type of value which will be assigned
  *)
 let assign e r t t_value =
-	match type_of e r with
-	| Undefined  ->
-		if t = TUndefined then bind e r t_value      (* (Assign1) *)
-		else if t_value <: t then bind e r t         (* (Assign3) *)
-		else failure 7 "not satisfy rule (Assign3)"
-	| Type t_var ->
-		if t = TUndefined then
-			if t_value <: t_var then e                           (* (Assign2) *)
-			else failure 8 "not satisfy rule (Assign2) "
-		else if (t_value <: t) && (t <: t_var) then e            (* (Assign4) *)
-		else failure 9 "not satisfy rule (Assign2) & (Assign4)"
+	match (type_of e r), t, t_value with
+	| Undefined, TUndefined, _                             -> bind e r t_value                          (* (Assign1) *)
+	| Undefined, t, _ when t_value <: t                    -> bind e r t                                (* (Assign3) *)
+	| Undefined, t, TForward (r, islink)                   -> (r, t) :: (r, TForward (r, islink)) :: e  (* TODO (Assign5) *)
+	| Undefined, _, _                                      -> error 7 "not satisfy rule (Assign3)"
+	| Type (TForward (r, islink)), _, _                    -> (r, t) :: (r, t_value) :: e
+	| Type t_var, TUndefined, _ when t_value <: t_var      -> e                                         (* (Assign2) *)
+	| Type t_var, TUndefined, TForward (r, islink)         -> (r, TForward (r, islink)) :: e            (* TODO (Assign6) *)
+	| Type t_var, TUndefined, _                            -> error 8 "not satisfy rule (Assign2)"
+	| Type t_var, _, _ when (t_value <: t) && (t <: t_var) -> e                                         (* (Assign4) *)
+	| Type t_var, _, _                                     -> error 9 "not satisfy rule (Assign2) & (Assign4)"
 
-(* resolve forward type assignment for lazy & data reference *)
-let rec resolve_tlazy e ns r acc =
-	let follow_tlazy nsp tr =
-		let rp = ref_plus_ref nsp r in
-		if ref_prefixeq_ref rp tr then failure 11 ("implicit cyclic reference " ^ (string_of_ref tr))
-		else resolve_tlazy e rp tr (SetRef.add rp acc)
+(* TODO resolve forward type assignment for lazy & data reference *)
+let rec resolve_tforward e ns r acc =
+	let follow_tforward nsp tr =
+		let rp = nsp @++ r in
+		if rp @<= tr then error 10 ("implicit cyclic reference " ^ !^tr)
+		else resolve_tforward e rp tr (SetRef.add rp acc)
 	in
-	if SetRef.exists (fun rx -> rx = r) acc then failure 11 ("cyclic reference " ^ (string_of_ref r))
+	if SetRef.exists (fun rx -> rx = r) acc then error 11 ("cyclic reference " ^ !^r)
 	else
 		match resolve e ns r with
-		| _, Undefined                    -> failure 10 ("undefined reference " ^ (string_of_ref r) ^ " in " ^ (string_of_ref ns))
-		| nsp, Type TForward (tr, islink) -> follow_tlazy nsp tr
-		| nsp, Type t -> ((ref_plus_ref nsp r), t)
+		| _, Undefined                    -> error 12 ("undefined reference " ^ !^r ^ " in " ^ !^ns)
+		| nsp, Type TForward (tr, islink) -> follow_tforward nsp tr
+		| nsp, Type t                     -> (nsp @++ r, t)
 
-let resolve_tforward_of_env e =
+(* TODO replace all TForward elements in environment 'e' *)
+let replace_tforward_in_env e =
 	let sfconfig = ["sfConfig"] in
-	let rec iter e src =
-		let replace_tforward r t tr islink =
-			let (proto, t_val) =
-				match resolve_tlazy e r tr SetRef.empty with
-				| proto, TBasic t -> (proto, (if islink then TBasic t else TRef t))
-				| proto, t        -> (proto, t)
-			in
-			let ex = (r, t_val) :: e in
-			if t_val <: TBasic TObject then copy ex proto r
-			else ex
+	let replace_tforward e1 r t tr islink =
+		let (proto, t_val) =
+			match resolve_tforward e1 r tr SetRef.empty with
+			| proto, TBasic t -> (proto, (if islink then TBasic t else TRef t))
+			| proto, t        -> (proto, t)
 		in
+		let e2 = (r, t_val) :: e1 in
+		if t_val <: TBasic TObject then copy e2 proto r
+		else e2
+	in
+	let rec iter e3 src =
 		match src with
-		| [] -> e
+		| [] -> e3
 		| (r, t) :: tail ->
-			if not (ref_prefixeq_ref sfconfig r) || r = sfconfig then iter e tail
+			if not (sfconfig @<= r) || r = sfconfig then iter e3 tail
 			else
 				let result =
 					match t with
-					| TForward (tr, islink) -> replace_tforward r t tr islink
-					| _  -> (r, t) :: e
+					| TForward (tr, islink) -> replace_tforward e3 r t tr islink
+					| _  -> (r, t) :: e3
 				in
 				iter result tail
 	in
 	iter e e
 
-let second_pass_of_env e = resolve_tforward_of_env e
+(* perform second valuation of environment 'e' *)
+let second_pass_eval e = replace_tforward_in_env e
 
 let get_sfconfig e =
 	let sfconfig = ["sfConfig"] in
@@ -222,7 +226,7 @@ let get_sfconfig e =
 		match e with
 		| [] -> buf
 		| (r, t) :: tail ->
-			if not (ref_prefixeq_ref sfconfig r) then iter tail buf
+			if not (sfconfig @<= r) then iter tail buf
 			else
 				let r1 = List.tl r in
 				if r1 = [] || domain buf r1 then iter tail buf else iter tail ((r1, t) :: buf)
@@ -243,7 +247,7 @@ let sfNull = TBasic TNull       (* (Null) *)
 
 let sfReference r = r
 
-let sfDataReference dr =  (* (Deref Data) *)
+let sfDataReference dr =  (* TODO (Deref Data) *)
 	(**
 	 * @param ns namespace
 	 * @param e  type environment
@@ -254,11 +258,11 @@ let sfDataReference dr =  (* (Deref Data) *)
 		| _, Type (TForward (rz, islink)) -> TForward (rz, islink)
 		| _, Type (TBasic t) -> TRef t
 		| _, Type (TRef t)   -> TRef t
-		| _, Type (TVec _)   -> failure 101 ("dereference of " ^ (string_of_ref r) ^ " is a vector")
-		| _, Type TUndefined -> failure 102 ("dereference of " ^ (string_of_ref r) ^ " is TUndefined")
+		| _, Type (TVec _)   -> error 101 ("dereference of " ^ !^r ^ " is a vector")
+		| _, Type TUndefined -> error 102 ("dereference of " ^ !^r ^ " is TUndefined")
 		| _, Undefined       -> TForward (r, false)
 
-let sfLinkReference lr =  (* (Deref Link) *)
+let sfLinkReference lr =  (* TODO (Deref Link) *)
 	(**
 	 * @param ns namespace
 	 * @param e  type environment
@@ -266,8 +270,8 @@ let sfLinkReference lr =  (* (Deref Link) *)
 	fun e ns r ->
 		let link = sfReference lr in
 		match resolve e ns link with
-		| nsp, Undefined -> ((ref_plus_ref nsp link), TForward (link, true))
-		| nsp, Type t  -> ((ref_plus_ref nsp link), t)
+		| nsp, Undefined -> (nsp @++ link, TForward (link, true))
+		| nsp, Type t    -> (nsp @++ link, t)
 
 let rec sfVector vec =
 	(**
@@ -278,11 +282,15 @@ let rec sfVector vec =
 		let rec eval v =  (* (Vec) *)
 			match v with
 			| [] -> TUndefined
-			| head :: []   -> sfBasicValue head e ns
 			| head :: tail ->
-				let t_head = sfBasicValue head e ns in
-				if t_head = eval tail then t_head
-				else failure 105 "types of vector elements are different"
+				let t_head =
+					match sfBasicValue head e ns with
+					| TRef _ | TForward _ -> TRef TNull
+					| t                   -> t
+				in
+				if tail = [] then t_head
+				else if t_head = eval tail then t_head
+				else error 105 "types of vector elements are different"
 		in
 		TVec (eval vec)
 
@@ -314,7 +322,7 @@ let rec sfPrototype proto first t_val =
 	fun ns r e ->
 		match proto with
 		| EmptyPrototype ->
-			if first then assign e r t_val (TBasic TObject)  (* (Proto1) *)
+			if first then assign e r t_val (TBasic TObject)                       (* (Proto1) *)
 			else e
 		| B_P (pb, p)    ->
 			let e_block = if first then assign e r t_val (TBasic TObject) else e  (* (Proto2) *)
@@ -325,9 +333,9 @@ let rec sfPrototype proto first t_val =
 		| R_P (pr, p)    ->
 			let proto = sfReference pr in
 			match resolve e ns proto with
-			| _, Undefined -> failure 106 ("prototype is not found: " ^ (string_of_ref proto))
+			| _, Undefined -> error 106 ("prototype is not found: " ^ !^proto)
 			| _, Type t    ->
-				let e_proto = assign e r t_val t in                      (* (Proto3) & (Proto4) *)
+				let e_proto = assign e r t_val t in                                (* (Proto3) & (Proto4) *)
 				let t_proto = if first then t else t_val in
 				sfPrototype p false t_proto ns r (inherit_env e_proto ns proto r)
 
@@ -352,7 +360,7 @@ and sfAssignment (r, t, v) =
 	 * @param ns namespace
 	 * @param e  type environment
 	 *)
-	fun ns e -> sfValue v ns (ref_plus_ref ns r) t e
+	fun ns e -> sfValue v ns (ns @++ r) t e
 
 and sfBlock block =
 	(**
@@ -366,6 +374,6 @@ and sfBlock block =
 
 and sfSpecification sf =
 	let e1 = sfBlock sf [] [] in
-	if not (domain e1 ["sfConfig"]) then failure 107 "sfConfig is not exist"
-	else get_sfconfig (second_pass_of_env e1)
+	if not (domain e1 ["sfConfig"]) then error 107 "sfConfig is not exist"
+	else get_sfconfig (second_pass_eval e1)
 

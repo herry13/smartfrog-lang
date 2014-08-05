@@ -48,9 +48,15 @@ let rec prefix r =
 	| [] -> []
 	| head::tail -> if tail = [] then [] else head :: (prefix tail)
 
+let (!-) r = prefix r
+
 let ref_plus_ref r1 r2 = List.concat [r1; r2]
 
+let (@++) r1 r2 = ref_plus_ref r1 r2
+
 let ref_plus_id r id = ref_plus_ref r [id]
+
+let (@+.) r id = ref_plus_id r id
 
 let rec ref_minus_ref r1 r2 =
 	if r1 = [] then []
@@ -58,9 +64,15 @@ let rec ref_minus_ref r1 r2 =
 	else if (List.hd r1) = (List.hd r2) then ref_minus_ref (List.tl r1) (List.tl r2)
 	else r1
 
+let (@--) r1 r2 = ref_minus_ref r1 r2
+
 let ref_prefixeq_ref r1 r2 = (ref_minus_ref r1 r2) = []
 
+let (@<=) r1 r2 = ref_prefixeq_ref r1 r2
+
 let ref_prefix_ref r1 r2 = ( (ref_prefixeq_ref r1 r2) && not (r1 = r2) )
+
+let (@<) r1 r2 = ref_prefix_ref r1 r2
 
 let rec trace base r =
 	match r with
@@ -70,7 +82,11 @@ let rec trace base r =
 	| "PARENT" :: rs -> if base = [] then failure 102 else trace (prefix base) rs
 	| id :: rs -> trace (ref_plus_id base id) rs
 
+let (@<<) base r = trace base r
+
 let simplify r = trace [] r
+
+let (!!) r = simplify r
 
 
 (** store functions **)
@@ -79,7 +95,7 @@ let rec find s r : _value =
 	match (s, r) with
 	| _, [] -> Val (Store s)
 	| [], _ -> Undefined
-	| (ids,vs)::tail, id::rs ->
+	| (ids,vs) :: tail, id::rs ->
 		if ids = id then
 			if rs = [] then Val vs
 			else
@@ -90,13 +106,13 @@ let rec find s r : _value =
 
 and resolve s ns r =
 	match r with
-	| "ROOT" :: rs -> ([], find s (simplify rs))
-	| "PARENT" :: rs -> if ns = [] then failure 101 else (prefix ns, find s (simplify (ref_plus_ref (prefix ns) rs)))
-	| "THIS" :: rs -> (ns, find s (simplify (ref_plus_ref ns rs)))
+	| "ROOT" :: rs -> ([], find s !!rs)
+	| "PARENT" :: rs -> if ns = [] then failure 101 else (prefix ns, find s !!((prefix ns) @++ rs))
+	| "THIS" :: rs -> (ns, find s !!(ns @++ rs))
 	| _ ->
-		if ns = [] then ([], find s (simplify r))
+		if ns = [] then ([], find s !!r)
 		else
-			let v = find s (trace ns r) in
+			let v = find s (ns @<< r) in
 			match v with
 			| Undefined -> resolve s (prefix ns) r
 			| _ -> (ns, v)
@@ -112,16 +128,16 @@ and get_link s ns r rl acc =
 		match (resolve s ns rl) with
 		| nsp, vp ->
 			(
-				let rp = ref_plus_ref nsp rl in
+				let rp = nsp @++ rl in
 				match vp with
 				| Val (Basic (Link rm)) -> get_link s (prefix rp) r rm (SetRef.add rp acc)
-				| _ -> if ref_prefixeq_ref rp r then failure 106 else (rp, vp)
+				| _ -> if rp @<= r then failure 106 else (rp, vp)
 			)
 
 and put s id v : store =
 	match s with
 	| [] -> (id, v) :: []
-	| (ids,vs)::tail ->
+	| (ids,vs) :: tail ->
 		if ids = id then
 			match vs, v with
 			| Store dest, Store src -> (id, Store (copy dest src [])) :: tail
@@ -131,7 +147,7 @@ and put s id v : store =
 and copy dest src pfx : store =
 	match src with
 	| [] -> dest
-	| (ids,vs)::tail -> copy (bind dest (ref_plus_id pfx ids) vs) tail pfx
+	| (ids,vs) :: tail -> copy (bind dest (pfx @+. ids) vs) tail pfx
 
 and bind s r v : store =
 	match r with
@@ -141,7 +157,7 @@ and bind s r v : store =
 		else
 			match s with
 			| [] -> failure 2
-			| (ids,vs)::tail ->
+			| (ids,vs) :: tail ->
 				if ids = id then
 					match vs with
 					| Store child -> (id, Store (bind child rs v)) :: tail
@@ -163,7 +179,7 @@ and replace_link s ns cell nss =
 	match cell with
 	| id, v ->
 		(
-			let rp = ref_plus_id ns id in
+			let rp = ns @+. id in
 			match v with
 			| Basic (Link rl) ->
 				(
