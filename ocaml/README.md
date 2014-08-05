@@ -1,6 +1,8 @@
 # SmartFrog Language Compiler in OCaml
 
-This compiler is the implementation of the formal semantic of core subset of [SmartFrog](http://smartfrog.org) (SF) language in OCaml. The supported features are:
+This compiler is the implementation of the formal semantics of core subset of [SmartFrog](http://smartfrog.org) (SF) language in OCaml. It also implements the static type system of SF.
+
+Supported features are:
 
 - Basic values (Boolean, Number, String, Null, Vector)
 - Component (object)
@@ -40,6 +42,10 @@ This command will create the compiler executable file `csf`.
 
 
 ## Usage
+
+- Type output
+
+		$ ./csf -type <sf-file>
 
 - JSON output
 

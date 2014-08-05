@@ -1,3 +1,0 @@
-// quickcheck identified this
-
-foo extends { false; }

@@ -1,6 +1,0 @@
-// error 5
-
-
-sfConfig extends {
-	foo A:B;
-}

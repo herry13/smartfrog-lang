@@ -1,8 +1,0 @@
-// #include recursion
-// Skip HP compiler which does not terminate on this !! <<<< not hp >>>>
-
-sfConfig extends {
-    test1a "before";
-	#include "i1-include3.sf";
-    test1b "after";
-}
