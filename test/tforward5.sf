@@ -1,0 +1,5 @@
+sfConfig extends {
+	x 2;
+	a [DATA x, DATA b];
+	b 1;
+}

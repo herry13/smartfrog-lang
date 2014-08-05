@@ -1,0 +1,12 @@
+sfConfig extends {
+	a b;
+	b 1;
+	a 2;
+
+	a x;
+	x 3;
+
+	y 4;
+	y z;
+	z a;
+}

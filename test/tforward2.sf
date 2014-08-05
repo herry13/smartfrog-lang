@@ -1,5 +1,8 @@
 sfConfig extends {
 	c a;
+	e extends {
+		f a;
+	}
 	a extends {
 		b d;
 	}
