@@ -23,10 +23,10 @@ and  vector        = basicValue list
 and  reference     = string list
 
 (** type syntax **)
-and _type     = TBasic of basicType
-              | TVec   of _type
-              | TRef   of basicType
-              | TLazy  of reference * bool  (* r [islink] *)
+and _type     = TBasic   of basicType
+              | TVec     of _type
+              | TRef     of basicType
+              | TForward of reference * bool  (* r [islink] *)
               | TUndefined
 and basicType = TBool                         (* (Type Bool)   *)
               | TNum                          (* (Type Num)    *)
@@ -82,11 +82,11 @@ and string_of_r r = String.concat ":" r
 
 and string_of_type t =
 	match t with
-	| TBasic bt         -> string_of_basic_type bt
-	| TVec bt           -> "[]" ^ (string_of_type bt)
-	| TRef bt           -> "*" ^ (string_of_basic_type bt)
-	| TLazy (r, islink) -> "?(" ^ (if islink then "" else "*") ^ (String.concat "." r) ^ ")"
-	| TUndefined        -> "!"
+	| TBasic bt            -> string_of_basic_type bt
+	| TVec bt              -> "[]" ^ (string_of_type bt)
+	| TRef bt              -> "*" ^ (string_of_basic_type bt)
+	| TForward (r, islink) -> "?(" ^ (if islink then "" else "*") ^ (String.concat "." r) ^ ")"
+	| TUndefined           -> "!"
 
 and string_of_basic_type t =
 	match t with
