@@ -2,5 +2,9 @@ sfConfig extends {
 	a "abc";
 	b 1;
 	c true;
-	d DATA x:y:z;
+	d DATA a;
+
+	e DATA f;
+	f 1;
+	g DATA f;
 }

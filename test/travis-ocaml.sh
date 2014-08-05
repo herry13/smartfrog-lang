@@ -1,6 +1,6 @@
 #!/bin/bash
 
-csf="../ocaml/csf"
+csf="../ocaml/csf -type"
 
 # valid SF specifications
 $csf ./commutative1a.sf

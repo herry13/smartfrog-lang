@@ -7,12 +7,11 @@ BIN="$BASEDIR/../ocaml/csf $OPT"
 
 function test {
 	if [[ -f $1 && "${1##*.}" = "sf" ]]; then
-		echo -n "$1 "
 		result=$($BIN $1 2>&1 1>/dev/null)
 		if [[ $result != "" ]]; then
-			echo "[Failed]"
+			echo "$1 [Failed]"
 		else
-			echo "[OK]"
+			echo "$1 [OK]"
 		fi
 	fi
 }
