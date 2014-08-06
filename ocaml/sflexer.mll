@@ -23,7 +23,7 @@
 	(* keywords *)
 	let keywords = ["true"; "false"; "null"; "NULL"; "extends"; "DATA";
 	                "isa"; "schema"; "bool"; "boolean"; "num"; "number";
-	                "str"; "string"; "obj"; "object"; "include"]
+	                "str"; "string"; "obj"; "object"; "include"; "import"]
 
 	let is_keyword id =
 		let rec check id words =
@@ -48,7 +48,7 @@ let ident            = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '.']*
 let comment          = "//" [^'\n''\r']*
 let comments         = '/' '*'+ (('*'[^'/'])+|[^'*']+)* '*'+ '/'
 let include_file     = "#include"
-let sfp_include_file = "include"
+let sfp_include_file = "include" | "import"
 let true_value       = "true"
 let false_value      = "false"
 let null_value       = "null" | "NULL"
