@@ -1,0 +1,12 @@
+*.swp
+*.o
+*.mli
+*.cmo
+*.cmi
+csf
+csfp
+sflexer.ml
+sfparser.ml
+.paths
+.project
+.settings

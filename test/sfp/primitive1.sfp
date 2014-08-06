@@ -1,0 +1,6 @@
+main {
+	x = false;
+	x : bool = true;
+	y : num = 1;
+	y = 2;
+}

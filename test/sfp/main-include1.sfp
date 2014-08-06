@@ -1,0 +1,7 @@
+include "primitive1.sfp";
+
+a {
+	#include "primitive1.sfp";
+}
+
+x = 1;
