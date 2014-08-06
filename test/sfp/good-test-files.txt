@@ -1,3 +1,13 @@
-primitive1.sfp
-object1.sfp
+action1.sfp
+global1.sfp
+herry0.sfp
+herry1.sfp
+herry2.sfp
+herry3.sfp
+herry4.sfp
+herry5.sfp
 main-include1.sfp
+object1.sfp
+primitive1.sfp
+schema1.sfp
+test1.sfp
