@@ -2,5 +2,5 @@ main {
 	a = "abc";
 	b = 1;
 	c = true;
-	d = x.y.z;
+	d = a;
 }
