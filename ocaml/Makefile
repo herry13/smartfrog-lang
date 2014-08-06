@@ -17,9 +17,9 @@ else
 COMPILER=ocamlc
 endif
 
-BYTECODELIB=sfsyntax.cmo sflexer.cmo sfparser.cmo sfhelper.cmo sfdomain.cmo sfdomainhelper.cmo sfvaluation.cmo sftype.cmo csf.cmo
+BYTECODELIB=str.cma sfsyntax.cmo sflexer.cmo sfparser.cmo sfhelper.cmo sfdomain.cmo sfdomainhelper.cmo sfvaluation.cmo sftype.cmo csf.cmo
 
-NATIVELIB=sfsyntax.cmx sflexer.cmx sfparser.cmx sfhelper.cmx sfdomain.cmx sfdomainhelper.cmx sfvaluation.cmx sftype.cmx csf.cmx
+NATIVELIB=str.cmxa sfsyntax.cmx sflexer.cmx sfparser.cmx sfhelper.cmx sfdomain.cmx sfdomainhelper.cmx sfvaluation.cmx sftype.cmx csf.cmx
 
 csf: csf.ml sfhelper.cmo sfvaluation.cmo sftype.cmo
 	$(COMPILER) -c csf.ml
