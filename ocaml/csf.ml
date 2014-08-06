@@ -66,7 +66,7 @@ let rec parse_file opt file =
 	in
 	print_string (str ^ "\n")
 
-and eval_value ast = [] (* TODO - Sfvaluation.sfSpecification ast *)
+and eval_value ast = Sfvaluation.sfpSpecification ast
 
 (**
  * main function

@@ -2,10 +2,11 @@ open Sfsyntax
 
 let sfBoolean b = if b = "true" then Sfdomain.Boolean true else Sfdomain.Boolean false
 
+let int_regex = Str.regexp "\\(^-?[0-9]+$\\)"
+
 let sfNumber n =
-	let f = float_of_string n in
-	let i = int_of_float f in
-	if f = (float_of_int i) then Sfdomain.Number (Sfdomain.Int i) else Sfdomain.Number (Sfdomain.Float f)
+	if Str.string_match int_regex n 0 then Sfdomain.Number (Sfdomain.Int (int_of_string n))
+	else Sfdomain.Number (Sfdomain.Float (float_of_string n))
 
 let sfString s = Sfdomain.String s
 
@@ -60,9 +61,27 @@ and sfBlock block =
 		| A_B (a, b) -> sfBlock b ns (sfAssignment a ns s)
 		| EmptyBlock   -> s
 
-and sfSpecification b =
-	let r = ["sfConfig"] in
-	let s1 = sfBlock b [] [] in
+and sfpSchema (sid, parent, b) =
+	fun s ->
+		let r_sid = [sid] in
+		let s1 = Sfdomain.bind s r_sid (Sfdomain.Store []) in
+		let s2 =
+			match parent with
+			| EmptySchema -> s1
+			| SID superid -> Sfdomain.inherit_proto s1 [] [superid] r_sid
+		in
+		sfBlock b r_sid s2
+
+and sfpContext ctx =
+	fun s ->
+		match ctx with
+		| A_C (a, c) -> sfpContext c (sfAssignment a [] s)
+		| S_C (sc, c) -> sfpContext c (sfpSchema sc s)
+		| EmptyContext -> s
+
+and sfpSpecification sfp =
+	let r = ["main"] in
+	let s1 = sfpContext sfp [] in
 	let v1 = Sfdomain.find s1 r in
 	let s2 =
 		match v1 with
