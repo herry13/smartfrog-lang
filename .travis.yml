@@ -1,0 +1,9 @@
+language: java
+
+script: bash -ex travis-ci.sh
+
+branches:
+  only:
+	- master
+    - sfp
+
