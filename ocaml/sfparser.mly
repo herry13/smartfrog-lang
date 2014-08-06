@@ -75,13 +75,13 @@ prototype:
     | reference       { fun p -> R_P ($1, p) } 
 
 basic:
-    | BOOL                { Boolean $1 }
-    | INT                 { Number $1 }
-    | FLOAT               { Number $1 }
-    | STRING              { String $1 }
-    | DATA data_reference { DR $2 }
-    | NULL                { Null }
-    | vectors             { Vector $1 }
+    | BOOL           { Boolean $1 }
+    | INT            { Number $1 }
+    | FLOAT          { Number $1 }
+    | STRING         { String $1 }
+    | data_reference { DR $1 }
+    | NULL           { Null }
+    | vectors        { Vector $1 }
 
 vectors:
     | LBRACKET items RBRACKET { $2 }
