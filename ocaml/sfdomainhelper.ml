@@ -144,7 +144,8 @@ and xml_of_store1 s : string =
 				if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
 
 and attribute_of_store s : string =
-	let attr = String.trim (accumulate_attribute s) in
+	(*let attr = String.trim (accumulate_attribute s) in*)
+	let attr = accumulate_attribute s in
 	if (String.length attr) > 0 then " " ^ attr else attr
 
 and is_attribute id = ((String.get id 0) = ' ')

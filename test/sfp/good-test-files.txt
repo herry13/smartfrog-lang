@@ -1,5 +1,3 @@
-action1.sfp
-global1.sfp
 herry0.sfp
 herry1.sfp
 herry2.sfp
