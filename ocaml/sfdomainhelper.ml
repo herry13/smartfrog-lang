@@ -1,35 +1,40 @@
-(*******************************************************************
- * helper functions to convert semantics domain to YAML, JSON,
- * plain SF, or XML
- *******************************************************************)
-
 open Sfdomain
 
-(***
- * convert reference (list of string) to string
- ***)	
-let string_of_ref r = "$." ^ String.concat ":" r
+(*******************************************************************
+ * helper functions to convert semantics domain to string, YAML
+ * or JSON
+ *******************************************************************)
 
-(***
+(*******************************************************************
+ * convert reference (list of string) to string
+ *******************************************************************)
+let string_of_ref r = "$." ^ String.concat "." r
+
+let (!^) r = string_of_ref r
+
+(*******************************************************************
  * convert a store to YAML
- ***)
+ *******************************************************************)
 let rec yaml_of_store s = yaml_of_store1 s ""
 
 and yaml_of_store1 s tab =
+	let yaml_of_element ids vs =
+		let name = tab ^ ids ^ ": " in
+		let value =
+			match vs with
+			| Link lr -> "link " ^ !^lr
+			| Basic basic -> yaml_of_basic basic
+			| Store [] -> yaml_of_store1 [] (tab ^ "  ")
+			| Store child -> "\n" ^ yaml_of_store1 child (tab ^ "  ")
+			| Global global -> yaml_of_constraint global (tab ^ "  ")
+			| Action action -> yaml_of_action action (tab ^ "  ")
+		in
+		name ^ value
+	in
 	match s with
 	| [] -> "{}"
-	| (ids,vs) :: tail ->
-		let h = tab ^ ids ^ ": " in
-		match vs with
-		| Link lr -> "link " ^ string_of_ref lr
-		| Basic basic ->
-			let v = h ^ yaml_of_basic basic in
-			if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
-		| Store child ->
-			let v = h ^ (if child = [] then "" else "\n") ^ yaml_of_store1 child (tab ^ "  ") in
-			if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
-		| Global global -> (Constraint.string_of global) ^ "\n" ^ yaml_of_store1 tail tab
-		| Action action -> h ^ (Action.string_of action) ^ "\n" ^ yaml_of_store1 tail tab
+	| (ids, vs) :: [] -> yaml_of_element ids vs
+	| (ids, vs) :: tail -> (yaml_of_element ids vs) ^ "\n" ^ (yaml_of_store1 tail tab)
 
 and yaml_of_vec vec =
 	match vec with
@@ -48,67 +53,28 @@ and yaml_of_basic v =
 	| Vector vec -> "[" ^ (yaml_of_vec vec) ^ "]"
 	| Ref r -> string_of_ref r
 
-(***
- * convert a store to a plain SF
- ***)
-and sf_of_store s = sf_of_store1 s ""
-
-and sf_of_store1 s tab =
-	match s with
-	| [] -> ""
-	| (ids,vs) :: tail ->
-		let h = tab ^ ids ^ " " in
-		match vs with
-		| Link lr -> " " ^ String.concat ":" lr
-		| Basic basic ->
-			let v = h ^ (sf_of_basic basic) ^ ";" in
-			if tail = [] then v else v ^ "\n" ^ sf_of_store1 tail tab
-		| Store child ->
-			let v =
-				h ^ "extends  " ^
-				(if child = [] then "{}" else "{\n" ^ (sf_of_store1 child (tab ^ "  ")) ^ "\n" ^ tab ^ "}") in
-			if tail = [] then v else v ^ "\n" ^ sf_of_store1 tail tab
-		| Global global -> (Constraint.string_of global) ^ "\n" ^ sf_of_store1 tail tab
-		| Action action -> h ^ (Action.string_of action) ^ "\n" ^ sf_of_store1 tail tab
-
-and sf_of_vec vec =
-	match vec with
-	| [] -> ""
-	| head :: tail ->
-		let v =
-			sf_of_basic head in
-			if tail = [] then v else v ^ ", " ^ (sf_of_vec tail)
-
-and sf_of_basic v =
-	match v with
-	| Boolean b -> string_of_bool b
-	| Number (Int i) -> string_of_int i
-	| Number (Float f) -> string_of_float f
-	| String s -> s
-	| Null -> "null"
-	| Vector vec -> "[" ^ (sf_of_vec vec) ^ "]"
-	| Ref r -> "DATA " ^ String.concat ":" r
-
-(***
+(*******************************************************************
  * convert a store to JSON
- ***)
+ *******************************************************************)
 and json_of_store s = "{" ^ (json_of_store1 s) ^ "}"
 
 and json_of_store1 s =
+	let json_of_element ids vs =
+		let name = "\"" ^ ids ^ "\":" in
+		let value =
+			match vs with
+			| Link lr -> "\"link " ^(string_of_ref lr) ^ "\""
+			| Basic basic -> json_of_basic basic
+			| Store child -> json_of_store1 child
+			| Global global -> json_of_constraint global
+			| Action action -> json_of_action action
+		in
+		name ^ value
+	in
 	match s with
-	| [] -> ""
-	| (ids,vs) :: tail ->
-		let h = "\"" ^ ids ^ "\":" in
-		match vs with
-		| Link lr -> "\"link " ^(string_of_ref lr) ^ "\""
-		| Basic basic ->
-			let v = h ^ json_of_basic basic in
-			if tail = [] then v else v ^ "," ^ json_of_store1 tail
-		| Store child ->
-			let v = h ^ "{" ^ (json_of_store1 child) ^ "}" in
-			if tail = [] then v else v ^ "," ^ json_of_store1 tail
-		| Global global -> (Constraint.string_of global) ^ "," ^ (json_of_store1 tail)
-		| Action action -> h ^ (Action.string_of action) ^ "," ^ (json_of_store1 tail)
+	| []                -> ""
+	| (ids, vs) :: []   -> json_of_element ids vs
+	| (ids, vs) :: tail -> (json_of_element ids vs) ^ "," ^ json_of_store1 tail
 
 and json_of_basic v =
 	match v with
@@ -127,66 +93,87 @@ and json_of_vec vec =
 		let h = json_of_basic head in
 		if tail = [] then h else h ^ "," ^ (json_of_vec tail)
 
-(***
- * convert a store to XML
- * generate XML of given store
- * - attribute started with '_' is treated as parent's XML attribute
- * - attribute started without '_' is treated as element
- ***)
-and xml_of_store s : string = xml_of_store1 s
+(*******************************************************************
+ * convert a constraint to JSON
+ *******************************************************************)
+and json_of_constraint c =
+	match c with
+	| Eq e    -> json_of_equal e
+	| Ne e    -> json_of_not_equal e
+	| Not e   -> json_of_negation e
+	| Imply e -> json_of_implication e
+	| And e   -> json_of_conjunction e
+	| Or e    -> json_of_conjunction e
+	| In e    -> json_of_membership e
+	| True    -> "true"
+	| False   -> "false"
 
-and xml_of_store1 s : string =
-	match s with
-	| [] -> ""
-	| (ids,vs) :: tail ->
-		if (String.get ids 0) = '_' then xml_of_store1 tail
-		else
-			match vs with
-			| Link lr -> "<link>" ^ (string_of_ref lr) ^ "</link>"
-			| Basic basic ->
-				let h = "<" ^ ids ^ ">" ^ (xml_of_basic basic) ^ "</" ^ ids ^ ">" in
-				if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
-			| Store child ->
-				let h = "<" ^ ids ^ (attribute_of_store child) ^ ">" ^ (xml_of_store1 child) ^ "</" ^ ids ^ ">" in
-				if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
-			| Global global -> "<" ^ ids ^ ">" ^ (Constraint.string_of global) ^ "</" ^ ids ^ ">\n" ^ (xml_of_store1 tail)
-			| Action action -> "<" ^ ids ^ ">" ^ (Action.string_of action) ^ "</" ^ ids ^ ">\n" ^ (xml_of_store1 tail)
+and json_of_conjunction cs =
+	(List.fold_left (fun s c -> s ^ "," ^ (json_of_constraint c)) "[\"and\"" cs) ^ "]"
 
-and attribute_of_store s : string =
-	(*let attr = String.trim (accumulate_attribute s) in*)
-	let attr = accumulate_attribute s in
-	if (String.length attr) > 0 then " " ^ attr else attr
+and json_of_disjunction cs =
+	(List.fold_left (fun s c -> s ^ "," ^ (json_of_constraint c)) "[\"or\"" cs) ^ "]"
 
-and is_attribute id = ((String.get id 0) = ' ')
+and json_of_equal (r, bv) =
+	"[\"=\",\"" ^ !^r ^ "\"," ^ (json_of_basic bv) ^ "]"
 
-and accumulate_attribute s : string =
-	match s with
-	| [] -> ""
-	| (ids,vs) :: tail ->
-		if is_attribute ids then
-			match vs with
-			| Link lr -> "<link>" ^ (string_of_ref lr) ^ "</link>"
-			| Store _ | Basic (Vector _) -> raise (Failure "XML attr may not a component or vector")
-			| Basic b -> " " ^ string_of_attribute ids b ^ accumulate_attribute tail
-			| Global global -> "<" ^ ids ^ ">" ^ (Constraint.string_of global) ^ "</" ^ ids ^ ">\n" ^ (xml_of_store1 tail)
-			| Action action -> "<" ^ ids ^ ">" ^ (Action.string_of action) ^ "</" ^ ids ^ ">\n" ^ (xml_of_store1 tail)
-		else accumulate_attribute tail
+and json_of_not_equal (r, bv) =
+	"[\"!=\",\"" ^ !^r ^ "\"," ^ (json_of_basic bv) ^ "]"
 
-and string_of_attribute id v =
-	(String.sub id 1 ((String.length id) - 1)) ^ "=\"" ^ xml_of_basic v ^ "\""
+and json_of_negation e =
+	"[\"not\"," ^ (json_of_constraint e) ^ "]"
 
-and xml_of_basic v : string =
-	match v with
-	| Boolean b -> string_of_bool b
-	| Number (Int i) -> string_of_int i
-	| Number (Float f) -> string_of_float f
-	| String s -> s
-	| Null -> "</null>"
-	| Vector vec -> "<vector>" ^ (xml_of_vec vec) ^ "</vector>"
-	| Ref r -> string_of_ref r
+and json_of_implication (e1, e2) =
+	"[\"imply\"," ^ (json_of_constraint e1) ^ "," ^ (json_of_constraint e2) ^ "]"
 
-and xml_of_vec vec : string =
-	match vec with
-	| [] -> ""
-	| head :: tail -> "<item>" ^ (xml_of_basic head) ^ "</item>" ^ xml_of_vec tail;;
+and json_of_membership (r, v) =
+	"[\"in\",\"" ^ !^r ^ "\",[" ^ (json_of_vec v) ^ "]]"
 
+(*******************************************************************
+ * convert a constraint to YAML
+ *******************************************************************)
+
+and yaml_of_constraint c tab = json_of_constraint c
+
+(*******************************************************************
+ * convert an action to JSON
+ *******************************************************************)
+and json_of_effect (r, bv) =
+	"[\"=\",\"" ^ !^r ^ "\"," ^ (json_of_basic bv) ^ "]"
+
+and json_of_effects effs =
+	(List.fold_left (fun acc e -> acc ^ "," ^ (json_of_effect e)) "[\"effects\"" effs) ^ "]"
+
+and json_of_conditions cond = "[\"conditions\"," ^ (json_of_constraint cond) ^ "]"
+
+and json_of_cost cost = "[\"cost\"," ^ (string_of_int cost) ^ "]"
+
+and json_of_parameter (id, t) = "[\"" ^ id ^ "\",\"" ^ (Sfsyntax.string_of_type t) ^ "\"]"
+
+and json_of_parameters params =
+	(List.fold_left (fun acc p -> acc ^ "," ^ (json_of_parameter p)) "[\"parameters\"" params) ^ "]"
+
+and json_of_action (params, cost, conds, effs) =
+	"[" ^ (json_of_parameters params) ^ "," ^ (json_of_conditions conds) ^
+	"," ^ (json_of_effects effs) ^ "]"
+
+(*******************************************************************
+ * convert an action to YAML
+ *******************************************************************)
+
+and yaml_of_action (params, cost, conds, effs) tab =
+	"\n" ^
+	tab ^ "parameters: " ^ (yaml_of_parameters params (tab ^ "  ")) ^ "\n" ^
+	tab ^ "cost: " ^ (string_of_int cost) ^ "\n" ^
+	tab ^ "conditions: " ^ (yaml_of_constraint conds (tab ^ "  ")) ^ "\n" ^
+	tab ^ "effects: " ^ (yaml_of_effects effs (tab ^ "  "))
+
+and yaml_of_parameters params tab =
+	List.fold_left (fun acc p -> acc ^ "\n" ^ (yaml_of_parameter p tab)) "" params
+
+and yaml_of_parameter (id, t) tab = tab ^ id ^ ": " ^ (Sfsyntax.string_of_type t)
+
+and yaml_of_effects effs tab =
+	List.fold_left (fun acc eff -> acc ^ "\n" ^ (yaml_of_effect eff tab)) "" effs
+
+and yaml_of_effect (r, bv) tab = tab ^ !^r ^ ": " ^ (json_of_basic bv)

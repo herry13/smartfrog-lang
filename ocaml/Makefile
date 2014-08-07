@@ -2,12 +2,10 @@
 
 # 0 = OCaml bytecode
 # 1 = native
-NATIVE=0
+NATIVE=1
 
 # binary name
 NAME=csfp
-
-build: csf
 
 ifeq ($(NATIVE),1)
 # native compiler
@@ -17,9 +15,34 @@ else
 COMPILER=ocamlc
 endif
 
-BYTECODELIB=str.cma sfsyntax.cmo sflexer.cmo sfparser.cmo sfhelper.cmo sfdomain.cmo sfdomainhelper.cmo sfvaluation.cmo sftype.cmo csf.cmo
+# byte code libraries
+BYTECODELIB= \
+	str.cma \
+	sfsyntax.cmo \
+	sflexer.cmo \
+	sfparser.cmo \
+	sfhelper.cmo \
+	sfdomain.cmo \
+	sfdomainhelper.cmo \
+	sfvaluation.cmo \
+	sftype.cmo \
+	csf.cmo
 
-NATIVELIB=str.cmxa sfsyntax.cmx sflexer.cmx sfparser.cmx sfhelper.cmx sfdomain.cmx sfdomainhelper.cmx sfvaluation.cmx sftype.cmx csf.cmx
+# native code libraries
+NATIVELIB= \
+	str.cmxa \
+	sfsyntax.cmx \
+	sflexer.cmx \
+	sfparser.cmx \
+	sfhelper.cmx \
+	sfdomain.cmx \
+	sfdomainhelper.cmx \
+	sfvaluation.cmx \
+	sftype.cmx \
+	csf.cmx
+
+# default
+build: csf
 
 csf: csf.ml sfhelper.cmo sfvaluation.cmo sftype.cmo
 	$(COMPILER) -c csf.ml
@@ -65,10 +88,10 @@ dist: build clean
 clean-build: clean-all build
 
 darwin: dist
-	@mv -f csf dist/darwin
+	@mv -f $(NAME) dist/darwin
 
 linux: dist
-	@mv -f csf dist/linux
+	@mv -f $(NAME) dist/linux
 
 install-ocaml:
 	# install OCaml from apt

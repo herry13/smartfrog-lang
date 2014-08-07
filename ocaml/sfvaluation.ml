@@ -33,9 +33,9 @@ and sfBasicValue bv =
 	| Boolean b  -> sfBoolean b
 	| Number n   -> sfNumber n
 	| String s   -> sfString s
-	| Null    -> sfNull
+	| Null       -> sfNull
 	| Vector vec -> sfVector vec
-	| DR dr   -> sfDataReference dr
+	| DR dr      -> sfDataReference dr
 
 let rec sfPrototype ps =
 	fun ns r s ->
@@ -125,7 +125,13 @@ and sfpNegation c = Sfdomain.Not (sfpConstraint c)
 
 and sfpImplication (c1, c2) = Sfdomain.Imply (sfpConstraint c1, sfpConstraint c2)
 
-and sfpMembership (r, vec) = Sfdomain.In (sfReference r, [])
+and sfpMembership (r, vec) =
+	let rec eval v =
+		match v with
+		| [] -> []
+		| head :: tail -> (sfBasicValue head) :: (eval tail)
+	in
+	Sfdomain.In (sfReference r, eval vec)
 
 and sfpConjunction cs = Sfdomain.And (List.fold_left (fun acc c -> (sfpConstraint c) :: acc) [] cs)
 

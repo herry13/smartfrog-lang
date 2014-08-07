@@ -137,8 +137,8 @@ and string_of_basic_type t =
 	| TNum                -> "num"
 	| TStr                -> "str"
 	| TObject             -> "obj"
-	| TSchema (id, super) -> "$" ^ id ^ "<:" ^ (string_of_basic_type super)
-	| TRootSchema         -> "$$"
+	| TSchema (id, super) -> "@" ^ id ^ "<:" ^ (string_of_basic_type super)
+	| TRootSchema         -> "@@"
 	| TNull               -> "null"
 	| TAction             -> "act"
 	| TGlobal             -> "glob"

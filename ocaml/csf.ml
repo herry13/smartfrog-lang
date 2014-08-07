@@ -7,7 +7,6 @@
   -sf     print store in plain SF
   -json   print store in JSON (default)
   -yaml   print store in YAML
-  -xml    print store in XML
   -ast    print abstract syntax tree
 
 
@@ -21,7 +20,6 @@ let help = "usage: csf [option] <sf-file>" ^
            "\n\nwhere [option] is:" ^
 		   "\n  -json   print store in JSON (default)" ^
 		   "\n  -yaml   print store in YAML" ^
-		   "\n  -xml    print store in XML" ^
            "\n  -ast    print abstract syntax tree" ^
            "\n  -type   print type environment" ^
            "\n\n"
@@ -58,7 +56,6 @@ let rec parse_file opt file =
 			else
 				let store = eval_value ast in
 				if opt = "-yaml" then Sfdomainhelper.yaml_of_store store
-				else if opt = "-xml" then Sfdomainhelper.xml_of_store store
 				else Sfdomainhelper.json_of_store store
 		with
 		| Sftype.TypeError (code, msg) -> prerr_string (msg ^ "\n"); exit code

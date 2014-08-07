@@ -41,36 +41,25 @@ and conjunction = _constraint list
 and disjunction = _constraint list
 
 (** action **)
-and action = parameters * cost * conditions * effects
+and action     = parameters * cost * conditions * effects
 and parameters = param list
-and param = ident * Sfsyntax._type
-and cost = int
+and param      = ident * Sfsyntax._type
+and cost       = int
 and conditions = _constraint
-and effects = effect list
-and effect = reference * basic
+and effects    = effect list
+and effect     = reference * basic
 
 (*******************************************************************
  * helpers
  *******************************************************************)
 
-module Constraint =
-	struct
-		let string_of c = "constraint" (* TODO *)
-		let eval c s = true
-	end
-
-module Action =
-	struct
-		let string_of a = "action" (* TODO *)
-		let eval a s = s
-	end
-
+(** exception for any error on semantics algebra **)
 exception SfError of int * string
 
-(***
+(**
  * receive and print semantics error message
  * @code int error code
- ***)
+ *)
 let error code = raise (SfError (code, "[err" ^ (string_of_int code) ^ "]"))
 
 (* Module set of reference *)
@@ -247,17 +236,18 @@ and accept s ns ss nss =
 		let sq = replace_link s ns c nss in
 		accept sq ns sp nss
 
-(*
+
+(*******************************************************************
+ * module constraint -- function to handle constraint
+ *******************************************************************)
+
 module Constraint =
 	struct
-		let string_of c = "constraint"
-		let equal (r, bv) =
-			fun s ->
-				match find s r with
-				| Val Basic v -> v = bv
-				| _           -> false
+		let eval s = false (* TODO *)
 	end
 
-let test = Constraint.equal (["a"], Number (Int 1))
-*)
-
+module Action =
+	struct
+		let applicable s = false (* TODO *)
+		let apply s = s (* TODO *)
+	end
