@@ -48,9 +48,9 @@ and sfValue v =
 	fun ns r s ->
 		match v with
 		| BV bv      -> Sfdomain.bind s r (Sfdomain.Basic (sfBasicValue bv))
-		| LR lr      -> Sfdomain.bind s r (Sfdomain.Basic (sfLinkReference lr r))
+		| LR lr      -> Sfdomain.bind s r (sfLinkReference lr r)
 		| P (sid, p) -> sfPrototype p ns r (Sfdomain.bind s r (Sfdomain.Store []))
-		| Ac a       -> s (* TODO -- implement *)
+		| Ac a       -> sfpAction a ns r s
 
 (** 't' (type) is ignored since this function only evaluates the value **)
 and sfAssignment (r, t, v) =
@@ -60,6 +60,7 @@ and sfBlock block =
 	fun ns s ->
 		match block with
 		| A_B (a, b) -> sfBlock b ns (sfAssignment a ns s)
+		| G_B (g, b) -> sfBlock b ns (sfpGlobal g s)
 		| EmptyBlock   -> s
 
 and sfpSchema (sid, parent, b) =
@@ -104,7 +105,6 @@ and sfpSpecification sfp =
 
 
 (** global constraints **)
-
 and sfpGlobal g =
 	fun s ->
 		let r = ["global"] in
@@ -116,6 +116,7 @@ and sfpGlobal g =
 		| Sfdomain.Undefined               -> Sfdomain.bind s r (Sfdomain.Global gc)
 		| _                                -> Sfdomain.error 12
 
+(** constraints **)
 and sfpEqual (r, bv) = Sfdomain.Eq (sfReference r, sfBasicValue bv)
 
 and sfpNotEqual (r, bv) = Sfdomain.Ne (sfReference r, sfBasicValue bv)
@@ -130,7 +131,7 @@ and sfpConjunction cs = Sfdomain.And (List.fold_left (fun acc c -> (sfpConstrain
 
 and sfpDisjunction cs = Sfdomain.Or (List.fold_left (fun acc c -> (sfpConstraint c) :: acc) [] cs)
 
-and sfpConstraint c =
+and sfpConstraint (c : _constraint) =
 	match c with
 	| Eq e -> sfpEqual e
 	| Ne e -> sfpNotEqual e
@@ -139,3 +140,25 @@ and sfpConstraint c =
 	| In e -> sfpMembership e
 	| And e -> sfpConjunction e
 	| Or e -> sfpDisjunction e
+
+(* action *)
+and sfpAction (params, _cost, conds, effs) =
+	let parameters =
+		List.fold_left (fun acc (id, t) -> (id, t) :: acc) [] params
+	in
+	let cost =
+		match _cost with
+		| Cost cs   -> int_of_string cs
+		| EmptyCost -> 1
+	in
+	let conditions =
+		match conds with
+		| EmptyCondition -> Sfdomain.True
+		| Cond c         -> sfpConstraint c
+	in
+	let effects = 
+		List.fold_left (fun acc (r, bv) -> (r, sfBasicValue bv) :: acc) [] effs
+	in
+	fun ns r s ->
+		let a = (parameters, cost, conditions, effects) in
+		Sfdomain.bind s r (Sfdomain.Action a)

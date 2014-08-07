@@ -52,6 +52,7 @@ inblock_included:
 
 block:
 	| assignment block     { fun b -> A_B ($1, $2 b) }
+	| GLOBAL global block  { fun b -> G_B ($2, $3 b) }
 	| SF_INCLUDE EOS block { fun b -> $1 ($3 b) }
 	|                      { fun b -> b }
 

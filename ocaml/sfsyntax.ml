@@ -8,7 +8,7 @@ and  sfpcontext    = A_C of assignment * sfpcontext
                    | G_C of global * sfpcontext
                    | EmptyContext
 and  block         = A_B of assignment * block
-                   (* | G_B of global * block *)
+                   | G_B of global * block
                    | EmptyBlock
 and  assignment    = reference * _type * value
 and  value         = BV  of basicValue
@@ -84,6 +84,7 @@ let rec string_of_sf sf = string_of_block sf
 and string_of_block b =
 	match b with
 	| A_B (a, b) -> (string_of_assignment a) ^ "\n" ^ (string_of_block b)
+	| G_B (g, b) -> (string_of_global g) ^ "\n" ^ (string_of_block b)
 	| EmptyBlock -> ""
 
 and string_of_assignment a =

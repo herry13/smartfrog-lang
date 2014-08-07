@@ -21,13 +21,15 @@ and yaml_of_store1 s tab =
 	| (ids,vs) :: tail ->
 		let h = tab ^ ids ^ ": " in
 		match vs with
+		| Link lr -> "link " ^ string_of_ref lr
 		| Basic basic ->
 			let v = h ^ yaml_of_basic basic in
 			if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
 		| Store child ->
 			let v = h ^ (if child = [] then "" else "\n") ^ yaml_of_store1 child (tab ^ "  ") in
 			if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
-		| Global global -> Constraint.string_of global
+		| Global global -> (Constraint.string_of global) ^ "\n" ^ yaml_of_store1 tail tab
+		| Action action -> h ^ (Action.string_of action) ^ "\n" ^ yaml_of_store1 tail tab
 
 and yaml_of_vec vec =
 	match vec with
@@ -45,7 +47,6 @@ and yaml_of_basic v =
 	| Null -> "null"
 	| Vector vec -> "[" ^ (yaml_of_vec vec) ^ "]"
 	| Ref r -> string_of_ref r
-	| Link lr -> "link " ^ string_of_ref lr
 
 (***
  * convert a store to a plain SF
@@ -58,6 +59,7 @@ and sf_of_store1 s tab =
 	| (ids,vs) :: tail ->
 		let h = tab ^ ids ^ " " in
 		match vs with
+		| Link lr -> " " ^ String.concat ":" lr
 		| Basic basic ->
 			let v = h ^ (sf_of_basic basic) ^ ";" in
 			if tail = [] then v else v ^ "\n" ^ sf_of_store1 tail tab
@@ -66,7 +68,8 @@ and sf_of_store1 s tab =
 				h ^ "extends  " ^
 				(if child = [] then "{}" else "{\n" ^ (sf_of_store1 child (tab ^ "  ")) ^ "\n" ^ tab ^ "}") in
 			if tail = [] then v else v ^ "\n" ^ sf_of_store1 tail tab
-		| Global global -> Constraint.string_of global
+		| Global global -> (Constraint.string_of global) ^ "\n" ^ sf_of_store1 tail tab
+		| Action action -> h ^ (Action.string_of action) ^ "\n" ^ sf_of_store1 tail tab
 
 and sf_of_vec vec =
 	match vec with
@@ -85,7 +88,6 @@ and sf_of_basic v =
 	| Null -> "null"
 	| Vector vec -> "[" ^ (sf_of_vec vec) ^ "]"
 	| Ref r -> "DATA " ^ String.concat ":" r
-	| Link lr -> " " ^ String.concat ":" lr
 
 (***
  * convert a store to JSON
@@ -98,13 +100,15 @@ and json_of_store1 s =
 	| (ids,vs) :: tail ->
 		let h = "\"" ^ ids ^ "\":" in
 		match vs with
+		| Link lr -> "\"link " ^(string_of_ref lr) ^ "\""
 		| Basic basic ->
 			let v = h ^ json_of_basic basic in
 			if tail = [] then v else v ^ "," ^ json_of_store1 tail
 		| Store child ->
 			let v = h ^ "{" ^ (json_of_store1 child) ^ "}" in
 			if tail = [] then v else v ^ "," ^ json_of_store1 tail
-		| Global global -> Constraint.string_of global
+		| Global global -> (Constraint.string_of global) ^ "," ^ (json_of_store1 tail)
+		| Action action -> h ^ (Action.string_of action) ^ "," ^ (json_of_store1 tail)
 
 and json_of_basic v =
 	match v with
@@ -115,7 +119,6 @@ and json_of_basic v =
 	| Null -> "null"
 	| Vector vec -> "[" ^ (json_of_vec vec) ^ "]"
 	| Ref r -> "\"" ^ (string_of_ref r) ^ "\""
-	| Link lr -> "\"link " ^(string_of_ref lr) ^ "\""
 
 and json_of_vec vec =
 	match vec with
@@ -139,13 +142,15 @@ and xml_of_store1 s : string =
 		if (String.get ids 0) = '_' then xml_of_store1 tail
 		else
 			match vs with
+			| Link lr -> "<link>" ^ (string_of_ref lr) ^ "</link>"
 			| Basic basic ->
 				let h = "<" ^ ids ^ ">" ^ (xml_of_basic basic) ^ "</" ^ ids ^ ">" in
 				if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
 			| Store child ->
 				let h = "<" ^ ids ^ (attribute_of_store child) ^ ">" ^ (xml_of_store1 child) ^ "</" ^ ids ^ ">" in
 				if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
-			| Global global -> Constraint.string_of global
+			| Global global -> "<" ^ ids ^ ">" ^ (Constraint.string_of global) ^ "</" ^ ids ^ ">\n" ^ (xml_of_store1 tail)
+			| Action action -> "<" ^ ids ^ ">" ^ (Action.string_of action) ^ "</" ^ ids ^ ">\n" ^ (xml_of_store1 tail)
 
 and attribute_of_store s : string =
 	(*let attr = String.trim (accumulate_attribute s) in*)
@@ -160,9 +165,11 @@ and accumulate_attribute s : string =
 	| (ids,vs) :: tail ->
 		if is_attribute ids then
 			match vs with
+			| Link lr -> "<link>" ^ (string_of_ref lr) ^ "</link>"
 			| Store _ | Basic (Vector _) -> raise (Failure "XML attr may not a component or vector")
 			| Basic b -> " " ^ string_of_attribute ids b ^ accumulate_attribute tail
-			| Global global -> Constraint.string_of global
+			| Global global -> "<" ^ ids ^ ">" ^ (Constraint.string_of global) ^ "</" ^ ids ^ ">\n" ^ (xml_of_store1 tail)
+			| Action action -> "<" ^ ids ^ ">" ^ (Action.string_of action) ^ "</" ^ ids ^ ">\n" ^ (xml_of_store1 tail)
 		else accumulate_attribute tail
 
 and string_of_attribute id v =
@@ -177,7 +184,6 @@ and xml_of_basic v : string =
 	| Null -> "</null>"
 	| Vector vec -> "<vector>" ^ (xml_of_vec vec) ^ "</vector>"
 	| Ref r -> string_of_ref r
-	| Link lr -> "<link>" ^ (string_of_ref lr) ^ "</link>"
 
 and xml_of_vec vec : string =
 	match vec with

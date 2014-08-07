@@ -412,6 +412,7 @@ and sfpBlock block =
 	fun ns e ->
 		match block with
 		| A_B (a, b) -> sfpBlock b ns (sfAssignment a ns e)
+		| G_B (g, b) -> sfpBlock b ns (sfpGlobal g e)
 		| EmptyBlock -> e
 
 and sfpSchema s =
@@ -443,7 +444,7 @@ and sfpContext ctx =
 		match ctx with
 		| A_C (a, c) -> sfpContext c (sfAssignment a [] e)
 		| S_C (s, c) -> sfpContext c (sfpSchema s e)
-		| G_C (g, c) -> sfpContext c (assign e ["global"] TUndefined (TBasic TGlobal))
+		| G_C (g, c) -> sfpContext c (sfpGlobal g e)
 		| EmptyContext -> e
 
 and sfpSpecification sfp =
@@ -453,3 +454,5 @@ and sfpSpecification sfp =
 		let e2 = get_main (second_pass_eval e1) in
 		assign e2 ["global"] TUndefined (TBasic TGlobal)
 
+and sfpGlobal g =
+	fun e -> assign e ["global"] TUndefined (TBasic TGlobal)

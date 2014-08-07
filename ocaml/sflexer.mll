@@ -26,7 +26,8 @@
 	                "str"; "string"; "obj"; "object"; "include"; "import";
 	                "in"; "if"; "then"; "global"; "not";
 	                "def"; "action"; "sub"; "cost"; "condition"; "conditions";
-	                "effect"; "effects"]
+	                "effect"; "effects";
+	                "!always"; "!sometime"]
 
 	let is_keyword id =
 		let rec check id words =
@@ -66,7 +67,7 @@ let t_obj            = "obj" | "object"
 let _in              = "in"
 let _if              = "if"
 let _then            = "then"
-let _global          = "global"
+let _global          = "global" | "!always"
 let _not             = "not"
 let action           = "def" | "action" | "sub"
 let cost             = "cost"

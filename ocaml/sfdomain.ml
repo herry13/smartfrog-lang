@@ -10,10 +10,11 @@ and basic     = Boolean of bool
               | Null
               | Vector of vector
               | Ref of reference
-              | Link of reference
 and value     = Basic of basic
               | Store of store
               | Global of _constraint
+              | Link of reference
+              | Action of action
 and _value    = Val of value
               | Undefined
 and cell      = ident * value
@@ -29,6 +30,8 @@ and _constraint = Eq of equal
                 | And of conjunction
                 | Or of disjunction
                 | In of membership
+                | True
+                | False
 and equal       = reference * basic
 and notEqual    = reference * basic
 and implication = _constraint * _constraint
@@ -37,14 +40,29 @@ and membership  = reference * vector
 and conjunction = _constraint list
 and disjunction = _constraint list
 
+(** action **)
+and action = parameters * cost * conditions * effects
+and parameters = param list
+and param = ident * Sfsyntax._type
+and cost = int
+and conditions = _constraint
+and effects = effect list
+and effect = reference * basic
+
 (*******************************************************************
  * helpers
  *******************************************************************)
 
 module Constraint =
 	struct
-		let string_of c = "constraint"
+		let string_of c = "constraint" (* TODO *)
 		let eval c s = true
+	end
+
+module Action =
+	struct
+		let string_of a = "action" (* TODO *)
+		let eval a s = s
 	end
 
 exception SfError of int * string
@@ -155,7 +173,7 @@ and get_link s ns r rl acc =
 			(
 				let rp = nsp @++ rl in
 				match vp with
-				| Val (Basic (Link rm)) -> get_link s (prefix rp) r rm (SetRef.add rp acc)
+				| Val (Link rm) -> get_link s (prefix rp) r rm (SetRef.add rp acc)
 				| _ -> if rp @<= r then error 106 else (rp, vp)
 			)
 
@@ -192,7 +210,7 @@ and bind s r v : store =
 and inherit_proto s ns proto r : store =
 	match resolve s ns proto with
 	| _, Val (Store vp) -> copy s vp r
-	| _, Val (Basic (Link rq)) ->
+	| _, Val (Link rq) ->
 		(
 			match resolve_link s ns r (Link rq) with
 			| _, Val (Store vq) -> copy s vq r
@@ -206,7 +224,7 @@ and replace_link s ns cell nss =
 		(
 			let rp = ns @+. id in
 			match v with
-			| Basic (Link rl) ->
+			| Link rl ->
 				(
 					match resolve_link s nss rp (Link rl) with
 					| _, Undefined -> error 110
