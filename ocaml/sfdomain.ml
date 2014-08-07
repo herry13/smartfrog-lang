@@ -1,26 +1,51 @@
 (*******************************************************************
  * semantics domain
  *******************************************************************)
-type number = Int of int
-            | Float of float
-and vector  = basic list
-and basic   = Boolean of bool
-            | Number of number
-            | String of string
-            | Null
-            | Vector of vector
-            | Ref of string list
-            | Link of string list
-and value   = Basic of basic
-            | Store of store
-and _value  = Val of value
-            | Undefined
-and cell    = string * value
-and store   = cell list 
+type number   = Int of int
+              | Float of float
+and vector    = basic list
+and basic     = Boolean of bool
+              | Number of number
+              | String of string
+              | Null
+              | Vector of vector
+              | Ref of reference
+              | Link of reference
+and value     = Basic of basic
+              | Store of store
+              | Global of _constraint
+and _value    = Val of value
+              | Undefined
+and cell      = ident * value
+and store     = cell list
+and reference = ident list
+and ident     = string
+
+(** constraint **)
+and _constraint = Eq of equal
+                | Ne of notEqual
+                | Not of negation
+                | Imply of implication
+                | And of conjunction
+                | Or of disjunction
+                | In of membership
+and equal       = reference * basic
+and notEqual    = reference * basic
+and implication = _constraint * _constraint
+and negation    = _constraint
+and membership  = reference * vector
+and conjunction = _constraint list
+and disjunction = _constraint list
 
 (*******************************************************************
  * helpers
  *******************************************************************)
+
+module Constraint =
+	struct
+		let string_of c = "constraint"
+		let eval c s = true
+	end
 
 exception SfError of int * string
 
@@ -203,3 +228,18 @@ and accept s ns ss nss =
 	| c :: sp ->
 		let sq = replace_link s ns c nss in
 		accept sq ns sp nss
+
+(*
+module Constraint =
+	struct
+		let string_of c = "constraint"
+		let equal (r, bv) =
+			fun s ->
+				match find s r with
+				| Val Basic v -> v = bv
+				| _           -> false
+	end
+
+let test = Constraint.equal (["a"], Number (Int 1))
+*)
+

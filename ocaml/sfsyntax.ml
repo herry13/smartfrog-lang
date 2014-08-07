@@ -52,8 +52,6 @@ and basicType = TBool                         (* (Type Bool)   *)
 
 (** constraint syntax **)
 and global      = _constraint
-and conjunction = _constraint list
-and disjunction = _constraint list
 and _constraint = Eq of equal
                 | Ne of notEqual
                 | Not of negation
@@ -63,9 +61,11 @@ and _constraint = Eq of equal
                 | In of membership
 and equal       = reference * basicValue
 and notEqual    = reference * basicValue
-and implication = conjunction * conjunction
+and implication = _constraint * _constraint
 and negation    = _constraint
 and membership  = reference * vector
+and conjunction = _constraint list
+and disjunction = _constraint list
 
 (** action syntax **)
 and action = parameters * cost * conditions * effects
@@ -189,7 +189,7 @@ and string_of_negation e =
 	"(not " ^ (string_of_constraint e) ^ ")"
 
 and string_of_implication (e1, e2) =
-	"(imply " ^ (string_of_conjunction e1) ^ " " ^ (string_of_conjunction e2) ^ ")"
+	"(imply " ^ (string_of_constraint e1) ^ " " ^ (string_of_constraint e2) ^ ")"
 
 and string_of_membership (r, v) =
 	"(in " ^ !^r ^ " " ^ (string_of_vector v) ^ ")"

@@ -88,15 +88,54 @@ and sfpSpecification sfp =
 	let s2 =
 		match v1 with
 		| Sfdomain.Val (Sfdomain.Store s) -> Sfdomain.accept s1 r s r
-		| _ -> Sfdomain.error 9
+		| _ -> Sfdomain.error 11
 	in
 	let v2 = Sfdomain.find s2 r in
+	let rg = ["global"] in
+	let add_global s =
+		match Sfdomain.find s1 rg with
+		| Sfdomain.Undefined -> s
+		| Sfdomain.Val (Sfdomain.Global vg) -> Sfdomain.bind s rg (Sfdomain.Global vg)
+		| _ -> Sfdomain.error 12
+	in
 	match v2 with
-	| Sfdomain.Val (Sfdomain.Store s) -> s
-	| _ -> Sfdomain.error 9
+	| Sfdomain.Val (Sfdomain.Store s) -> add_global s
+	| _ -> Sfdomain.error 11
 
 
 (** global constraints **)
 
 and sfpGlobal g =
-	fun s -> s (* TODO -- implement *)
+	fun s ->
+		let r = ["global"] in
+		let gc = sfpConstraint g in
+		match Sfdomain.find s r with
+		| Sfdomain.Val (Sfdomain.Global gs) ->
+			let f = Sfdomain.Global (Sfdomain.And [gc; gs]) in
+			Sfdomain.bind s r f
+		| Sfdomain.Undefined               -> Sfdomain.bind s r (Sfdomain.Global gc)
+		| _                                -> Sfdomain.error 12
+
+and sfpEqual (r, bv) = Sfdomain.Eq (sfReference r, sfBasicValue bv)
+
+and sfpNotEqual (r, bv) = Sfdomain.Ne (sfReference r, sfBasicValue bv)
+
+and sfpNegation c = Sfdomain.Not (sfpConstraint c)
+
+and sfpImplication (c1, c2) = Sfdomain.Imply (sfpConstraint c1, sfpConstraint c2)
+
+and sfpMembership (r, vec) = Sfdomain.In (sfReference r, [])
+
+and sfpConjunction cs = Sfdomain.And (List.fold_left (fun acc c -> (sfpConstraint c) :: acc) [] cs)
+
+and sfpDisjunction cs = Sfdomain.Or (List.fold_left (fun acc c -> (sfpConstraint c) :: acc) [] cs)
+
+and sfpConstraint c =
+	match c with
+	| Eq e -> sfpEqual e
+	| Ne e -> sfpNotEqual e
+	| Not e -> sfpNegation e
+	| Imply e -> sfpImplication e
+	| In e -> sfpMembership e
+	| And e -> sfpConjunction e
+	| Or e -> sfpDisjunction e

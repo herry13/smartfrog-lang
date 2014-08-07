@@ -27,6 +27,7 @@ and yaml_of_store1 s tab =
 		| Store child ->
 			let v = h ^ (if child = [] then "" else "\n") ^ yaml_of_store1 child (tab ^ "  ") in
 			if tail = [] then v else v ^ "\n" ^ yaml_of_store1 tail tab
+		| Global global -> Constraint.string_of global
 
 and yaml_of_vec vec =
 	match vec with
@@ -65,6 +66,7 @@ and sf_of_store1 s tab =
 				h ^ "extends  " ^
 				(if child = [] then "{}" else "{\n" ^ (sf_of_store1 child (tab ^ "  ")) ^ "\n" ^ tab ^ "}") in
 			if tail = [] then v else v ^ "\n" ^ sf_of_store1 tail tab
+		| Global global -> Constraint.string_of global
 
 and sf_of_vec vec =
 	match vec with
@@ -102,6 +104,7 @@ and json_of_store1 s =
 		| Store child ->
 			let v = h ^ "{" ^ (json_of_store1 child) ^ "}" in
 			if tail = [] then v else v ^ "," ^ json_of_store1 tail
+		| Global global -> Constraint.string_of global
 
 and json_of_basic v =
 	match v with
@@ -142,6 +145,7 @@ and xml_of_store1 s : string =
 			| Store child ->
 				let h = "<" ^ ids ^ (attribute_of_store child) ^ ">" ^ (xml_of_store1 child) ^ "</" ^ ids ^ ">" in
 				if tail = [] then h else h ^ "\n" ^ xml_of_store1 tail
+			| Global global -> Constraint.string_of global
 
 and attribute_of_store s : string =
 	(*let attr = String.trim (accumulate_attribute s) in*)
@@ -158,6 +162,7 @@ and accumulate_attribute s : string =
 			match vs with
 			| Store _ | Basic (Vector _) -> raise (Failure "XML attr may not a component or vector")
 			| Basic b -> " " ^ string_of_attribute ids b ^ accumulate_attribute tail
+			| Global global -> Constraint.string_of global
 		else accumulate_attribute tail
 
 and string_of_attribute id v =

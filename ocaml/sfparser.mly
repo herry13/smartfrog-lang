@@ -153,7 +153,7 @@ not_equal:
 	| reference NOT_EQUAL basic EOS { ($1, $3) }
 
 implication:
-	| IF BEGIN conjunction END THEN BEGIN conjunction END { ($3, $7) }
+	| IF sfp_constraint THEN sfp_constraint { ($2, $4) }
 
 negation:
 	| NOT sfp_constraint { $2 }
