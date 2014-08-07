@@ -23,13 +23,16 @@
 	(* keywords *)
 	let keywords = ["true"; "false"; "null"; "NULL"; "extends"; "DATA";
 	                "isa"; "schema"; "bool"; "boolean"; "num"; "number";
-	                "str"; "string"; "obj"; "object"; "include"; "import"]
+	                "str"; "string"; "obj"; "object"; "include"; "import";
+	                "in"; "if"; "then"; "global"; "not";
+	                "def"; "action"; "sub"; "cost"; "condition"; "conditions";
+	                "effect"; "effects"]
 
 	let is_keyword id =
 		let rec check id words =
 			match words with
 			| head :: tail -> if head = id then true else check id tail
-			| _ -> false
+			| _            -> false
 		in
 		check id keywords
 }
@@ -60,6 +63,15 @@ let t_bool           = "bool" | "boolean"
 let t_num            = "num" | "number"
 let t_str            = "str" | "string"
 let t_obj            = "obj" | "object"
+let _in              = "in"
+let _if              = "if"
+let _then            = "then"
+let _global          = "global"
+let _not             = "not"
+let action           = "def" | "action" | "sub"
+let cost             = "cost"
+let conditions       = "conditions" | "condition"
+let effects          = "effects" | "effect"
 
 (* lexer rules *)
 rule token =
@@ -77,11 +89,14 @@ rule token =
 	| '}'         { END }
 	| '['         { LBRACKET }
 	| ']'         { RBRACKET }
+	| '('         { LPARENTHESIS }
+	| ')'         { RPARENTHESIS }
 	| ';'         { EOS }
 	| '.'         { SEP }
 	| ':'         { COLON }
 	| '*'         { ASTERIX }
 	| '='         { EQUAL }
+	| "!="        { NOT_EQUAL }
 	| int         { INT (Lexing.lexeme lexbuf) }
 	| float       { FLOAT (Lexing.lexeme lexbuf) }
 	| true_value  { BOOL "true" }
@@ -95,6 +110,15 @@ rule token =
 	| t_num       { TNUM }
 	| t_str       { TSTR }
 	| t_obj       { TOBJ }
+	| _in         { IN }
+	| _not        { NOT }
+	| _if         { IF }
+	| _then       { THEN }
+	| _global     { GLOBAL }
+	| cost        { COST }
+	| conditions  { CONDITIONS }
+	| effects     { EFFECTS }
+	| action      { ACTION }
 	| '"'         { STRING (read_string (Buffer.create 17) lexbuf) }
 	| ident       {
 	                let id = Lexing.lexeme lexbuf in

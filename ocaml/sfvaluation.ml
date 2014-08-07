@@ -50,6 +50,7 @@ and sfValue v =
 		| BV bv      -> Sfdomain.bind s r (Sfdomain.Basic (sfBasicValue bv))
 		| LR lr      -> Sfdomain.bind s r (Sfdomain.Basic (sfLinkReference lr r))
 		| P (sid, p) -> sfPrototype p ns r (Sfdomain.bind s r (Sfdomain.Store []))
+		| Ac a       -> s (* TODO -- implement *)
 
 (** 't' (type) is ignored since this function only evaluates the value **)
 and sfAssignment (r, t, v) =
@@ -75,8 +76,9 @@ and sfpSchema (sid, parent, b) =
 and sfpContext ctx =
 	fun s ->
 		match ctx with
-		| A_C (a, c) -> sfpContext c (sfAssignment a [] s)
-		| S_C (sc, c) -> sfpContext c (sfpSchema sc s)
+		| A_C (a, c)   -> sfpContext c (sfAssignment a [] s)
+		| S_C (sc, c)  -> sfpContext c (sfpSchema sc s)
+		| G_C (g, c)   -> sfpContext c (sfpGlobal g s)
 		| EmptyContext -> s
 
 and sfpSpecification sfp =
@@ -93,3 +95,8 @@ and sfpSpecification sfp =
 	| Sfdomain.Val (Sfdomain.Store s) -> s
 	| _ -> Sfdomain.error 9
 
+
+(** global constraints **)
+
+and sfpGlobal g =
+	fun s -> s (* TODO -- implement *)

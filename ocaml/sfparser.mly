@@ -23,7 +23,8 @@ open Sfsyntax
 %token <Sfsyntax.sfpcontext -> Sfsyntax.sfpcontext> SFP_INCLUDE
 %token EXTENDS COMMA DATA BEGIN END SEP NULL LBRACKET RBRACKET EOS EOF
 %token ISA SCHEMA ASTERIX COLON TBOOL TNUM TSTR TOBJ
-%token EQUAL
+%token GLOBAL EQUAL NOT_EQUAL IF THEN IN NOT LPARENTHESIS RPARENTHESIS
+%token COST CONDITIONS EFFECTS ACTION
 
 /* entry point for main-file is 'sfp', for included file is 'incontext_included' or 'inblock_included' */
 %start inblock_included sfp incontext_included
@@ -41,8 +42,9 @@ incontext_included:
 
 sfpcontext:
 	| SCHEMA schema sfpcontext   { fun c -> S_C ($2, $3 c) }
-	| assignment sfpcontext      { fun c -> A_C ($1, $2 c) }
+	| GLOBAL global sfpcontext   { fun c -> G_C ($2, $3 c) }
 	| SFP_INCLUDE EOS sfpcontext { fun c -> $1 ($3 c) }
+	| assignment sfpcontext      { fun c -> A_C ($1, $2 c) }
 	|                            { fun c -> c }
 
 inblock_included:
@@ -54,6 +56,7 @@ block:
 	|                      { fun b -> b }
 
 assignment:
+	| ACTION reference action  { ($2, TUndefined, $3) }
 	| reference type_def value { ($1, $2, $3) }
 
 value:
@@ -81,9 +84,9 @@ basic:
     | STRING         { String $1 }
     | data_reference { DR $1 }
     | NULL           { Null }
-    | vectors        { Vector $1 }
+    | vector        { Vector $1 }
 
-vectors:
+vector:
     | LBRACKET items RBRACKET { $2 }
 
 items:
@@ -122,5 +125,72 @@ tau:
 	| TSTR  { TStr }
 	| TOBJ  { TObject }
 	| ID    { TSchema ($1, TObject) }
+
+global:
+	| sfp_constraint { $1 }
+
+conjunction:
+	| sfp_constraint conjunction { $1 :: $2 }
+	|                            { [] }
+
+disjunction:
+	| sfp_constraint disjunction { $1 :: $2 }
+	|                            { [] }
+
+sfp_constraint:
+	| equal                                 { Eq $1 }
+	| BEGIN conjunction END                 { And $2 }
+	| LPARENTHESIS disjunction RPARENTHESIS { Or $2 }
+	| not_equal                             { Ne $1 }
+	| negation                              { Not $1 }
+	| implication                           { Imply $1 }
+	| membership                            { In $1 }
+
+equal:
+	| reference EQUAL basic EOS { ($1, $3) }
+
+not_equal:
+	| reference NOT_EQUAL basic EOS { ($1, $3) }
+
+implication:
+	| IF BEGIN conjunction END THEN BEGIN conjunction END { ($3, $7) }
+
+negation:
+	| NOT sfp_constraint { $2 }
+
+membership:
+	| reference IN vector EOS { ($1, $3) }
+
+action:
+	| parameters BEGIN cost conditions EFFECTS BEGIN effects END END
+		{
+			Ac ($1, $3, $4, $7)
+		}
+
+parameters:
+	| LPARENTHESIS params RPARENTHESIS { $2 }
+	|                                  { [] }
+
+params:
+	| param COMMA params { $1 :: $3 }
+	| param              { [$1] }
+
+param:
+	| ID COLON ttype { ($1, $3) }
+
+cost:
+	| COST EQUAL INT EOS { Cost $3 }
+	|                    { EmptyCost }
+
+conditions:
+	| CONDITIONS sfp_constraint { Cond $2 }
+	|                           { EmptyCondition }
+
+effects:
+	| effect effects { $1 :: $2 }
+	| effect         { [$1] }
+
+effect:
+	| reference EQUAL basic EOS { ($1, $3) }
 
 %%

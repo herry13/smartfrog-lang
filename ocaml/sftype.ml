@@ -368,17 +368,21 @@ let rec sfPrototype proto first t_val =
 and sfValue v =
 	(**
 	 * @param ns namespace
+     * @param r  variable's reference
 	 * @param t  predefined type
 	 * @param e  type environment
 	 *)
 	fun ns r t e ->
 		match v with
-		| BV bv          -> assign e r t (sfBasicValue bv e ns)
-		| LR link        ->
-			let (r_link, t_link) = sfLinkReference link e ns r in
-			let e1 = assign e r t t_link in
-			if t_link <: TBasic TObject then copy e1 r_link r
-			else e1
+		| BV bv             -> assign e r t (sfBasicValue bv e ns)
+		| LR link           ->
+			(
+				let (r_link, t_link) = sfLinkReference link e ns r in
+				let e1 = assign e r t t_link in
+				if t_link <: TBasic TObject then copy e1 r_link r
+				else e1
+			)
+		| Ac a              -> assign e r t (TBasic TAction)
 		| P (schema, proto) ->
 			match schema with
 			| SID sid ->
@@ -439,10 +443,13 @@ and sfpContext ctx =
 		match ctx with
 		| A_C (a, c) -> sfpContext c (sfAssignment a [] e)
 		| S_C (s, c) -> sfpContext c (sfpSchema s e)
+		| G_C (g, c) -> sfpContext c (assign e ["global"] TUndefined (TBasic TGlobal))
 		| EmptyContext -> e
 
 and sfpSpecification sfp =
 	let e1 = sfpContext sfp [] in
 	if not (domain e1 ["main"]) then error 200 "main object is not exist"
-	else get_main (second_pass_eval e1)
+	else
+		let e2 = get_main (second_pass_eval e1) in
+		assign e2 ["global"] TUndefined (TBasic TGlobal)
 
