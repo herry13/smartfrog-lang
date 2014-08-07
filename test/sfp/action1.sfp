@@ -1,6 +1,6 @@
 main {
 	a = 1;
-	b = x.y;
+	b = a;
 
 	def act (p: X) {
 		cost = 1;

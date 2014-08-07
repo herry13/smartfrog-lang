@@ -1,6 +1,7 @@
 main {
 	a = 1;
-	b = x.y;
+	b = a;
+	c = [1, 2, 3];
 }
 
 global {
@@ -9,3 +10,5 @@ global {
 	c in [1,2,3];
 	if { d = x; } then { e = y; }
 }
+
+global a = 2;
