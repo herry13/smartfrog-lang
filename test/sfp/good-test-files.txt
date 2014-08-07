@@ -10,3 +10,6 @@ primitive1.sfp
 schema1.sfp
 test1.sfp
 global1.sfp
+global2.sfp
+action1.sfp
+action2.sfp
