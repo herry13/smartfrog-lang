@@ -41,7 +41,7 @@ and conjunction = _constraint list
 and disjunction = _constraint list
 
 (** action **)
-and action     = parameters * cost * conditions * effects
+and action     = reference * parameters * cost * conditions * effects
 and parameters = param list
 and param      = ident * Sfsyntax._type
 and cost       = int
@@ -67,14 +67,15 @@ module SetRef = Set.Make
 	(
 		struct
 			let compare = Pervasives.compare
-			type t = string list
+			type t = reference
 		end
 	)
+
+let (!^) r = String.concat "." r
 
 (*******************************************************************
  * semantics algebras
  *******************************************************************)
-
 let rec prefix r =
 	match r with
 	| [] -> []
@@ -217,12 +218,12 @@ and replace_link s ns cell nss =
 				(
 					match resolve_link s nss rp (Link rl) with
 					| _, Undefined -> error 110
-					| nsp, Val vp ->
+					| nsp, Val vp  ->
 						(
 							let sp = bind s rp vp in
 							match vp with
 							| Store ssp -> accept sp rp ssp nsp
-							| _ -> sp
+							| _         -> sp
 						)
 				)
 			| Store vs -> accept s rp vs rp
@@ -231,23 +232,8 @@ and replace_link s ns cell nss =
 		
 and accept s ns ss nss =
 	match ss with
-	| [] -> s
+	| []      -> s
 	| c :: sp ->
 		let sq = replace_link s ns c nss in
 		accept sq ns sp nss
 
-
-(*******************************************************************
- * module constraint -- function to handle constraint
- *******************************************************************)
-
-module Constraint =
-	struct
-		let eval s = false (* TODO *)
-	end
-
-module Action =
-	struct
-		let applicable s = false (* TODO *)
-		let apply s = s (* TODO *)
-	end

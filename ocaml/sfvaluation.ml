@@ -166,5 +166,5 @@ and sfpAction (params, _cost, conds, effs) =
 		List.fold_left (fun acc (r, bv) -> (r, sfBasicValue bv) :: acc) [] effs
 	in
 	fun ns r s ->
-		let a = (parameters, cost, conditions, effects) in
+		let a = (r, parameters, cost, conditions, effects) in
 		Sfdomain.bind s r (Sfdomain.Action a)

@@ -18,23 +18,23 @@ let (!^) r = string_of_ref r
 let rec yaml_of_store s = yaml_of_store1 s ""
 
 and yaml_of_store1 s tab =
-	let yaml_of_element ids vs =
-		let name = tab ^ ids ^ ": " in
-		let value =
-			match vs with
-			| Link lr -> "link " ^ !^lr
-			| Basic basic -> yaml_of_basic basic
-			| Store [] -> yaml_of_store1 [] (tab ^ "  ")
-			| Store child -> "\n" ^ yaml_of_store1 child (tab ^ "  ")
-			| Global global -> yaml_of_constraint global (tab ^ "  ")
-			| Action action -> yaml_of_action action (tab ^ "  ")
-		in
-		name ^ value
-	in
 	match s with
 	| [] -> "{}"
-	| (ids, vs) :: [] -> yaml_of_element ids vs
-	| (ids, vs) :: tail -> (yaml_of_element ids vs) ^ "\n" ^ (yaml_of_store1 tail tab)
+	| (ids, vs) :: [] -> yaml_of_cell ids vs tab
+	| (ids, vs) :: tail -> (yaml_of_cell ids vs tab) ^ "\n" ^ (yaml_of_store1 tail tab)
+
+and yaml_of_cell ids vs tab =
+	let name = tab ^ ids ^ ": " in
+	let value =
+		match vs with
+		| Link lr       -> "link " ^ !^lr
+		| Basic basic   -> yaml_of_basic basic
+		| Store []      -> yaml_of_store1 [] (tab ^ "  ")
+		| Store child   -> "\n" ^ yaml_of_store1 child (tab ^ "  ")
+		| Global global -> yaml_of_constraint global (tab ^ "  ")
+		| Action action -> yaml_of_action action (tab ^ "  ")
+	in
+	name ^ value
 
 and yaml_of_vec vec =
 	match vec with
@@ -59,22 +59,20 @@ and yaml_of_basic v =
 and json_of_store s = "{" ^ (json_of_store1 s) ^ "}"
 
 and json_of_store1 s =
-	let json_of_element ids vs =
-		let name = "\"" ^ ids ^ "\":" in
-		let value =
-			match vs with
-			| Link lr -> "\"link " ^(string_of_ref lr) ^ "\""
-			| Basic basic -> json_of_basic basic
-			| Store child -> json_of_store1 child
-			| Global global -> json_of_constraint global
-			| Action action -> json_of_action action
-		in
-		name ^ value
-	in
 	match s with
 	| []                -> ""
-	| (ids, vs) :: []   -> json_of_element ids vs
-	| (ids, vs) :: tail -> (json_of_element ids vs) ^ "," ^ json_of_store1 tail
+	| (ids, vs) :: []   -> json_of_cell ids vs
+	| (ids, vs) :: tail -> (json_of_cell ids vs) ^ "," ^ json_of_store1 tail
+
+and json_of_cell id v = "\"" ^ id ^ "\":" ^ (json_of_value v)
+
+and json_of_value v =
+	match v with
+	| Link lr -> "\"link " ^(string_of_ref lr) ^ "\""
+	| Basic basic -> json_of_basic basic
+	| Store child -> "{" ^ json_of_store1 child ^ "}"
+	| Global global -> json_of_constraint global
+	| Action action -> json_of_action action
 
 and json_of_basic v =
 	match v with
@@ -153,16 +151,17 @@ and json_of_parameter (id, t) = "[\"" ^ id ^ "\",\"" ^ (Sfsyntax.string_of_type 
 and json_of_parameters params =
 	(List.fold_left (fun acc p -> acc ^ "," ^ (json_of_parameter p)) "[\"parameters\"" params) ^ "]"
 
-and json_of_action (params, cost, conds, effs) =
-	"[" ^ (json_of_parameters params) ^ "," ^ (json_of_conditions conds) ^
+and json_of_action (name, params, cost, conds, effs) =
+	"[\"" ^ !^name ^ "\"," ^ (json_of_parameters params) ^ "," ^ (json_of_conditions conds) ^
 	"," ^ (json_of_effects effs) ^ "]"
 
 (*******************************************************************
  * convert an action to YAML
  *******************************************************************)
 
-and yaml_of_action (params, cost, conds, effs) tab =
+and yaml_of_action (name, params, cost, conds, effs) tab =
 	"\n" ^
+	tab ^ "name: " ^ !^name ^ "\n" ^
 	tab ^ "parameters: " ^ (yaml_of_parameters params (tab ^ "  ")) ^ "\n" ^
 	tab ^ "cost: " ^ (string_of_int cost) ^ "\n" ^
 	tab ^ "conditions: " ^ (yaml_of_constraint conds (tab ^ "  ")) ^ "\n" ^
@@ -177,3 +176,4 @@ and yaml_of_effects effs tab =
 	List.fold_left (fun acc eff -> acc ^ "\n" ^ (yaml_of_effect eff tab)) "" effs
 
 and yaml_of_effect (r, bv) tab = tab ^ !^r ^ ": " ^ (json_of_basic bv)
+

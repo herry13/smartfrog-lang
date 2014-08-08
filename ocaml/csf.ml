@@ -18,10 +18,12 @@ open Array
 (* help message *)
 let help = "usage: csf [option] <sf-file>" ^
            "\n\nwhere [option] is:" ^
-		   "\n  -json   print store in JSON (default)" ^
-		   "\n  -yaml   print store in YAML" ^
            "\n  -ast    print abstract syntax tree" ^
-           "\n  -type   print type environment" ^
+           "\n  -type   evaluate types and print the type environment" ^
+		   "\n  -json   evaluate values and print store in JSON (default)" ^
+		   "\n  -yaml   evaluate values and print store in YAML" ^
+		   "\n  -fs     evaluate values and print flat store" ^
+		   "\n  -tt     generate and print type table" ^
            "\n\n"
 
 (**
@@ -49,14 +51,17 @@ let rec parse_file opt file =
 	in
 	let str =
 		try
-			if opt = "-ast" then Sfsyntax.string_of_sfp ast
-			else if opt = "-type" then
+			match opt with
+			| "-ast"  -> Sfsyntax.string_of_sfp ast
+			| "-type" ->
 				let env = Sftype.sfpSpecification ast in
 				Sftype.string_of_env env
-			else
-				let store = eval_value ast in
-				if opt = "-yaml" then Sfdomainhelper.yaml_of_store store
-				else Sfdomainhelper.json_of_store store
+			| "-fs"   ->
+				let fs = Sastranslator.create_flat_store (eval_value ast) in
+				Sastranslator.string_of_flat_store fs
+			| "-sas"  -> Sastranslator.sas ast
+			| "-yaml" -> Sfdomainhelper.yaml_of_store (eval_value ast)
+			| _       -> Sfdomainhelper.json_of_store (eval_value ast)
 		with
 		| Sftype.TypeError (code, msg) -> prerr_string (msg ^ "\n"); exit code
 		| Sfdomain.SfError (code, msg) -> prerr_string (msg ^ "\n"); exit code

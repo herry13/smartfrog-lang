@@ -2,7 +2,7 @@
 
 # 0 = OCaml bytecode
 # 1 = native
-NATIVE=1
+NATIVE=0
 
 # binary name
 NAME=csfp
@@ -26,6 +26,7 @@ BYTECODELIB= \
 	sfdomainhelper.cmo \
 	sfvaluation.cmo \
 	sftype.cmo \
+	sastranslator.cmo \
 	csf.cmo
 
 # native code libraries
@@ -39,12 +40,13 @@ NATIVELIB= \
 	sfdomainhelper.cmx \
 	sfvaluation.cmx \
 	sftype.cmx \
+	sastranslator.cmx \
 	csf.cmx
 
 # default
 build: csf
 
-csf: csf.ml sfhelper.cmo sfvaluation.cmo sftype.cmo
+csf: csf.ml sfhelper.cmo sfvaluation.cmo sftype.cmo sastranslator.cmo
 	$(COMPILER) -c csf.ml
 ifeq ($(COMPILER),ocamlc)
 	$(COMPILER) -o $(NAME) $(BYTECODELIB)
@@ -76,6 +78,9 @@ sfvaluation.cmo: sfvaluation.ml sfdomain.cmo
 
 sftype.cmo: sftype.ml
 	$(COMPILER) -c sftype.ml
+
+sastranslator.cmo: sastranslator.ml sfdomain.cmo sftype.cmo
+	$(COMPILER) -c sastranslator.ml
 
 clean:
 	@rm -f *.cmo *.mli *.cmi *.o *.cmx sfparser.ml sflexer.ml sfparser.output

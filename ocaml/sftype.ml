@@ -17,7 +17,7 @@ exception TypeError of int * string
 
 let error code msg = raise (TypeError (code, "[type-err" ^ string_of_int(code) ^ "] " ^ msg))
 
-let (!^) r = String.concat "." r
+let (!^) r = (String.concat "." r) ^ " " ^ string_of_int(List.length r)
 
 let string_of_env e =
 	let rec str_of_env e s =
@@ -31,6 +31,12 @@ let string_of_env e =
 	str_of_env e ""
 
 (** alias of functions from module Sfdomain **)
+let rec (@==) r1 r2 =
+	match r1, r2 with
+	| [], [] -> true
+	| id1 :: rs1, id2 :: rs2 when id1 = id2 -> rs1 @== rs2
+	| _ -> false
+
 let (@++)  = Sfdomain.ref_plus_ref;;
 let (@--)  = Sfdomain.ref_minus_ref;;
 let prefix = Sfdomain.prefix;;
@@ -45,19 +51,19 @@ module SetRef = Sfdomain.SetRef
  *******************************************************************)
 
 (** return the type of variable 'r' **)
-let rec type_of e r =
+let rec type_of e r : _t =
 	match e with
 	| []               -> Undefined
-	| (vr, vt) :: tail -> if r = vr then Type vt else type_of tail r
+	| (vr, vt) :: tail -> print_string(!^r ^ "=" ^ !^vr ^ " <- "^ string_of_bool(r @== vr) ^ "\n"); if r = vr then Type vt else type_of tail r
 
 (** return true if variable 'r' is in environment 'e', otherwise false *)
-let rec domain e r =
+let rec domain e r : bool =
 	match e with
 	| []               -> false
 	| (vr, vt) :: tail -> if r = vr then true else (domain tail r)
 
 (* return true if type 't1' is a sub-type of 't2', otherwise false *)
-let rec (<:) t1 t2 =                                                      (* Subtyping rules  *)
+let rec (<:) t1 t2 : bool =                                               (* Subtyping rules  *)
 	if t1 = t2 then true                                                  (* (Reflex)         *)
 	else
 		match t1, t2 with
@@ -74,7 +80,7 @@ let rec (<:) t1 t2 =                                                      (* Sub
  *******************************************************************)
 
 (* return true if type 't' is available in environment 'e', otherwise false *)
-let rec has_type e t =
+let rec has_type e t : bool =
 	match t with
 	| TUndefined                -> false
 	| TForward (r, islink)      -> true                    (* TODO (Type Forward) *)
@@ -95,14 +101,20 @@ let rec has_type e t =
 		                                               else has_type tail t
 		| (_, _) :: tail                            -> has_type tail t
 
-let is_schema t = t <: (TBasic TRootSchema)
+let is_schema t : bool = t <: (TBasic TRootSchema)
+
+let rec object_of_schema t : basicType =
+	match t with
+	| TSchema (sid, TRootSchema) -> TSchema (sid, TObject)
+	| TSchema (sid, super) -> TSchema (sid, object_of_schema super)
+	| _  -> error 401 "cannot create type object of a non-schema type"
 
 (*******************************************************************
  * type assignment functions
  *******************************************************************)
 
 (* bind type 't' to variable 'r' into environment 'e' *)
-let bind e r t =
+let bind e r t : env =
 	if (type_of e r) != Undefined then error 1 ("cannot bind type to an existing variable " ^ !^r)
 	else if (List.length r) > 1 then
 		match type_of e (prefix r) with
@@ -157,17 +169,19 @@ let rec env_of_ref env ref cut =
  * @param r  reference to be resolved
  *)
 let rec resolve e ns r =
-	match r with
-	| "ROOT"   :: rs -> ([], type_of e !!rs)
-	| "PARENT" :: rs -> if ns = [] then error 4 "PARENT of root namespace is impossible"
+	match ns, r with
+(*	| _, "ROOT"   :: rs -> ([], type_of e !!rs)
+	| _, "PARENT" :: rs -> if ns = [] then error 4 "PARENT of root namespace is impossible"
 	                    else (prefix ns, type_of e !!((prefix ns) @++ rs))
-	| "THIS"   :: rs -> (ns, type_of e !!(ns @++ rs))
-	| _              ->
-		if ns = [] then ([], type_of e r)
-		else
-			let t = type_of e (ns @<< r) in
-			if t = Undefined then resolve e (prefix ns) r
-			else (ns, t)
+	| _, "THIS"   :: rs -> (ns, type_of e !!(ns @++ rs)) *)
+	| [], _             -> print_string("empty ns: " ^ !^(ns @++ r) ^ "\n"); ([], type_of e r)
+	| _, _              ->
+		(*print_string (!^(ns @<< r) ^ "<<--- \n");*)
+		(*match type_of e (ns @<< r) with*)
+		let nsr = List.append ns r in
+		match type_of e nsr with
+		| Undefined -> print_string("not found!" ^ (!^nsr) ^ "\n"); resolve e (prefix ns) r
+		| t         -> print_string("found!\n"); (ns, t)
 
 (**
  * TODO
@@ -210,7 +224,7 @@ let rec resolve_tforward e ns r acc =
 	if SetRef.exists (fun rx -> rx = r) acc then error 11 ("cyclic reference " ^ !^r)
 	else
 		match resolve e ns r with
-		| _, Undefined                    -> error 12 ("undefined reference " ^ !^r ^ " in " ^ !^ns)
+		| _, Undefined                    -> print_string("===>>>\n" ^ (string_of_env e));error 12 ("undefined reference " ^ !^r ^ " in " ^ !^ns)
 		| nsp, Type TForward (tr, islink) -> follow_tforward nsp tr
 		| nsp, Type t                     -> (nsp @++ r, t)
 
@@ -389,11 +403,11 @@ and sfValue v =
 				(
 					match type_of e [sid] with
 					| Undefined  -> error 107 ("schema " ^ sid ^ " is not exist")
-					| Type t_sid ->
-						if not (is_schema t_sid) then error 107 (sid ^ " is not a schema")
-						else
-							let e1 = inherit_env e ns [sid] r in
-							sfPrototype proto true t_sid ns r e1
+					| Type TBasic TSchema (sid, super) when (TBasic super) <: (TBasic TRootSchema) ->
+						let t_sid = TBasic (object_of_schema (TSchema (sid, super))) in
+						let e1 = inherit_env e ns [sid] r in
+						sfPrototype proto true t_sid ns r e1
+					| _ -> error 107 (sid ^ " is not a schema")
 				)
 			| EmptySchema -> sfPrototype proto true TUndefined ns r e
 
