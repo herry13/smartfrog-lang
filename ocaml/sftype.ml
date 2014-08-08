@@ -54,7 +54,7 @@ module SetRef = Sfdomain.SetRef
 let rec type_of e r : _t =
 	match e with
 	| []               -> Undefined
-	| (vr, vt) :: tail -> print_string(!^r ^ "=" ^ !^vr ^ " <- "^ string_of_bool(r @== vr) ^ "\n"); if r = vr then Type vt else type_of tail r
+	| (vr, vt) :: tail -> if r = vr then Type vt else type_of tail r
 
 (** return true if variable 'r' is in environment 'e', otherwise false *)
 let rec domain e r : bool =
@@ -170,18 +170,15 @@ let rec env_of_ref env ref cut =
  *)
 let rec resolve e ns r =
 	match ns, r with
-(*	| _, "ROOT"   :: rs -> ([], type_of e !!rs)
+	| _, "ROOT"   :: rs -> ([], type_of e !!rs)
 	| _, "PARENT" :: rs -> if ns = [] then error 4 "PARENT of root namespace is impossible"
-	                    else (prefix ns, type_of e !!((prefix ns) @++ rs))
-	| _, "THIS"   :: rs -> (ns, type_of e !!(ns @++ rs)) *)
-	| [], _             -> print_string("empty ns: " ^ !^(ns @++ r) ^ "\n"); ([], type_of e r)
+	                       else (prefix ns, type_of e !!((prefix ns) @++ rs))
+	| _, "THIS"   :: rs -> (ns, type_of e !!(ns @++ rs))
+	| [], _             -> ([], type_of e r)
 	| _, _              ->
-		(*print_string (!^(ns @<< r) ^ "<<--- \n");*)
-		(*match type_of e (ns @<< r) with*)
-		let nsr = List.append ns r in
-		match type_of e nsr with
-		| Undefined -> print_string("not found!" ^ (!^nsr) ^ "\n"); resolve e (prefix ns) r
-		| t         -> print_string("found!\n"); (ns, t)
+		match type_of e (ns @<< r) with
+		| Undefined -> resolve e (prefix ns) r
+		| t         -> (ns, t)
 
 (**
  * TODO
@@ -224,7 +221,7 @@ let rec resolve_tforward e ns r acc =
 	if SetRef.exists (fun rx -> rx = r) acc then error 11 ("cyclic reference " ^ !^r)
 	else
 		match resolve e ns r with
-		| _, Undefined                    -> print_string("===>>>\n" ^ (string_of_env e));error 12 ("undefined reference " ^ !^r ^ " in " ^ !^ns)
+		| _, Undefined                    -> error 12 ("undefined reference " ^ !^r ^ " in " ^ !^ns)
 		| nsp, Type TForward (tr, islink) -> follow_tforward nsp tr
 		| nsp, Type t                     -> (nsp @++ r, t)
 

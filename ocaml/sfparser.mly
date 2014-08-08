@@ -85,7 +85,7 @@ basic:
     | STRING         { String $1 }
     | data_reference { DR $1 }
     | NULL           { Null }
-    | vector        { Vector $1 }
+    | vector         { Vector $1 }
 
 vector:
     | LBRACKET items RBRACKET { $2 }
