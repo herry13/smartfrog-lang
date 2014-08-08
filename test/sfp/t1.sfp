@@ -1,0 +1,8 @@
+main {
+	s1 {
+		web {
+			r = true;
+		}
+	}
+	x = s1.web;
+}
