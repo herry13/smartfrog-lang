@@ -17,7 +17,7 @@ exception TypeError of int * string
 
 let error code msg = raise (TypeError (code, "[type-err" ^ string_of_int(code) ^ "] " ^ msg))
 
-let (!^) r = (String.concat "." r) ^ " " ^ string_of_int(List.length r)
+let (!^) r = String.concat "." r
 
 let string_of_env e =
 	let rec str_of_env e s =

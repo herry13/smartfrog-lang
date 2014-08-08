@@ -119,7 +119,7 @@ and string_of_vector vec =
 	| head :: [] -> string_of_basic_value head
 	| head :: tail -> (string_of_basic_value head) ^ "," ^ (string_of_vector tail)
 
-and string_of_ref r = String.concat ":" r
+and string_of_ref r = String.concat "." r
 
 and (!^) r = string_of_ref r
 

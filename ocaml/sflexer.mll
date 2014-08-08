@@ -20,7 +20,7 @@
 				pos_lnum = pos.pos_lnum + 1
 			}
 
-	(* keywords *)
+	(* reserved words *)
 	let keywords = ["true"; "false"; "null"; "NULL"; "extends"; "DATA";
 	                "isa"; "schema"; "bool"; "boolean"; "num"; "number";
 	                "str"; "string"; "obj"; "object"; "include"; "import";
@@ -38,6 +38,7 @@
 		check id keywords
 }
 
+(* reserved characters: '/' '*' ',' '{' '}' '[' ']' '(' ')' ';' '.' ':' '=' "!=" '"' *)
 (* regular expressions *)
 let int              = '-'? ['0'-'9']+
 let digit            = ['0'-'9']
@@ -123,7 +124,7 @@ rule token =
 	| '"'         { STRING (read_string (Buffer.create 17) lexbuf) }
 	| ident       {
 	                let id = Lexing.lexeme lexbuf in
-	                if is_keyword id then raise (SyntaxError (id ^ " is a keyword"))
+	                if is_keyword id then raise (SyntaxError (id ^ " is a reserved identifier"))
 	                else ID id
 	              }
 	| eof         { EOF }
