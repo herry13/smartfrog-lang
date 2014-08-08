@@ -47,10 +47,14 @@ let rec sfPrototype ps =
 and sfValue v =
 	fun ns r s ->
 		match v with
-		| BV bv      -> Sfdomain.bind s r (Sfdomain.Basic (sfBasicValue bv))
-		| LR lr      -> Sfdomain.bind s r (sfLinkReference lr r)
-		| P (sid, p) -> sfPrototype p ns r (Sfdomain.bind s r (Sfdomain.Store []))
-		| Ac a       -> sfpAction a ns r s
+		| BV bv              -> Sfdomain.bind s r (Sfdomain.Basic (sfBasicValue bv))
+		| LR lr              -> Sfdomain.bind s r (sfLinkReference lr r)
+		| P (EmptySchema, p) -> sfPrototype p ns r (Sfdomain.bind s r (Sfdomain.Store []))
+		| P (SID sid, p)     ->
+			let s1 = Sfdomain.bind s r (Sfdomain.Store []) in
+			let s2 = Sfdomain.inherit_proto s1 [] [sid] r in
+			sfPrototype p ns r s2
+		| Ac a               -> sfpAction a ns r s
 
 (** 't' (type) is ignored since this function only evaluates the value **)
 and sfAssignment (r, t, v) =
@@ -61,7 +65,7 @@ and sfBlock block =
 		match block with
 		| A_B (a, b) -> sfBlock b ns (sfAssignment a ns s)
 		| G_B (g, b) -> sfBlock b ns (sfpGlobal g s)
-		| EmptyBlock   -> s
+		| EmptyBlock -> s
 
 and sfpSchema (sid, parent, b) =
 	fun s ->
