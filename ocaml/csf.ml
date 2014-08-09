@@ -57,8 +57,8 @@ let rec parse_file opt file1 file2 =
 				let env = Sftype.sfpSpecification (ast_of_file file1) in
 				Sftype.string_of_env env
 			| "-fs"   ->
-				let fs = Sastranslator.normalise (eval_value (ast_of_file file1)) in
-				Sastranslator.string_of_flat_store fs
+				let fs = Sastranslator.FlatStore.make (eval_value (ast_of_file file1)) in
+				Sastranslator.FlatStore.string_of fs
 			| "-fdr"  -> Sastranslator.fdr (ast_of_file file1) (ast_of_file file2)
 			| "-yaml" -> Sfdomainhelper.yaml_of_store (eval_value (ast_of_file file1))
 			| _       -> Sfdomainhelper.json_of_store (eval_value (ast_of_file file1))
