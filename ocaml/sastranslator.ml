@@ -3,9 +3,11 @@ open Sfdomain
 (*******************************************************************
  * Modules and functions to convert SFP to FD-SAS.
  * There are three modules:
- * - FlatStore : a map which is the flat version of store domain
- * - Values    : a set of values (of particular type)
- * - TypeTable : a map of type -> values
+ * - FlatStore  : a map which is the flat version of store domain
+ * - Values     : a set of values (of particular type)
+ * - TypeTable  : a map of type -> values
+ * - Constraint : (global) constraints
+ * - Action     : actions
  *******************************************************************)
 
 (*******************************************************************
@@ -184,6 +186,8 @@ module TypeTable =
 module Variable =
 	(* variable := name * index * values * init * goal *)
 	struct
+		type t = { name: reference; index: int; values: value array; init: value; goal: value }
+
 		module Map = Map.Make
 			( struct
 				type t = reference
@@ -196,16 +200,16 @@ module Variable =
 
 		let values_of r map =
 			if mem r map then
-				let (_, _, values, _, _) = find r map in
-				values
+				let var = find r map in
+				var.values
 			else [| |]
 
 		let string_of_values =
 			Array.fold_left (fun acc v -> acc ^ (Sfdomainhelper.json_of_value v) ^ ";") ""
 
-		let string_of_variable (name, index, values, init, goal) =
-			!^name ^ "|" ^ string_of_int(index) ^ "|" ^ (string_of_values values) ^ "|" ^
-			(Sfdomainhelper.json_of_value init) ^ "|" ^ (Sfdomainhelper.json_of_value goal)
+		let string_of_variable var =
+			!^(var.name) ^ "|" ^ string_of_int(var.index) ^ "|" ^ (string_of_values var.values) ^ "|" ^
+			(Sfdomainhelper.json_of_value var.init) ^ "|" ^ (Sfdomainhelper.json_of_value var.goal)
 
 		let string_of_array arr =
 			Array.fold_left (fun acc var -> (string_of_variable var) ^ "\n" ^ acc) "" arr
@@ -216,7 +220,7 @@ module Variable =
 				| t1, t2 when t1 = t2 -> t1
 				| _, _                -> error 504  (* incompatible type between init & goal *)
 			in
-			let (map, total, l) = FlatStore.fold (
+			let (map, total, larr) = FlatStore.fold (
 					fun r v (map, i, arr) ->
 						if Map.mem r map then error 505;
 						match type_of_var r with
@@ -226,14 +230,14 @@ module Variable =
 							let values = Array.of_list (Values.elements (TypeTable.values_of t typetable)) in
 							let init = FlatStore.find r fs_0 in
 							let goal = FlatStore.find r fs_g in
-							let var = (r, i, values, init, goal) in
+							let var = { name = r; index = i; values = values; init = init; goal = goal } in
 							let map1 = Map.add r var map in
 							let arr1 = var :: arr in
 							(map1, i+1, arr1)
 				) fs_0 (Map.empty, 0, [])
 			in
-			let arr = Array.of_list l in
-			Array.fast_sort (fun (_, i1, _, _, _) (_, i2, _, _, _) -> i1 - i2) arr;
+			let arr = Array.of_list larr in
+			Array.fast_sort (fun v1 v2 -> v1.index - v2.index) arr;
 			(map, arr)
 
 	end
@@ -436,46 +440,82 @@ module Constraint =
 
 		(** convert conjunction to DNF, performs cross-products when it has disjunction clause **)
 		and dnf_of_conjunction cs vars env =
-			let all_false = ref false in
-			let (ands, ors) = 
-				List.fold_left (fun (ands, ors) c ->
-					match dnf_of c vars env with
-					| And css -> (List.append css ands, ors)
-					| True    -> (ands, ors)
-					| False   -> all_false := true; (ands, ors)
-					| Or css  -> (ands, (Or css) :: ors)
-					| css     -> (css :: ands, ors)
-				) ([], []) cs
+			let rec iter clauses ands ors =
+				if clauses = [] then (false, ands, ors)
+				else
+					match dnf_of (List.hd clauses) vars env with
+					| And css -> iter (List.tl clauses) (List.append css ands) ors
+					| False   -> (true, ands, ors)
+					| True    -> iter (List.tl clauses) ands ors
+					| Or css  -> iter (List.tl clauses) ands ((Or css) :: ors)
+					| css     -> iter (List.tl clauses) (css :: ands) ors
 			in
-			match ands, ors with
-			| _, _           when !all_false -> False
-			| [], []                         -> True
-			| head :: [], []                 -> head
-			| [], head :: []                 -> head
-			| _, []                          -> simplify_conjunction (And ands)
-			| _, _                           -> (cross_product_of_conjunction ands ors) vars env
+			let (all_false, ands, ors) = iter cs [] [] in
+			if all_false then False
+			else
+				match ands, ors with
+				| [], [] -> True
+				| head :: [], [] -> head
+				| [], head :: [] -> head
+				| _, []          -> simplify_conjunction (And ands)
+				| _, _           -> (cross_product_of_conjunction ands ors) vars env
 
 		(** convert disjunction to DNF **)
-		and dnf_of_disjunction cs vars env = 
-			let all_true = ref false in
-			let cs1 =
-				List.fold_left (fun acc c ->
-					match dnf_of c vars env with
-					| Or cs -> List.append cs acc
-					| True  -> all_true := true; acc
-					| False -> acc
-					| c     -> c :: acc
-				) [] cs
+		and dnf_of_disjunction cs vars env =
+			let rec iter clauses acc =
+				if clauses = [] then (false, acc)
+				else
+					match dnf_of (List.hd clauses) vars env with
+					| Or cs -> iter (List.tl clauses) (List.append cs acc)
+					| False -> iter (List.tl clauses) acc
+					| True  -> (true, acc)
+					| c     -> iter (List.tl clauses) (c :: acc)
 			in
-			if cs1 = [] || !all_true then True
+			let (all_true, cs1) = iter cs [] in
+			if all_true then True
 			else if (List.tl cs1) = [] then List.hd cs1
 			else simplify_disjunction (Or cs1)
 
 		(** return a DNF of global constraints *)
-		let global fs vars env =
+		let global env fs vars =
 			match FlatStore.find ["global"] fs with
 			| Global g -> dnf_of g vars env
 			| _        -> error 516
+
+	end
+
+(*******************************************************************
+ * action
+ *******************************************************************)
+
+module Action =
+	struct
+		module Set = Set.Make
+			( struct
+				type param = string * value
+				type t = reference * param list * int * _constraint * effects
+				let compare = Pervasives.compare
+			end )
+
+		let applicable s = false (* TODO *)
+		let apply s = s (* TODO *)
+
+		let empty = Set.empty;;
+		let add = Set.add;;
+		let fold = Set.fold;;
+		let elements = Set.elements;;
+
+(**
+For each action:
+1. substitute parameters
+2. replace variable with substituted value
+3. convert preconditions to DNF
+4. for each DNF clause, create a copy of action and then add to collection
+
+For global constraints:
+1. create a dummy variable
+2. for each DNF clause, create a dummy action and then add to collection
+*)
 
 	end
 
@@ -489,7 +529,7 @@ let normalise store_0 store_g = (FlatStore.make store_0, FlatStore.make store_g)
 (** step 2: translate **)
 let translate env_0 fs_0 env_g fs_g typetable =
 	let (map_vars, arr_vars) = Variable.make env_0 fs_0 env_g fs_g typetable in
-	let global = Constraint.global fs_g map_vars env_g in
+	let global = Constraint.global env_g fs_g map_vars in
 	"--- variables ---\n" ^ (Variable.string_of_array arr_vars) ^
 	"--- global ---\n" ^ (Sfdomainhelper.json_of_constraint global)
 
@@ -507,8 +547,3 @@ let fdr ast_0 ast_g =
 	"=== finite domain representation ===\n" ^ fdr
 
 
-module Action =
-	struct
-		let applicable s = false (* TODO *)
-		let apply s = s (* TODO *)
-	end

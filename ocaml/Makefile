@@ -9,7 +9,7 @@ NAME=csfp
 
 ifeq ($(NATIVE),1)
 # native compiler
-COMPILER=ocamlopt
+COMPILER=ocamlopt -S
 else
 # byte code compiler
 COMPILER=ocamlc
@@ -48,10 +48,10 @@ build: csf
 
 csf: csf.ml sfhelper.cmo sfvaluation.cmo sftype.cmo sastranslator.cmo
 	$(COMPILER) -c csf.ml
-ifeq ($(COMPILER),ocamlc)
-	$(COMPILER) -o $(NAME) $(BYTECODELIB)
-else
+ifeq ($(NATIVE),1)
 	$(COMPILER) -o $(NAME) $(NATIVELIB)
+else
+	$(COMPILER) -o $(NAME) $(BYTECODELIB)
 endif
 
 sfsyntax.cmo: sfsyntax.ml
@@ -83,7 +83,7 @@ sastranslator.cmo: sastranslator.ml sfdomain.cmo sftype.cmo
 	$(COMPILER) -c sastranslator.ml
 
 clean:
-	@rm -f *.cmo *.mli *.cmi *.o *.cmx sfparser.ml sflexer.ml sfparser.output
+	@rm -f *.s *.cmo *.mli *.cmi *.o *.cmx sfparser.ml sflexer.ml sfparser.output ocamlprof.dump
 
 clean-all: clean
 	@rm -f $(NAME)
