@@ -4,7 +4,7 @@ open Sfdomain
  * Modules and functions to convert SFP to FD-SAS.
  * There are three modules:
  * - FlatStore : a map which is the flat version of store domain
- * - SetValue  : a set of values (of particular type)
+ * - Values    : a set of values (of particular type)
  * - TypeTable : a map of type -> values
  *******************************************************************)
 
@@ -76,30 +76,25 @@ module FlatStore =
  * set-value
  *******************************************************************)
 
-module SetValue = Set.Make
-	(
-		struct
-			type t = value
-			let compare = Pervasives.compare
-		end
-	)
+module Values =
+	struct
+		module Set = Set.Make
+			( struct
+				type t = value
+				let compare = Pervasives.compare
+			end )
 
-let string_of_set_value sv =
-	SetValue.fold (
-		fun v acc -> acc ^ (Sfdomainhelper.json_of_value v) ^ ";"
-	) sv ""
+		let empty = Set.empty;;
+		let add = Set.add;;
+		let fold = Set.fold;;
+		let elements = Set.elements;;
+
+		let string_of sv = Set.fold (fun v s -> s ^ (Sfdomainhelper.json_of_value v) ^ ";") sv ""
+	end
 
 (*******************************************************************
  * type-table
  *******************************************************************)
-
-module TypeTable = Map.Make
-	(
-		struct
-			type t = Sfsyntax._type
-			let compare = Pervasives.compare
-		end
-	)
 
 let t_bool = Sfsyntax.TBasic Sfsyntax.TBool
 let t_num = Sfsyntax.TBasic Sfsyntax.TNum
@@ -108,67 +103,82 @@ let t_obj = Sfsyntax.TBasic Sfsyntax.TObject
 let t_action = Sfsyntax.TBasic Sfsyntax.TAction
 let t_global = Sfsyntax.TBasic Sfsyntax.TGlobal
 
-let values_of_type t typetable =
-	if TypeTable.mem t typetable then TypeTable.find t typetable else SetValue.empty
+module TypeTable =
+	struct
+		module Map = Map.Make
+			( struct
+				type t = Sfsyntax._type
+				let compare = Pervasives.compare
+			end )
 
-let add_value_of_type t v typetable = 
-	TypeTable.add t (SetValue.add v (values_of_type t typetable)) typetable
+		let values_of t table = if Map.mem t table then Map.find t table else Values.empty
 
-(** group action effects' values based on their type **)
-let add_action_values e typetable =
-	let actions = values_of_type t_action typetable in
-	let add_effect_values =
-		List.fold_left (
-			fun acc (r, v) ->
-				match v with
-				| Boolean _ -> add_value_of_type t_bool (Basic v) acc
-				| Number  _ -> add_value_of_type t_num (Basic v) acc
-				| String  _ -> add_value_of_type t_str (Basic v) acc
-				| Vector  _ -> error 501 (* TODO *)
-				| _         -> acc
-		) 
-	in
-	SetValue.fold (
-		fun v typetable ->
-			match v with
-			| Action (n, ps, c, pre, eff) -> add_effect_values typetable eff
-			| _ -> typetable
-	) actions typetable
+		let add_value t v table = Map.add t (Values.add v (values_of t table)) table
 
-(** group values based on their type *)
-let create_type_table env_0 fs_0 env_g fs_g = (* e: type-environment, fs: flat-store *)
-	let null = Basic Null in
-	let rec add_object t v t_next typetable =
-		let typetable1 = add_value_of_type (Sfsyntax.TBasic t) v typetable in
-		let typetable2 = add_value_of_type (Sfsyntax.TRef t) v typetable1 in
-		let typetable3 = add_value_of_type (Sfsyntax.TRef t) null typetable2 in
-		match t_next with
-		| Sfsyntax.TObject -> add_value_of_type t_obj v typetable3
-		| Sfsyntax.TSchema (sid, super) -> add_object t_next v super typetable3
-		| _ -> error 502 (* super-type must be another schema or an object *)
-	in
-	let add_store_values env =
-		FlatStore.fold (
-			fun r v typetable ->
-				match TEnv.type_of env r with
-				| Sfsyntax.TUndefined -> error 503
-				| Sfsyntax.TBasic Sfsyntax.TSchema (sid, super) ->
-					add_object (Sfsyntax.TSchema (sid, super)) (Basic (Ref r)) super typetable
-				| t -> add_value_of_type t v typetable
-		)
-	in
-	let typetable00 = add_store_values env_0 fs_0 TypeTable.empty in
-	let typetable01 = add_action_values env_0 typetable00 in
-	let typetable10 = add_store_values env_g fs_g typetable01 in
-	add_action_values env_g typetable10
+		let string_of table = Map.fold (
+				fun t v s -> s ^ (Sfsyntax.string_of_type t) ^ ": " ^ (Values.string_of v) ^ "\n"
+			) table ""
 
-let string_of_type_table tt =
-	TypeTable.fold (
-		fun t v acc -> acc ^ (Sfsyntax.string_of_type t) ^ ": " ^ (string_of_set_value v) ^ "\n"
-	) tt ""
+		(** group action effects' values based on their type **)
+		let add_action_values env table =
+			let actions = values_of t_action table in
+			let add_effect_values =
+				List.fold_left (
+					fun acc (r, v) ->
+						match v with
+						| Boolean _ -> add_value t_bool (Basic v) acc
+						| Number  _ -> add_value t_num (Basic v) acc
+						| String  _ -> add_value t_str (Basic v) acc
+						| Vector  _ -> error 501 (* TODO *)
+						| _         -> acc
+				)
+			in
+			Values.fold (
+				fun v table1 ->
+					match v with
+					| Action (n, ps, c, pre, eff) -> add_effect_values table1 eff
+					| _                           -> table1
+			) actions table
+
+		(**
+		 * create a TypeTable by grouping values based on their type
+		 *
+		 * @param env_0  type environment of initial state
+		 * @param fs_0   flat-store of initial state
+		 * @param env_g  type environment of goal state
+		 * @param fs_g   flat-store of goal state
+		 * @return a type-table
+		 *)
+		let make env_0 fs_0 env_g fs_g = (* e: type-environment, fs: flat-store *)
+			let null = Basic Null in
+			let rec add_object t v t_next table =
+				let table1 = add_value (Sfsyntax.TBasic t) v table in
+				let table2 = add_value (Sfsyntax.TRef t) v table1 in
+				let table3 = add_value (Sfsyntax.TRef t) null table2 in
+				match t_next with
+				| Sfsyntax.TObject              -> add_value t_obj v table3
+				| Sfsyntax.TSchema (sid, super) -> add_object t_next v super table3
+				| _                             -> error 502 (* super-type must be another schema or an object-type *)
+			in
+			let add_store_values env =
+				FlatStore.fold (
+					fun r v table ->
+						match TEnv.type_of env r with
+						| Sfsyntax.TUndefined -> error 503
+						| Sfsyntax.TBasic Sfsyntax.TSchema (sid, super) ->
+							add_object (Sfsyntax.TSchema (sid, super)) (Basic (Ref r)) super table
+						| t -> add_value t v table
+				)
+			in
+			let table00 = add_store_values env_0 fs_0 Map.empty in
+			let table01 = add_action_values env_0 table00 in
+			let table10 = add_store_values env_g fs_g table01 in
+			add_action_values env_g table10
+
+	end
 
 (*******************************************************************
- * generate FDR variables
+ * FDR variables
  *******************************************************************)
 
 module Variable =
@@ -213,7 +223,7 @@ module Variable =
 						| Sfsyntax.TBasic Sfsyntax.TAction
 						| Sfsyntax.TBasic Sfsyntax.TGlobal -> (map, i, arr)
 						| t ->
-							let values = Array.of_list (SetValue.elements (values_of_type t typetable)) in
+							let values = Array.of_list (Values.elements (TypeTable.values_of t typetable)) in
 							let init = FlatStore.find r fs_0 in
 							let goal = FlatStore.find r fs_g in
 							let var = (r, i, values, init, goal) in
@@ -227,6 +237,10 @@ module Variable =
 			(map, arr)
 
 	end
+
+(*******************************************************************
+ * constraints
+ *******************************************************************)
 
 module Constraint =
 	struct
@@ -465,29 +479,31 @@ module Constraint =
 
 	end
 
+(*******************************************************************
+ * interface functions for translating SFP to FDR
+ *******************************************************************)
+
+(** step 1: generate flat-stores of current and desired specifications **)
+let normalise store_0 store_g = (FlatStore.make store_0, FlatStore.make store_g)
+
+(** step 2: translate **)
 let translate env_0 fs_0 env_g fs_g typetable =
 	let (map_vars, arr_vars) = Variable.make env_0 fs_0 env_g fs_g typetable in
 	let global = Constraint.global fs_g map_vars env_g in
 	"--- variables ---\n" ^ (Variable.string_of_array arr_vars) ^
 	"--- global ---\n" ^ (Sfdomainhelper.json_of_constraint global)
 
-(*******************************************************************
- * interface functions for translating SFP to FDR
- *******************************************************************)
-
-let eval_ast ast = (TEnv.make (Sftype.sfpSpecification ast), Sfvaluation.sfpSpecification ast)
+let compile ast = (TEnv.make (Sftype.sfpSpecification ast), Sfvaluation.sfpSpecification ast)
 
 let fdr ast_0 ast_g =
-	(* type system *)
-	let (env_0, store_0) = eval_ast ast_0 in
-	let (env_g, store_g) = eval_ast ast_g in
-	let fs_0 = FlatStore.make store_0 in
-	let fs_g = FlatStore.make store_g in
-	let typetable = create_type_table env_0 fs_0 env_g fs_g in
+	let (env_0, store_0) = compile ast_0 in
+	let (env_g, store_g) = compile ast_g in
+	let (fs_0, fs_g) = normalise store_0 store_g in
+	let typetable = TypeTable.make env_0 fs_0 env_g fs_g in
 	let fdr = translate env_0 fs_0 env_g fs_g typetable in
 	(* "=== flat-store current ===\n" ^ (string_of_flat_store fs_0) ^
 	"=== flat-store desired ===\n" ^ (string_of_flat_store fs_g) ^ *)
-	"=== type table ===\n" ^ (string_of_type_table typetable) ^
+	"=== type table ===\n" ^ (TypeTable.string_of typetable) ^
 	"=== finite domain representation ===\n" ^ fdr
 
 
