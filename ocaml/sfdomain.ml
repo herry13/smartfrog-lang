@@ -1,6 +1,7 @@
 (*******************************************************************
  * semantics domain
  *******************************************************************)
+(** core elements **)
 type number   = Int of int
               | Float of float
 and vector    = basic list
@@ -22,7 +23,7 @@ and store     = cell list
 and reference = ident list
 and ident     = string
 
-(** constraint **)
+(** constraint elements **)
 and _constraint = Eq of equal
                 | Ne of notEqual
                 | Not of negation
@@ -40,7 +41,7 @@ and membership  = reference * vector
 and conjunction = _constraint list
 and disjunction = _constraint list
 
-(** action **)
+(** action elements **)
 and action     = reference * parameters * cost * conditions * effects
 and parameters = param list
 and param      = ident * Sfsyntax._type
