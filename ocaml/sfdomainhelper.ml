@@ -101,7 +101,7 @@ and json_of_constraint c =
 	| Not e   -> json_of_negation e
 	| Imply e -> json_of_implication e
 	| And e   -> json_of_conjunction e
-	| Or e    -> json_of_conjunction e
+	| Or e    -> json_of_disjunction e
 	| In e    -> json_of_membership e
 	| True    -> "true"
 	| False   -> "false"
