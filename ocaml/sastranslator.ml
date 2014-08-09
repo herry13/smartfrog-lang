@@ -288,7 +288,7 @@ module Constraint =
 			in
 			match c with
 			| And clauses -> iter clauses []
-			| _           -> error 510
+			| _           -> error 509
 
 		(**
 		 * simplify a disjunction formula
@@ -304,7 +304,7 @@ module Constraint =
 			in
 			match c with
 			| Or clauses -> iter clauses []
-			| _          -> error 511
+			| _          -> error 510
 
 		(**
 		 * cross product of disjunction clauses of a conjunction formula
@@ -321,7 +321,7 @@ module Constraint =
 				List.fold_left (fun acc c ->
 					match c with
 					| And css -> (simplify_conjunction (And (List.append css ands))) :: acc
-					| _       -> error 509
+					| _       -> error 511
 				) []
 			in
 			let rec iter cs =
@@ -329,7 +329,7 @@ module Constraint =
 				| []                           -> []
 				| (Or cs) :: []                -> merge_ands cs
 				| (Or cs1) :: (Or cs2) :: tail -> iter ((Or (cross cs1 cs2)) :: tail)
-				| _                            -> error 510
+				| _                            -> error 512
 			in
 			dnf_of (Or (iter ors))
 
@@ -358,7 +358,7 @@ module Constraint =
 						fun acc v1 ->
 							match v1 with
 							| Basic v2 -> if v2 = v then acc else v2 :: acc
-							| _       -> error 511
+							| _       -> error 513
 					) [] (Variable.values_of r vars)
 				in
 				if values = [] then False
@@ -391,7 +391,7 @@ module Constraint =
 								| Basic v1 ->
 									if List.exists (fun v2 -> v1 = v2) vec then acc
 									else (Eq (r, v1)) :: acc
-								| _        -> error 512
+								| _        -> error 514
 						) [] (Variable.values_of r vars)
 					in
 					if cs = [] then False
@@ -412,7 +412,7 @@ module Constraint =
 							| Basic v1 ->
 								if List.exists (fun v2 -> v1 = v2) vec then (Eq (r, v1)) :: acc
 								else acc
-							| _ -> error 513
+							| _ -> error 515
 					) [] (Variable.values_of r vars)
 				in
 				if cs = [] then False
@@ -461,7 +461,7 @@ module Constraint =
 		let global fs vars env =
 			match FlatStore.find ["global"] fs with
 			| Global g -> dnf_of g vars env
-			| _        -> error 514
+			| _        -> error 516
 
 	end
 
