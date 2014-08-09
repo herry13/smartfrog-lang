@@ -10,7 +10,7 @@ open Sfdomain
  * - Action     : actions
  *******************************************************************)
 
-module MapParam = Map.Make(String)
+module Parameter = Map.Make(String)
 
 (*******************************************************************
  * flat-store
@@ -483,32 +483,43 @@ module Constraint =
 			else if (List.tl cs1) = [] then List.hd cs1
 			else simplify_disjunction (Or cs1)
 
-		let substitute_parameters_of_reference r params =
-			let id = (List.hd r) in
-			if MapParam.mem id params then (MapParam.find id params) @++ (List.tl r)
-			else r
+		let substitute_parameter_of_reference r params =
+			match r with
+			| id :: tail ->
+				if Parameter.mem id params then
+					match Parameter.find id params with
+					| Ref r1 -> r1 @++ tail
+					| _      -> error 602
+				else r
+			| _ -> r
 
-		let substitute_parameters_of_basic_value v params =
-			match v with
-			| Ref r -> Ref (substitute_parameters_of_reference r params)
-			| _ -> v
+		let substitute_parameter_of_basic_value bv params =
+			match bv with
+			| Ref (id :: tail) ->
+				if Parameter.mem id params then
+					match Parameter.find id params with
+					| Ref r1            -> Ref (r1 @++ tail)
+					| v1 when tail = [] -> v1
+					| _                 -> error 601
+				else bv
+			| _ -> bv
 		
 		let rec substitute_parameters_of c params =
 			match c with
 			| Eq (r, v) ->
-				let r1 = substitute_parameters_of_reference r params in
-				let v1 = substitute_parameters_of_basic_value v params in
+				let r1 = substitute_parameter_of_reference r params in
+				let v1 = substitute_parameter_of_basic_value v params in
 				Eq (r1, v1)
 			| Ne (r, v) ->
-				let r1 = substitute_parameters_of_reference r params in
-				let v1 = substitute_parameters_of_basic_value v params in
+				let r1 = substitute_parameter_of_reference r params in
+				let v1 = substitute_parameter_of_basic_value v params in
 				Ne (r1, v1)
 			| Not c -> Not (substitute_parameters_of c params)
 			| Imply (c1, c2) -> Imply (substitute_parameters_of c1 params, substitute_parameters_of c2 params)
 			| And cs -> And (List.fold_left (fun css c -> (substitute_parameters_of c params) :: css) [] cs)
 			| Or cs -> Or (List.fold_left (fun css c -> (substitute_parameters_of c params) :: css) [] cs)
 			| In (r, v) ->
-				let r1 = substitute_parameters_of_reference r params in
+				let r1 = substitute_parameter_of_reference r params in
 				In (r1, v)
 			| _ -> c
 
@@ -528,43 +539,59 @@ module Effect =
 	struct
 		let substitute_parameters_of effects params =
 			List.fold_left (fun acc (r, bv) ->
-				(Constraint.substitute_parameters_of_reference r params, Constraint.substitute_parameters_of_basic_value bv) :: acc
+				(Constraint.substitute_parameter_of_reference r params, Constraint.substitute_parameter_of_basic_value bv) :: acc
 			) [] effects
 	end
 
 module Action =
 	struct
-		let applicable s a = false;; (* TODO *)
-		let apply s a = s;; (* TODO *)
+		(** TODO - 5 functions **)
+		let json_of =
+			let json_of_name = "" in
+			let json_of_parameters = "" in
+			let json_of_cost = "" in
+			let json_of_conditions = "" in
+			let json_of_effects = "" in
+			""
 
-		(* let string_of a = Sfdomainhelper.json_of_action a
+		let string_of_parameter_table ps =
+			Parameter.fold (fun id v s -> id ^ ":" ^ (Sfdomainhelper.json_of_basic v) ^ " " ^ s) ps "\n"
 
-		let string_of_params params = MapParam.fold (fun id v s -> id ^ ":" ^ (Sfdomainhelper.string_of_ref v) ^ " " ^ s) params "\n" *)
+		let string_of_parameter_tables tables =
+			List.fold_left (fun s table -> s ^ (string_of_parameter_table table)) "" tables
 
-		let create_variable_map name params typetable =
-			let id_values0 = MapParam.add "this" [(prefix name)] MapParam.empty in
-			let id_values1 = List.fold_left (fun map (id, t) ->
+		let string_of (name, ps, cost, pre, eff) =
+			!^name ^
+			",\"parameters\":" ^ (string_of_parameter_table ps) ^
+			",\"cost\":" ^ (string_of_int cost) ^
+			",\"conditions\":" ^ (Constraint.string_of pre)
+
+		let string_of_actions = List.fold_left (fun s a -> s ^ "\n" ^ (string_of a)) ""
+
+		let create_parameter_table params name typetable =
+			let table1 = Parameter.add "this" [Ref (prefix name)] Parameter.empty in
+			let table2 = List.fold_left (fun table (id, t) ->
 					let values = Values.fold (fun v acc ->
 							match v with
-							| Basic (Ref r) -> r :: acc
+							| Basic bv -> bv :: acc
 							| _ -> acc
 						) (TypeTable.values_of t typetable) []
 					in
-					MapParam.add id values map
-				) id_values0 params
+					Parameter.add id values table
+				) table1 params
 			in
-			MapParam.fold (fun id values acc1 ->
+			Parameter.fold (fun id values acc1 ->
 				List.fold_left (fun acc2 v ->
-					if acc1 = []
-						then (MapParam.add id v MapParam.empty) :: acc2
-					else
-						List.fold_left (fun acc3 map -> (MapParam.add id v map) :: acc3) acc2 acc1
+					if acc1 = [] then (Parameter.add id v Parameter.empty) :: acc2
+					else List.fold_left (fun acc3 table -> (Parameter.add id v table) :: acc3) acc2 acc1
 				) [] values
-			) id_values1 []
+			) table2 []
 
-		let ground_action (name, params, cost, pre, eff) env vars typetable =
-			let maps = create_variable_map name params typetable in
-			print_string ("ground " ^ !^name ^ " : " ^ (string_of_int (List.length maps)) ^ "\n");
+		let ground_action_of (name, params, cost, pre, eff) env vars typetable =
+			let param_tables = create_parameter_table params name typetable in
+			print_string ("ground " ^ !^name ^ " : " ^ (string_of_int (List.length param_tables)) ^
+				"\n" ^ (string_of_parameter_tables param_tables) ^
+				"\n");
 			List.fold_left (fun acc1 ps ->
 				let pre1 = Constraint.substitute_parameters_of pre ps in
 				let eff1 = Effect.substitute_parameters_of eff ps in
@@ -572,31 +599,20 @@ module Action =
 				| Or cs ->
 					List.fold_left (fun acc2 c -> (name, ps, cost, c, eff1) :: acc2) acc1 cs
 				| c     -> (name, ps, cost, c, eff1) :: acc1
-			) [] maps
+			) [] param_tables
 
 		let ground env vars typetable =
 			let actions = TypeTable.values_of t_action typetable in
 			Values.fold (
 				fun v gactions ->
 					match v with
-					| Action a -> List.append (ground_action a env vars typetable) gactions
+					| Action a -> List.append (ground_action_of a env vars typetable) gactions
 					| _        -> gactions
 			) actions []
 
-		let string_of (name, params, cost, pre, post) =
-			!^name
-			
-		let string_of_list =
-			List.fold_left (fun acc a -> (string_of a) ^ "\n" ^ acc) ""
 	end
 
 (**
-For each action:
-1. substitute parameters
-2. replace variable with substituted value
-3. convert preconditions to DNF
-4. for each DNF clause, create a copy of action and then add to collection
-
 For global constraints:
 1. create a dummy variable
 2. for each DNF clause, create a dummy action and then add to collection
@@ -616,7 +632,7 @@ let translate env_0 fs_0 env_g fs_g typetable =
 	let actions = Action.ground env_g map_vars typetable in
 	"--- variables ---\n" ^ (Variable.string_of_array arr_vars) ^
 	"--- global ---\n" ^ (Constraint.string_of global) ^
-	"--- actions ---\n" ^ (Action.string_of_list actions) ^
+	"\n--- actions ---\n" ^ (Action.string_of_actions actions) ^
 	""
 
 let compile ast = (TEnv.make (Sftype.sfpSpecification ast), Sfvaluation.sfpSpecification ast)
