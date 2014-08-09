@@ -10,6 +10,8 @@ open Sfdomain
  * - Action     : actions
  *******************************************************************)
 
+module MapParam = Map.Make(String)
+
 (*******************************************************************
  * flat-store
  *******************************************************************)
@@ -51,11 +53,14 @@ module FlatStore =
 					let fss =
 						match v with
 						| Store child -> visit child r (Map.add r (Store []) fs)
+						| Action (_, ps, c, pre, post) -> Map.add r (Action (r, ps, c, pre, post)) fs
 						| _           -> Map.add r v fs
 					in
 					visit tail ns fss
 			in
 			visit s [] Map.empty
+
+		let make = normalise
 
 		(**
 		 * convert a flat-store to string
@@ -65,11 +70,8 @@ module FlatStore =
 				fun r v acc -> acc ^ !^r ^ ": " ^ (Sfdomainhelper.json_of_value v) ^ "\n"
 			) fs ""
 
-		let find = Map.find
-
-		let fold = Map.fold
-
-		let make = normalise
+		let find = Map.find;;
+		let fold = Map.fold;;
 
 	end
 
@@ -92,16 +94,19 @@ module Values =
 		let elements = Set.elements;;
 
 		let string_of sv = Set.fold (fun v s -> s ^ (Sfdomainhelper.json_of_value v) ^ ";") sv ""
+		
+		let string_of_list l = List.fold_left ( fun s v -> s ^ (Sfdomainhelper.json_of_value v) ^ ";") "" l
 	end
 
 (*******************************************************************
  * type-table
  *******************************************************************)
 
-let t_bool = Sfsyntax.TBasic Sfsyntax.TBool
-let t_num = Sfsyntax.TBasic Sfsyntax.TNum
-let t_str = Sfsyntax.TBasic Sfsyntax.TStr
-let t_obj = Sfsyntax.TBasic Sfsyntax.TObject
+(** import types from Sfsyntax module **)
+let t_bool   = Sfsyntax.TBasic Sfsyntax.TBool
+let t_num    = Sfsyntax.TBasic Sfsyntax.TNum
+let t_str    = Sfsyntax.TBasic Sfsyntax.TStr
+let t_obj    = Sfsyntax.TBasic Sfsyntax.TObject
 let t_action = Sfsyntax.TBasic Sfsyntax.TAction
 let t_global = Sfsyntax.TBasic Sfsyntax.TGlobal
 
@@ -184,8 +189,8 @@ module TypeTable =
  *******************************************************************)
 
 module Variable =
-	(* variable := name * index * values * init * goal *)
 	struct
+		(* variable := name * index * values * init * goal *)
 		type t = { name: reference; index: int; values: value array; init: value; goal: value }
 
 		module Map = Map.Make
@@ -198,11 +203,11 @@ module Variable =
 
 		let find r = Map.find r
 
-		let values_of r map =
-			if mem r map then
+		let values_of r map = if mem r map then (find r map).values else [| |]
+			(* if mem r map then
 				let var = find r map in
 				var.values
-			else [| |]
+			else [| |] *)
 
 		let string_of_values =
 			Array.fold_left (fun acc v -> acc ^ (Sfdomainhelper.json_of_value v) ^ ";") ""
@@ -250,6 +255,8 @@ module Constraint =
 	struct
 		let eval s = false (* TODO *)
 
+		let string_of = Sfdomainhelper.json_of_constraint
+
 		let rec prevail_of r vars =
 			if r = [] then error 506
 			else if Variable.mem r vars then r
@@ -282,7 +289,7 @@ module Constraint =
 			in
 			And (iter r [])
 
-		(* return false if formula 'c1' negates 'c2', otherwise true *)
+		(* return false if formula 'c1' negates 'c2' (or vice versa), otherwise true *)
 		and incompatible c1 c2 =
 			match c1, c2 with
 			| Eq (r1, v1), Eq (r2, v2) -> if r1 = r2 then not (v1 = v2) else false
@@ -476,6 +483,35 @@ module Constraint =
 			else if (List.tl cs1) = [] then List.hd cs1
 			else simplify_disjunction (Or cs1)
 
+		let substitute_parameters_of_reference r params =
+			let id = (List.hd r) in
+			if MapParam.mem id params then (MapParam.find id params) @++ (List.tl r)
+			else r
+
+		let substitute_parameters_of_basic_value v params =
+			match v with
+			| Ref r -> Ref (substitute_parameters_of_reference r params)
+			| _ -> v
+		
+		let rec substitute_parameters_of c params =
+			match c with
+			| Eq (r, v) ->
+				let r1 = substitute_parameters_of_reference r params in
+				let v1 = substitute_parameters_of_basic_value v params in
+				Eq (r1, v1)
+			| Ne (r, v) ->
+				let r1 = substitute_parameters_of_reference r params in
+				let v1 = substitute_parameters_of_basic_value v params in
+				Ne (r1, v1)
+			| Not c -> Not (substitute_parameters_of c params)
+			| Imply (c1, c2) -> Imply (substitute_parameters_of c1 params, substitute_parameters_of c2 params)
+			| And cs -> And (List.fold_left (fun css c -> (substitute_parameters_of c params) :: css) [] cs)
+			| Or cs -> Or (List.fold_left (fun css c -> (substitute_parameters_of c params) :: css) [] cs)
+			| In (r, v) ->
+				let r1 = substitute_parameters_of_reference r params in
+				In (r1, v)
+			| _ -> c
+
 		(** return a DNF of global constraints *)
 		let global env fs vars =
 			match FlatStore.find ["global"] fs with
@@ -488,22 +524,71 @@ module Constraint =
  * action
  *******************************************************************)
 
+module Effect =
+	struct
+		let substitute_parameters_of effects params =
+			List.fold_left (fun acc (r, bv) ->
+				(Constraint.substitute_parameters_of_reference r params, Constraint.substitute_parameters_of_basic_value bv) :: acc
+			) [] effects
+	end
+
 module Action =
 	struct
-		module Set = Set.Make
-			( struct
-				type param = string * value
-				type t = reference * param list * int * _constraint * effects
-				let compare = Pervasives.compare
-			end )
+		let applicable s a = false;; (* TODO *)
+		let apply s a = s;; (* TODO *)
 
-		let applicable s = false (* TODO *)
-		let apply s = s (* TODO *)
+		(* let string_of a = Sfdomainhelper.json_of_action a
 
-		let empty = Set.empty;;
-		let add = Set.add;;
-		let fold = Set.fold;;
-		let elements = Set.elements;;
+		let string_of_params params = MapParam.fold (fun id v s -> id ^ ":" ^ (Sfdomainhelper.string_of_ref v) ^ " " ^ s) params "\n" *)
+
+		let create_variable_map name params typetable =
+			let id_values0 = MapParam.add "this" [(prefix name)] MapParam.empty in
+			let id_values1 = List.fold_left (fun map (id, t) ->
+					let values = Values.fold (fun v acc ->
+							match v with
+							| Basic (Ref r) -> r :: acc
+							| _ -> acc
+						) (TypeTable.values_of t typetable) []
+					in
+					MapParam.add id values map
+				) id_values0 params
+			in
+			MapParam.fold (fun id values acc1 ->
+				List.fold_left (fun acc2 v ->
+					if acc1 = []
+						then (MapParam.add id v MapParam.empty) :: acc2
+					else
+						List.fold_left (fun acc3 map -> (MapParam.add id v map) :: acc3) acc2 acc1
+				) [] values
+			) id_values1 []
+
+		let ground_action (name, params, cost, pre, eff) env vars typetable =
+			let maps = create_variable_map name params typetable in
+			print_string ("ground " ^ !^name ^ " : " ^ (string_of_int (List.length maps)) ^ "\n");
+			List.fold_left (fun acc1 ps ->
+				let pre1 = Constraint.substitute_parameters_of pre ps in
+				let eff1 = Effect.substitute_parameters_of eff ps in
+				match Constraint.dnf_of pre1 vars env with
+				| Or cs ->
+					List.fold_left (fun acc2 c -> (name, ps, cost, c, eff1) :: acc2) acc1 cs
+				| c     -> (name, ps, cost, c, eff1) :: acc1
+			) [] maps
+
+		let ground env vars typetable =
+			let actions = TypeTable.values_of t_action typetable in
+			Values.fold (
+				fun v gactions ->
+					match v with
+					| Action a -> List.append (ground_action a env vars typetable) gactions
+					| _        -> gactions
+			) actions []
+
+		let string_of (name, params, cost, pre, post) =
+			!^name
+			
+		let string_of_list =
+			List.fold_left (fun acc a -> (string_of a) ^ "\n" ^ acc) ""
+	end
 
 (**
 For each action:
@@ -517,8 +602,6 @@ For global constraints:
 2. for each DNF clause, create a dummy action and then add to collection
 *)
 
-	end
-
 (*******************************************************************
  * interface functions for translating SFP to FDR
  *******************************************************************)
@@ -530,8 +613,11 @@ let normalise store_0 store_g = (FlatStore.make store_0, FlatStore.make store_g)
 let translate env_0 fs_0 env_g fs_g typetable =
 	let (map_vars, arr_vars) = Variable.make env_0 fs_0 env_g fs_g typetable in
 	let global = Constraint.global env_g fs_g map_vars in
+	let actions = Action.ground env_g map_vars typetable in
 	"--- variables ---\n" ^ (Variable.string_of_array arr_vars) ^
-	"--- global ---\n" ^ (Sfdomainhelper.json_of_constraint global)
+	"--- global ---\n" ^ (Constraint.string_of global) ^
+	"--- actions ---\n" ^ (Action.string_of_list actions) ^
+	""
 
 let compile ast = (TEnv.make (Sftype.sfpSpecification ast), Sfvaluation.sfpSpecification ast)
 
@@ -542,8 +628,9 @@ let fdr ast_0 ast_g =
 	let typetable = TypeTable.make env_0 fs_0 env_g fs_g in
 	let fdr = translate env_0 fs_0 env_g fs_g typetable in
 	(* "=== flat-store current ===\n" ^ (string_of_flat_store fs_0) ^
-	"=== flat-store desired ===\n" ^ (string_of_flat_store fs_g) ^ *)
-	"=== type table ===\n" ^ (TypeTable.string_of typetable) ^
-	"=== finite domain representation ===\n" ^ fdr
+	"=== flat-store desired ===\n" ^ (FlatStore.string_of fs_g) ^ *)
+	(* "=== type table ===\n" ^ (TypeTable.string_of typetable) ^ *)
+	"=== finite domain representation ===\n" ^ fdr ^
+	""
 
 
