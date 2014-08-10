@@ -10,7 +10,15 @@ open Sfdomain
  * - Action     : actions
  *******************************************************************)
 
-module Parameter = Map.Make(String)
+module StrMap = Map.Make(String)
+
+module RefMap = Map.Make
+	(
+		struct
+			type t = reference
+			let compare = Pervasives.compare
+		end
+	)
 
 (*******************************************************************
  * flat-store
@@ -18,25 +26,25 @@ module Parameter = Map.Make(String)
 
 module TEnv =
 	struct
-		module Map = Map.Make
-			( struct
-				type t = reference
-				let compare = Pervasives.compare
-			end )
+		let empty = RefMap.empty;;
+		let mem = RefMap.mem;;
+		let add = RefMap.add;;
+		let find = RefMap.find;;
+		let fold = RefMap.fold;;
 
-		let make e = List.fold_left (fun acc (r, t) -> Map.add r t acc) Map.empty e
+		let make e = List.fold_left (fun acc (r, t) -> add r t acc) empty e
 
-		let type_of e r = if Map.mem r e then Map.find r e else Sfsyntax.TUndefined
+		let type_of e r = if mem r e then find r e else Sfsyntax.TUndefined
 
 	end
 
 module FlatStore =
 	struct
-		module Map = Map.Make
-			( struct
-				type t = reference
-				let compare = Pervasives.compare
-			end )
+		let empty = RefMap.empty;;
+		let mem = RefMap.mem;;
+		let add = RefMap.add;;
+		let find = RefMap.find;;
+		let fold = RefMap.fold;;
 
 		(**
 		 * Convert a store to a flat_store
@@ -52,26 +60,20 @@ module FlatStore =
 					let r = ns @+. id in
 					let fss =
 						match v with
-						| Store child -> visit child r (Map.add r (Store []) fs)
-						| Action (_, ps, c, pre, post) -> Map.add r (Action (r, ps, c, pre, post)) fs
-						| _           -> Map.add r v fs
+						| Store child -> visit child r (add r (Store []) fs)
+						| Action (_, ps, c, pre, post) -> add r (Action (r, ps, c, pre, post)) fs
+						| _           -> add r v fs
 					in
 					visit tail ns fss
 			in
-			visit s [] Map.empty
+			visit s [] empty
 
 		let make = normalise
 
 		(**
 		 * convert a flat-store to string
 		 *)
-		let string_of fs =
-			Map.fold (
-				fun r v acc -> acc ^ !^r ^ ": " ^ (Sfdomainhelper.json_of_value v) ^ "\n"
-			) fs ""
-
-		let find = Map.find;;
-		let fold = Map.fold;;
+		let string_of fs = fold (fun r v acc -> acc ^ !^r ^ ": " ^ (Sfdomainhelper.json_of_value v) ^ "\n") fs ""
 
 	end
 
@@ -118,11 +120,17 @@ module TypeTable =
 				let compare = Pervasives.compare
 			end )
 
-		let values_of t table = if Map.mem t table then Map.find t table else Values.empty
+		let empty = Map.empty;;
+		let mem = Map.mem;;
+		let add = Map.add;;
+		let find = Map.find;;
+		let fold = Map.fold;;
 
-		let add_value t v table = Map.add t (Values.add v (values_of t table)) table
+		let values_of t table = if mem t table then find t table else Values.empty
 
-		let string_of table = Map.fold (
+		let add_value t v table = add t (Values.add v (values_of t table)) table
+
+		let string_of table = fold (
 				fun t v s -> s ^ (Sfsyntax.string_of_type t) ^ ": " ^ (Values.string_of v) ^ "\n"
 			) table ""
 
@@ -177,7 +185,7 @@ module TypeTable =
 						| t -> add_value t v table
 				)
 			in
-			let table00 = add_store_values env_0 fs_0 Map.empty in
+			let table00 = add_store_values env_0 fs_0 empty in
 			let table01 = add_action_values env_0 table00 in
 			let table10 = add_store_values env_g fs_g table01 in
 			add_action_values env_g table10
@@ -193,15 +201,11 @@ module Variable =
 		(* variable := name * index * values * init * goal *)
 		type t = { name: reference; index: int; values: value array; init: value; goal: value }
 
-		module Map = Map.Make
-			( struct
-				type t = reference
-				let compare = Pervasives.compare
-			end )
-
-		let mem = Map.mem
-
-		let find r = Map.find r
+		let empty = RefMap.empty;;
+		let mem = RefMap.mem;;
+		let add = RefMap.add;;
+		let find = RefMap.find;;
+		let fold = RefMap.fold;;
 
 		let values_of r map = if mem r map then (find r map).values else [| |]
 			(* if mem r map then
@@ -227,7 +231,7 @@ module Variable =
 			in
 			let (map, total, larr) = FlatStore.fold (
 					fun r v (map, i, arr) ->
-						if Map.mem r map then error 505;
+						if mem r map then error 505;
 						match type_of_var r with
 						| Sfsyntax.TBasic Sfsyntax.TAction
 						| Sfsyntax.TBasic Sfsyntax.TGlobal -> (map, i, arr)
@@ -236,10 +240,10 @@ module Variable =
 							let init = FlatStore.find r fs_0 in
 							let goal = FlatStore.find r fs_g in
 							let var = { name = r; index = i; values = values; init = init; goal = goal } in
-							let map1 = Map.add r var map in
+							let map1 = add r var map in
 							let arr1 = var :: arr in
 							(map1, i+1, arr1)
-				) fs_0 (Map.empty, 0, [])
+				) fs_0 (empty, 0, [])
 			in
 			let arr = Array.of_list larr in
 			Array.fast_sort (fun v1 v2 -> v1.index - v2.index) arr;
@@ -280,8 +284,8 @@ module Constraint =
 						fun acc vp ->
 							match vp with
 							| Basic (Ref rp) ->
-								let conclusion = And (iter (rp @++ rs1) []) in
 								let premise = Eq (prevail, Ref rp) in
+								let conclusion = And (iter (rp @++ rs1) []) in
 								(Imply (premise, conclusion)) :: acc
 							| Basic Null     -> acc
 							| _              -> error 508
@@ -383,7 +387,7 @@ module Constraint =
 						fun acc v1 ->
 							match v1 with
 							| Basic v2 -> if v2 = v then acc else v2 :: acc
-							| _       -> error 513
+							| _        -> error 513
 					) [] (Variable.values_of r vars)
 				in
 				if values = [] then False
@@ -437,7 +441,7 @@ module Constraint =
 							| Basic v1 ->
 								if List.exists (fun v2 -> v1 = v2) vec then (Eq (r, v1)) :: acc
 								else acc
-							| _ -> error 515
+							| _        -> error 515
 					) [] (Variable.values_of r vars)
 				in
 				if cs = [] then False
@@ -483,27 +487,36 @@ module Constraint =
 			else if (List.tl cs1) = [] then List.hd cs1
 			else simplify_disjunction (Or cs1)
 
+		(**
+		 * substitute each left-hand side reference with a reference as
+		 * specified in the parameters table
+		 *)
 		let substitute_parameter_of_reference r params =
 			match r with
 			| id :: tail ->
-				if Parameter.mem id params then
-					match Parameter.find id params with
+				if StrMap.mem id params then
+					match StrMap.find id params with
 					| Ref r1 -> r1 @++ tail
-					| _      -> error 602
+					| _      -> error 602 (* cannot replace left-hand side reference with a non-reference value *)
 				else r
 			| _ -> r
 
+		(**
+		 * substitute each right-hand side reference of basic value
+		 * with a value as specified in the parameters table
+		 *)
 		let substitute_parameter_of_basic_value bv params =
 			match bv with
 			| Ref (id :: tail) ->
-				if Parameter.mem id params then
-					match Parameter.find id params with
+				if StrMap.mem id params then
+					match StrMap.find id params with
 					| Ref r1            -> Ref (r1 @++ tail)
 					| v1 when tail = [] -> v1
 					| _                 -> error 601
 				else bv
 			| _ -> bv
-		
+	
+		(* substitute each parameter with a value as specified in the parameters table *)
 		let rec substitute_parameters_of c params =
 			match c with
 			| Eq (r, v) ->
@@ -514,16 +527,17 @@ module Constraint =
 				let r1 = substitute_parameter_of_reference r params in
 				let v1 = substitute_parameter_of_basic_value v params in
 				Ne (r1, v1)
-			| Not c -> Not (substitute_parameters_of c params)
+			| Not c          -> Not (substitute_parameters_of c params)
 			| Imply (c1, c2) -> Imply (substitute_parameters_of c1 params, substitute_parameters_of c2 params)
-			| And cs -> And (List.fold_left (fun css c -> (substitute_parameters_of c params) :: css) [] cs)
-			| Or cs -> Or (List.fold_left (fun css c -> (substitute_parameters_of c params) :: css) [] cs)
-			| In (r, v) ->
-				let r1 = substitute_parameter_of_reference r params in
-				In (r1, v)
-			| _ -> c
+			| And cs         -> And (List.fold_left (fun css c -> (substitute_parameters_of c params) :: css) [] cs)
+			| Or cs          -> Or (List.fold_left (fun css c -> (substitute_parameters_of c params) :: css) [] cs)
+			| In (r, v)      -> let r1 = substitute_parameter_of_reference r params in In (r1, v)
+			| _              -> c
 
-		(** return a DNF of global constraints *)
+		(**
+		 * Find the global constraints element in a flat-store. If exist, then convert
+		 * and return a DNF of the global constraints
+		 *)
 		let global env fs vars =
 			match FlatStore.find ["global"] fs with
 			| Global g -> dnf_of g vars env
@@ -555,7 +569,7 @@ module Action =
 			""
 
 		let string_of_parameter_table ps =
-			Parameter.fold (fun id v s -> id ^ ":" ^ (Sfdomainhelper.json_of_basic v) ^ " " ^ s) ps "\n"
+			StrMap.fold (fun id v s -> id ^ ":" ^ (Sfdomainhelper.json_of_basic v) ^ " " ^ s) ps "\n"
 
 		let string_of_parameter_tables tables =
 			List.fold_left (fun s table -> s ^ (string_of_parameter_table table)) "" tables
@@ -568,8 +582,9 @@ module Action =
 
 		let string_of_actions = List.fold_left (fun s a -> s ^ "\n" ^ (string_of a)) ""
 
+		(* convert a list of (identifier => type) to a list of maps of (identifier => value) *)
 		let create_parameter_table params name typetable =
-			let table1 = Parameter.add "this" [Ref (prefix name)] Parameter.empty in
+			let table1 = StrMap.add "this" [Ref (prefix name)] StrMap.empty in
 			let table2 = List.fold_left (fun table (id, t) ->
 					let values = Values.fold (fun v acc ->
 							match v with
@@ -577,16 +592,17 @@ module Action =
 							| _ -> acc
 						) (TypeTable.values_of t typetable) []
 					in
-					Parameter.add id values table
+					StrMap.add id values table
 				) table1 params
 			in
-			Parameter.fold (fun id values acc1 ->
+			StrMap.fold (fun id values acc1 ->
 				List.fold_left (fun acc2 v ->
-					if acc1 = [] then (Parameter.add id v Parameter.empty) :: acc2
-					else List.fold_left (fun acc3 table -> (Parameter.add id v table) :: acc3) acc2 acc1
+					if acc1 = [] then (StrMap.add id v StrMap.empty) :: acc2
+					else List.fold_left (fun acc3 table -> (StrMap.add id v table) :: acc3) acc2 acc1
 				) [] values
 			) table2 []
 
+		(* ground an action - returns a list of grounded actions *)
 		let ground_action_of (name, params, cost, pre, eff) env vars typetable =
 			let param_tables = create_parameter_table params name typetable in
 			print_string ("ground " ^ !^name ^ " : " ^ (string_of_int (List.length param_tables)) ^
@@ -601,6 +617,7 @@ module Action =
 				| c     -> (name, ps, cost, c, eff1) :: acc1
 			) [] param_tables
 
+		(* ground a set of actions - returns a list of grounded actions *)
 		let ground env vars typetable =
 			let actions = TypeTable.values_of t_action typetable in
 			Values.fold (
