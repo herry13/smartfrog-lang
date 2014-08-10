@@ -1,3 +1,4 @@
+open Printf
 open Sfdomain
 
 (*******************************************************************
@@ -208,10 +209,6 @@ module Variable =
 		let fold = RefMap.fold;;
 
 		let values_of r map = if mem r map then (find r map).values else [| |]
-			(* if mem r map then
-				let var = find r map in
-				var.values
-			else [| |] *)
 
 		let string_of_values =
 			Array.fold_left (fun acc v -> acc ^ (Sfdomainhelper.json_of_value v) ^ ";") ""
@@ -222,6 +219,10 @@ module Variable =
 
 		let string_of_array arr =
 			Array.fold_left (fun acc var -> (string_of_variable var) ^ "\n" ^ acc) "" arr
+
+		let r_dummy = ["!global"];;
+		let dummy = { name = r_dummy; index = 0; values = [| Basic (Boolean true); Basic (Boolean false) |];
+			init = Basic (Boolean false); goal = Basic (Boolean true) };;
 
 		let make env_0 fs_0 env_g fs_g typetable =
 			let type_of_var r =
@@ -243,7 +244,7 @@ module Variable =
 							let map1 = add r var map in
 							let arr1 = var :: arr in
 							(map1, i+1, arr1)
-				) fs_0 (empty, 0, [])
+				) fs_0 (empty, 1, [dummy])
 			in
 			let arr = Array.of_list larr in
 			Array.fast_sort (fun v1 v2 -> v1.index - v2.index) arr;
@@ -491,13 +492,13 @@ module Constraint =
 		 * substitute each left-hand side reference with a reference as
 		 * specified in the parameters table
 		 *)
-		let substitute_parameter_of_reference r params =
+		let substitute_parameter_of_reference (r: reference) params : reference =
 			match r with
 			| id :: tail ->
 				if StrMap.mem id params then
 					match StrMap.find id params with
 					| Ref r1 -> r1 @++ tail
-					| _      -> error 602 (* cannot replace left-hand side reference with a non-reference value *)
+					| _      -> error 516 (* cannot replace left-hand side reference with a non-reference value *)
 				else r
 			| _ -> r
 
@@ -505,19 +506,19 @@ module Constraint =
 		 * substitute each right-hand side reference of basic value
 		 * with a value as specified in the parameters table
 		 *)
-		let substitute_parameter_of_basic_value bv params =
+		let substitute_parameter_of_basic_value (bv: basic) params : basic =
 			match bv with
 			| Ref (id :: tail) ->
 				if StrMap.mem id params then
 					match StrMap.find id params with
 					| Ref r1            -> Ref (r1 @++ tail)
 					| v1 when tail = [] -> v1
-					| _                 -> error 601
+					| _                 -> error 517
 				else bv
 			| _ -> bv
 	
 		(* substitute each parameter with a value as specified in the parameters table *)
-		let rec substitute_parameters_of c params =
+		let rec substitute_parameters_of (c: _constraint) params =
 			match c with
 			| Eq (r, v) ->
 				let r1 = substitute_parameter_of_reference r params in
@@ -539,9 +540,12 @@ module Constraint =
 		 * and return a DNF of the global constraints
 		 *)
 		let global env fs vars =
-			match FlatStore.find ["global"] fs with
-			| Global g -> dnf_of g vars env
-			| _        -> error 516
+			let r = ["global"] in
+			if FlatStore.mem r fs then
+				match FlatStore.find r fs with
+				| Global g -> dnf_of g vars env
+				| _        -> error 518
+			else True
 
 	end
 
@@ -549,38 +553,46 @@ module Constraint =
  * action
  *******************************************************************)
 
-module Effect =
-	struct
-		let substitute_parameters_of effects params =
-			List.fold_left (fun acc (r, bv) ->
-				(Constraint.substitute_parameter_of_reference r params, Constraint.substitute_parameter_of_basic_value bv) :: acc
-			) [] effects
-	end
-
 module Action =
 	struct
-		(** TODO - 5 functions **)
-		let json_of =
-			let json_of_name = "" in
-			let json_of_parameters = "" in
-			let json_of_cost = "" in
-			let json_of_conditions = "" in
-			let json_of_effects = "" in
-			""
+		type effect = reference * basic;;
 
-		let string_of_parameter_table ps =
-			StrMap.fold (fun id v s -> id ^ ":" ^ (Sfdomainhelper.json_of_basic v) ^ " " ^ s) ps "\n"
+		type t = reference * basic StrMap.t * cost * _constraint * effect list;;
 
-		let string_of_parameter_tables tables =
-			List.fold_left (fun s table -> s ^ (string_of_parameter_table table)) "" tables
+		let json_of (a: t) : string =
+			let (name, ps, cost, pre, eff) = a in
+			let parameters =
+				let s = StrMap.fold (fun id v s -> ",\"" ^ id ^ "\":" ^ (Sfdomainhelper.json_of_basic v) ^ s) ps "" in
+				if s = "" then "" else (String.sub s 1 ((String.length s) - 1))
+			in
+			let conditions =
+				let eq (r, v) = "\"" ^ !^r ^ "\":" ^ (Sfdomainhelper.json_of_basic v) in
+				match pre with
+				| And cs ->
+					(
+						let s = List.fold_left (fun s c ->
+								match c with
+								| True -> s
+								| Eq ceq -> s ^ "," ^ (eq ceq)
+								| _ -> error 519
+							) "" cs
+						in
+						if s = "" then "" else (String.sub s 1 ((String.length s) - 1))
+					)
+				| _ -> error 520
+			in
+			let effects =
+				let s = List.fold_left (fun s (r, v) -> s ^ ",\"" ^ !^r ^ "\":" ^ (Sfdomainhelper.json_of_basic v)) "" eff in
+				if s = "" then "" else (String.sub s 1 ((String.length s) - 1))
+			in
+			sprintf "{\"name\":\"%s\",\"parameters\":{%s},\"cost\":%d,\"conditions\":{%s},\"effects\":{%s}}"
+				!^name parameters cost conditions effects
 
-		let string_of (name, ps, cost, pre, eff) =
-			!^name ^
-			",\"parameters\":" ^ (string_of_parameter_table ps) ^
-			",\"cost\":" ^ (string_of_int cost) ^
-			",\"conditions\":" ^ (Constraint.string_of pre)
-
-		let string_of_actions = List.fold_left (fun s a -> s ^ "\n" ^ (string_of a)) ""
+		let json_of_actions (actions: t list) : string =
+			match actions with
+			| [] -> "[]"
+			| act :: [] -> "[" ^ (json_of act) ^ "]"
+			| act :: acts -> "[" ^ (json_of act) ^ (List.fold_left (fun s a -> s ^ "," ^ (json_of a)) "" acts) ^ "]"
 
 		(* convert a list of (identifier => type) to a list of maps of (identifier => value) *)
 		let create_parameter_table params name typetable =
@@ -602,38 +614,73 @@ module Action =
 				) [] values
 			) table2 []
 
+		let substitute_parameters_of_effects effects params =
+			List.fold_left (fun acc (r, bv) ->
+				let r1 = Constraint.substitute_parameter_of_reference r params in
+				let bv1 = Constraint.substitute_parameter_of_basic_value bv params in
+				(r1, bv1) :: acc
+			) [] effects
+
+		let dummy_constraint = Eq (Variable.r_dummy, Boolean true);;
+		let dummy_effect = (Variable.r_dummy, Boolean false);;
+
 		(* ground an action - returns a list of grounded actions *)
-		let ground_action_of (name, params, cost, pre, eff) env vars typetable =
+		let ground_action_of (name, params, cost, pre, eff) env vars typetable dummy : t list =
 			let param_tables = create_parameter_table params name typetable in
-			print_string ("ground " ^ !^name ^ " : " ^ (string_of_int (List.length param_tables)) ^
-				"\n" ^ (string_of_parameter_tables param_tables) ^
-				"\n");
 			List.fold_left (fun acc1 ps ->
 				let pre1 = Constraint.substitute_parameters_of pre ps in
-				let eff1 = Effect.substitute_parameters_of eff ps in
-				match Constraint.dnf_of pre1 vars env with
-				| Or cs ->
-					List.fold_left (fun acc2 c -> (name, ps, cost, c, eff1) :: acc2) acc1 cs
-				| c     -> (name, ps, cost, c, eff1) :: acc1
+				let eff1 = substitute_parameters_of_effects eff ps in
+				let eff2 = if dummy then dummy_effect :: eff1 else eff1 in
+				let c = Constraint.dnf_of pre1 vars env in
+				match c with
+				| False -> acc1
+				| Or cs -> List.fold_left (fun acc2 c ->
+						let css1 = 
+							match c with
+							| And css -> if dummy then dummy_constraint :: css else css
+							| Eq _    -> if dummy then [dummy_constraint; c] else [c]
+							| _       -> error 521
+						in
+						(name, ps, cost, And css1, eff2) :: acc2
+					) acc1 cs
+				| And css ->
+					let css1 = if dummy then dummy_constraint :: css else css in
+					(name, ps, cost, And css1, eff2) :: acc1
+				| Eq _ | True ->
+					let css = if dummy then [dummy_constraint; c] else [c] in
+					(name, ps, cost, And css, eff2) :: acc1
+				| _ -> error 522
 			) [] param_tables
 
+		let create_global_actions (global: _constraint) (acc: t list) : t list =
+			let c_dummy = Eq (Variable.r_dummy, Boolean false) in
+			let eff = [ (Variable.r_dummy, Boolean true) ] in
+			let params = StrMap.empty in
+			let counter = ref 0 in
+			match global with
+			| True  -> acc
+			| Or cs -> List.fold_left (fun (acc1: t list) c ->
+					let name = ["!global" ^ (string_of_int !counter)] in
+					counter := !counter + 1;
+					match c with
+					| And css -> (name, params, 0, And (c_dummy :: css), eff) :: acc1
+					| Eq _    -> (name, params, 0, And [c_dummy; c], eff) :: acc1
+					| _       -> error 523
+				) acc cs
+			| _     -> error 524
+
 		(* ground a set of actions - returns a list of grounded actions *)
-		let ground env vars typetable =
-			let actions = TypeTable.values_of t_action typetable in
+		let ground env vars arr_vars typetable global : t list =
+			let add_dummy = not (global = True) in
+			let actions : t list = create_global_actions global [] in
 			Values.fold (
 				fun v gactions ->
 					match v with
-					| Action a -> List.append (ground_action_of a env vars typetable) gactions
+					| Action a -> List.append (ground_action_of a env vars typetable add_dummy) gactions
 					| _        -> gactions
-			) actions []
+			) (TypeTable.values_of t_action typetable) actions
 
 	end
-
-(**
-For global constraints:
-1. create a dummy variable
-2. for each DNF clause, create a dummy action and then add to collection
-*)
 
 (*******************************************************************
  * interface functions for translating SFP to FDR
@@ -646,10 +693,10 @@ let normalise store_0 store_g = (FlatStore.make store_0, FlatStore.make store_g)
 let translate env_0 fs_0 env_g fs_g typetable =
 	let (map_vars, arr_vars) = Variable.make env_0 fs_0 env_g fs_g typetable in
 	let global = Constraint.global env_g fs_g map_vars in
-	let actions = Action.ground env_g map_vars typetable in
+	let actions = Action.ground env_g map_vars arr_vars typetable global in
 	"--- variables ---\n" ^ (Variable.string_of_array arr_vars) ^
 	"--- global ---\n" ^ (Constraint.string_of global) ^
-	"\n--- actions ---\n" ^ (Action.string_of_actions actions) ^
+	"\n--- actions ---\n" ^ (Action.json_of_actions actions) ^
 	""
 
 let compile ast = (TEnv.make (Sftype.sfpSpecification ast), Sfvaluation.sfpSpecification ast)
