@@ -11,7 +11,7 @@ This is the implementation of the formal semantic of SFP language. Supporting fe
 - Global constraints
 - File inclusion
 - Keywords: `root`, `parent`, and `this`
-- Finite Domain Representation [FDR](http://www.fast-downward.org/TranslatorOutputFormat) generator for planning
+- Finite Domain Representation ([FDR](http://www.fast-downward.org/TranslatorOutputFormat)) generator for planning
 
 Currently, only the [OCaml](ocaml/) implementation is working. The [Scala](scala/) implementation is still under development.
 
@@ -122,6 +122,13 @@ The following files specify the model, the initial, and the goal state of a conf
 	    pc2.refer.running = true;
 	  }
 	}
+
+
+To generate the plan for the above configuration task, invoke the following command
+
+	./csfp -fd init.sfp goal.sfp
+
+Note that environment variable `FD_PREPROCESS` and `FD_SEARCH` must be set before invoking the command.
 
 
 License
