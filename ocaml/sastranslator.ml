@@ -271,8 +271,9 @@ module Variable =
 			Buffer.add_string buf "\n-1\n";
 			Buffer.add_string buf (string_of_int (Array.length var.values));
 			Buffer.add_char buf '\n';
-			Array.iter (fun v ->
+			Array.iteri (fun i v ->
 				Buffer.add_string buf (Sfdomainhelper.json_of_value v);
+				(* Buffer.add_string buf (string_of_int i); *)
 				Buffer.add_char buf '\n';
 			) var.values;
 			Buffer.add_string buf "end_variable";;
@@ -283,8 +284,6 @@ module Variable =
 			Array.iter (fun var -> fdr_of buf var;) vars;;
 
 		let index_of (var: t) v : int =
-		(*	print_string (!^(var.name) ^ "\n");
-			print_string ((Sfdomainhelper.json_of_value v) ^ "\n"); *)
 			let l = Array.length var.values in
 			let rec iter i =
 				if var.values.(i) = v then i
@@ -297,22 +296,31 @@ module Variable =
 			Buffer.add_string buf "\nbegin_state";
 			Array.iter (fun var ->
 				Buffer.add_char buf '\n';
-				(* Buffer.add_string buf (string_of_int var.index);
-				Buffer.add_char buf ' '; *)
 				Buffer.add_string buf (string_of_int (index_of var var.init));
 			) vars;
 			Buffer.add_string buf "\nend_state";;
 
-		let fdr_of_goal (buf: Buffer.t) (vars: t array) : unit =
+		let fdr_of_goal (buf: Buffer.t) (vars: t array) use_dummy : unit =
+			let tmp = Buffer.create 50 in
+			let counter = ref 0 in
+			Array.iter (fun var ->
+				(* set the variable's goal, when:
+				 * - it has more than one value
+				 * - if it is a dummy variable, then the global constraint must be exist
+				 *)
+				if (Array.length var.values) > 1 && (var.index > 0 || use_dummy) then
+				(
+					Buffer.add_char tmp '\n';
+					Buffer.add_string tmp (string_of_int var.index);
+					Buffer.add_char tmp ' ';
+					Buffer.add_string tmp (string_of_int (index_of var var.goal));
+					counter := !counter + 1;
+				)
+			) vars;
 			Buffer.add_string buf "\nbegin_goal";
 			Buffer.add_char buf '\n';
-			Buffer.add_string buf (string_of_int (Array.length vars));
-			Array.iter (fun var ->
-				Buffer.add_char buf '\n';
-				Buffer.add_string buf (string_of_int var.index);
-				Buffer.add_char buf ' ';
-				Buffer.add_string buf (string_of_int (index_of var var.goal));
-			) vars;
+			Buffer.add_string buf (string_of_int !counter);
+			Buffer.add_string buf (Buffer.contents tmp);
 			Buffer.add_string buf "\nend_goal";;
 
 		let fdr_of_mutex (buf: Buffer.t) (vars: t array) : unit =
@@ -829,7 +837,7 @@ let translate env_0 fs_0 env_g fs_g typetable : string =
 	Variable.fdr_of_variables buffer arr_vars;
 	Variable.fdr_of_mutex buffer arr_vars;
 	Variable.fdr_of_init buffer arr_vars;
-	Variable.fdr_of_goal buffer arr_vars;
+	Variable.fdr_of_goal buffer arr_vars (not (global = True));
 	Action.fdr_of_actions buffer actions map_vars;
 	Action.fdr_of_mutex buffer;
 	Buffer.contents buffer
