@@ -83,7 +83,7 @@ let rec (<:) t1 t2 : bool =                                               (* Sub
 let rec has_type e t : bool =
 	match t with
 	| TUndefined                -> false
-	| TForward (r, islink)      -> true                    (* TODO (Type Forward) *)
+	| TForward (_, _)           -> true                    (* TODO (Type Forward) *)
 	| TVec tv                   -> has_type e tv           (* (Type Vec)    *)
 	| TRef tr                   -> has_type e (TBasic tr)  (* (Type Ref)    *)
 	| TBasic TBool              -> true                    (* (Type Bool)   *)
@@ -135,13 +135,13 @@ let assign e r t t_value =
 	| Undefined, TUndefined, _                             -> bind e r t_value                          (* (Assign1) *)
 	| Undefined, t, _ when t_value <: t                    -> bind e r t                                (* (Assign3) *)
 	| Undefined, t, TForward (r, islink)                   -> (r, t) :: (r, TForward (r, islink)) :: e  (* TODO (Assign5) *)
-	| Undefined, _, _                                      -> error 7 "not satisfy rule (Assign3)"
+	| Undefined, _, _                                      -> error 7 (!^r ^ " not satisfy rule (Assign3)")
 	| Type (TForward (r, islink)), _, _                    -> (r, t) :: (r, t_value) :: e
 	| Type t_var, TUndefined, _ when t_value <: t_var      -> e                                         (* (Assign2) *)
 	| Type t_var, TUndefined, TForward (r, islink)         -> (r, TForward (r, islink)) :: e            (* TODO (Assign6) *)
-	| Type t_var, TUndefined, _                            -> error 8 "not satisfy rule (Assign2)"
+	| Type t_var, TUndefined, _                            -> error 8 (!^r ^ " not satisfy rule (Assign2)")
 	| Type t_var, _, _ when (t_value <: t) && (t <: t_var) -> e                                         (* (Assign4) *)
-	| Type t_var, _, _                                     -> error 9 "not satisfy rule (Assign2) & (Assign4)"
+	| Type t_var, _, _                                     -> error 9 (!^r ^ " not satisfy rule (Assign2) & (Assign4)")
 
 (**
  * TODO
@@ -385,8 +385,8 @@ and sfValue v =
 	 *)
 	fun ns r t e ->
 		match v with
-		| BV bv             -> assign e r t (sfBasicValue bv e ns)
-		| LR link           ->
+		| BV bv   -> assign e r t (sfBasicValue bv e ns)
+		| LR link ->
 			(
 				let (r_link, t_link) = sfLinkReference link e ns r in
 				let e1 = assign e r t t_link in

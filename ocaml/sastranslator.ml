@@ -304,7 +304,8 @@ module Variable =
 			let tmp = Buffer.create 50 in
 			let counter = ref 0 in
 			Array.iter (fun var ->
-				(* set the variable's goal, when:
+				(**
+				 * set the variable's goal, when:
 				 * - it has more than one value
 				 * - if it is a dummy variable, then the global constraint must be exist
 				 *)
@@ -828,10 +829,6 @@ let translate env_0 fs_0 env_g fs_g typetable : string =
 	let (map_vars, arr_vars) = Variable.make env_0 fs_0 env_g fs_g typetable in
 	let global = Constraint.global env_g fs_g map_vars in
 	let actions = Action.ground env_g map_vars arr_vars typetable global in
-	(* "--- variables ---\n" ^ (Variable.string_of_array arr_vars) ^
-	"--- global ---\n" ^ (Constraint.string_of global) ^
-	"\n--- actions ---\n" ^ (Action.json_of_actions actions) ^
-	"" *)
 	let buffer = Buffer.create (100 + (40 * (Array.length arr_vars) * 2)) in
 	fdr_header buffer;
 	Variable.fdr_of_variables buffer arr_vars;
@@ -850,11 +847,6 @@ let fdr ast_0 ast_g =
 	let (fs_0, fs_g) = normalise store_0 store_g in
 	let typetable = TypeTable.make env_0 fs_0 env_g fs_g in
 	let fdr = translate env_0 fs_0 env_g fs_g typetable in
-	(* "=== flat-store current ===\n" ^ (string_of_flat_store fs_0) ^
-	"=== flat-store desired ===\n" ^ (FlatStore.string_of fs_g) ^ *)
-	(* "=== type table ===\n" ^ (TypeTable.string_of typetable) ^
-	"=== finite domain representation ===\n" ^ *)
-	fdr ^
-	""
+	fdr
 
 

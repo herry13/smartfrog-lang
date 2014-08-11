@@ -26,6 +26,8 @@ let help = "usage: csfp [option] <sfp-file> [sfp-goal-file]" ^
            "\n          [sfp-goal-file] must be provided" ^
            "\n  -fd     solve the problem using FastDownward search engine" ^
            "\n          environment variable FD_PREPROCESSOR & FD_SEARCH must be set" ^
+           "\n          define FD_OPTIONS to pass options to the search engine" ^
+           "\n          define FD_DEBUG to keep all output files" ^
            "\n\n"
 
 let ast_of_file file =
@@ -78,12 +80,15 @@ and eval_value ast = Sfvaluation.sfpSpecification ast
 and solve init goal =
 	let fd_preprocessor = "FD_PREPROCESSOR" in
 	let fd_search = "FD_SEARCH" in
+	let fd_option = "FD_OPTIONS" in
 	let sas_file = "output.sas" in
 	let plan_file = "sas_plan" in
-	let search_options = "--search \"lazy_greedy(ff())\"" in
+	(* let search_options = "--search \"lazy_greedy(ff())\"" in *)
 	try
 		let preprocessor = Sys.getenv fd_preprocessor in
 		let search = Sys.getenv fd_search in
+		let search_options = try Sys.getenv fd_option with e -> "--search \"lazy_greedy(ff())\""
+		in
 		if not (Sys.file_exists preprocessor) then (
 			prerr_string ("Error: " ^ preprocessor ^ " is not exist!\n\n"); exit 1;
 		);
@@ -101,16 +106,30 @@ and solve init goal =
 		(* invoke search *)
 		let cmd = search ^ " " ^ search_options ^ " < output" in
 		if not ((Sys.command cmd) = 0) then (prerr_string "Error: search failed\n\n"; exit 1);
-		(* read plan_file *)
-		if Sys.file_exists plan_file then (
-			let channel = open_in plan_file in
-			let n = in_channel_length channel in
-			let s = String.create n in
-			really_input channel s 0 n;
-			close_in channel;
-			"\n\nSolution plan:\n" ^ s
-		)
-		else "No solution!"
+		let plan =
+			(* read plan_file *)
+			if Sys.file_exists plan_file then (
+				let channel = open_in plan_file in
+				let n = in_channel_length channel in
+				let s = String.create n in
+				really_input channel s 0 n;
+				close_in channel;
+				"\n\nSolution plan:\n" ^ s
+			)
+			else "No solution!"
+		in
+		try
+			let _ = Sys.getenv "FD_DEBUG" in
+			plan
+		with
+			e ->
+				try
+					Sys.remove sas_file;
+					Sys.remove "plan_numbers_and_cost";
+					Sys.remove "output";
+					Sys.remove plan_file;
+					plan
+				with e -> plan
 	with
 		e -> prerr_string "Error: cannot find FD_PREPROCESSOR or FD_SEARCH\n\n"; exit 1
 
