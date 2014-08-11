@@ -24,7 +24,8 @@ let help = "usage: csfp [option] <sfp-file> [sfp-goal-file]" ^
 		   "\n  -fs     evaluate values and print flat store" ^
 		   "\n  -fdr    generate Finite Domain Representation (FDR)" ^
            "\n          [sfp-goal-file] must be provided" ^
-           "\n  -fd     solve the problem using FastDownard search engine" ^
+           "\n  -fd     solve the problem using FastDownward search engine" ^
+           "\n          environment variable FD_PREPROCESSOR & FD_SEARCH must be set" ^
            "\n\n"
 
 let ast_of_file file =
