@@ -101,6 +101,16 @@ let rec has_type e t : bool =
 		                                               else has_type tail t
 		| (_, _) :: tail                            -> has_type tail t
 
+let well_typed e : bool =
+	let rec iter e env: bool =
+		match e with
+		| []             -> true
+		| (r, t) :: tail ->
+			if (has_type env t) then iter tail env
+			else false
+	in
+	iter e e
+
 let is_schema t : bool = t <: (TBasic TRootSchema)
 
 let rec object_of_schema t : basicType =
@@ -254,7 +264,10 @@ let replace_tforward_in_env e =
 	iter e e
 
 (* perform second valuation of environment 'e' *)
-let second_pass_eval e = replace_tforward_in_env e
+let second_pass_eval e =
+	let e1 = replace_tforward_in_env e in
+	if well_typed e1 then e1
+	else error 201 "not well-typed"
 
 let get_main e =
 	let main = ["main"] in
