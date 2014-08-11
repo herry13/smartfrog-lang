@@ -26,8 +26,7 @@
 	                "str"; "string"; "obj"; "object"; "include"; "import";
 	                "in"; "if"; "then"; "global"; "not";
 	                "def"; "action"; "sub"; "cost"; "condition"; "conditions";
-	                "effect"; "effects";
-	                "!always"; "!sometime"]
+	                "effect"; "effects"; "!always"; "!sometime"]
 
 	let is_keyword id =
 		let rec check id words =
