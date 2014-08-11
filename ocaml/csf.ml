@@ -24,6 +24,7 @@ let help = "usage: csfp [option] <sfp-file> [sfp-goal-file]" ^
 		   "\n  -fs     evaluate values and print flat store" ^
 		   "\n  -fdr    generate Finite Domain Representation (FDR)" ^
            "\n          [sfp-goal-file] must be provided" ^
+           "\n  -fd     solve the problem using FastDownard search engine" ^
            "\n\n"
 
 let ast_of_file file =
@@ -40,6 +41,8 @@ let ast_of_file file =
 			              "\ncolumn: " ^ (string_of_int lpos) ^ "\ntoken:  '" ^ token ^ "'\n\n");
 			exit 1
 		| e -> raise e
+
+let fdr_temp_file = "output.sas"
 
 (**
  * Parse main SF file.
@@ -60,6 +63,7 @@ let rec parse_file opt file1 file2 =
 				let fs = Sastranslator.FlatStore.make (eval_value (ast_of_file file1)) in
 				Sastranslator.FlatStore.string_of fs
 			| "-fdr"  -> Sastranslator.fdr (ast_of_file file1) (ast_of_file file2)
+			| "-fd"   -> solve file1 file2
 			| "-yaml" -> Sfdomainhelper.yaml_of_store (eval_value (ast_of_file file1))
 			| _       -> Sfdomainhelper.json_of_store (eval_value (ast_of_file file1))
 		with
@@ -70,6 +74,45 @@ let rec parse_file opt file1 file2 =
 
 and eval_value ast = Sfvaluation.sfpSpecification ast
 
+and solve init goal =
+	let fd_preprocessor = "FD_PREPROCESSOR" in
+	let fd_search = "FD_SEARCH" in
+	let sas_file = "output.sas" in
+	let plan_file = "sas_plan" in
+	let search_options = "--search \"lazy_greedy(ff())\"" in
+	try
+		let preprocessor = Sys.getenv fd_preprocessor in
+		let search = Sys.getenv fd_search in
+		if not (Sys.file_exists preprocessor) then (
+			prerr_string ("Error: " ^ preprocessor ^ " is not exist!\n\n"); exit 1;
+		);
+		if not (Sys.file_exists search) then (
+			prerr_string ("Error: " ^ search ^ " is not exist!\n\n"); exit 1;
+		);
+		let fdr = Sastranslator.fdr (ast_of_file init) (ast_of_file goal) in
+		(* save FDR to sas_file *)
+		let channel = open_out sas_file in
+		output_string channel fdr;
+		close_out channel;
+		(* invoke preprocessor *)
+		let cmd = preprocessor ^ " < " ^ sas_file in
+		if not ((Sys.command cmd) = 0) then (prerr_string "Error: preprocessor failed\n\n"; exit 1);
+		(* invoke search *)
+		let cmd = search ^ " " ^ search_options ^ " < output" in
+		if not ((Sys.command cmd) = 0) then (prerr_string "Error: search failed\n\n"; exit 1);
+		(* read plan_file *)
+		if Sys.file_exists plan_file then (
+			let channel = open_in plan_file in
+			let n = in_channel_length channel in
+			let s = String.create n in
+			really_input channel s 0 n;
+			close_in channel;
+			"\n\nSolution plan:\n" ^ s
+		)
+		else "No solution!"
+	with
+		e -> prerr_string "Error: cannot find FD_PREPROCESSOR or FD_SEARCH\n\n"; exit 1
+
 (**
  * main function
  *)
@@ -79,6 +122,7 @@ let _ =
 	else
 		match Sys.argv.(1) with
 		| "-fdr" when l = 4 -> parse_file "-fdr" Sys.argv.(2) Sys.argv.(3)
+		| "-fd"  when l = 4 -> parse_file "-fd" Sys.argv.(2) Sys.argv.(3)
 		| _      when l = 3 -> parse_file Sys.argv.(1) Sys.argv.(2) ""
 		| _      when l = 2 -> parse_file "" Sys.argv.(1) ""
 		| _                 -> print_string help
