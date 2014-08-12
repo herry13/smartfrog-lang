@@ -93,6 +93,9 @@ module Values =
 				let compare = Pervasives.compare
 			end )
 
+		type t_arr = value array;;
+		type t_list = value list;;
+
 		let empty = Set.empty;;
 		let add = Set.add;;
 		let fold = Set.fold;;
@@ -200,19 +203,62 @@ module TypeTable =
  *******************************************************************)
 
 type variable = { name: reference; index: int; values: value array; init: value; goal: value }
+type variables = { map: variable RefMap.t; arr: variable array }
 
 module Variable =
 	struct
 		(* variable := name * index * values * init * goal *)
 		type t = variable
 
-		let empty = RefMap.empty;;
-		let mem = RefMap.mem;;
-		let add = RefMap.add;;
-		let find = RefMap.find;;
-		let fold = RefMap.fold;;
+		let mem r (vars: variables) = RefMap.mem r vars.map
 
-		let values_of r map = if mem r map then (find r map).values else [| |]
+		let find r (vars: variables) = RefMap.find r vars.map
+
+		let values_of r (vars: variables) = if RefMap.mem r vars.map then (RefMap.find r vars.map).values else [| |]
+
+		let intersection_values_of r vec (vars: variables) =
+			let var = find r vars in
+			let temp = Array.fold_left (fun acc v1 ->
+					match v1 with
+					| Basic v2 -> if List.mem v2 vec then v1 :: acc else acc
+					| _        -> v1 :: acc
+				) [] var.values
+			in
+			let var1 = { name = var.name; index = var.index; values = Array.of_list temp; init = var.init; goal = var.goal } in
+			vars.arr.(var1.index) <- var1;
+			{ map = RefMap.add r var1 vars.map; arr = vars.arr }
+
+		let intersection_value_of r v (vars: variables) =
+			let var = find r vars in
+			let l = Array.length var.values in
+			let rec exists i =
+				if i >= l then false
+				else if var.values.(i) = v then true
+				else exists (i+1)
+			in
+			let temp = if exists 0 then [| v |] else [| |] in
+			let var1 = { name = var.name; index = var.index; values = temp; init = var.init; goal = var.goal } in
+			vars.arr.(var1.index) <- var1;
+			{ map = RefMap.add r var1 vars.map; arr = vars.arr }
+
+		let remove_value_from r v (vars: variables) =
+			let var = find r vars in
+			let temp = Array.fold_left (fun acc v1 -> if v1 = v then acc else v1 :: acc) [] var.values in
+			let var1 = { name = var.name; index = var.index; values = Array.of_list temp; init = var.init; goal = var.goal } in
+			vars.arr.(var1.index) <- var1;
+			{ map = RefMap.add r var1 vars.map; arr = vars.arr }
+
+		let remove_values_from (r: reference) (vec: vector) (vars: variables) =
+			let var = find r vars in
+			let temp = Array.fold_left (fun acc v1 ->
+					match v1 with
+					| Basic v2 -> if List.mem v2 vec then acc else v1 :: acc
+					| _        -> v1 :: acc
+				) [] var.values
+			in
+			let var1 = { name = var.name; index = var.index; values = Array.of_list temp; init = var.init; goal = var.goal } in
+			vars.arr.(var1.index) <- var1;
+			{ map = RefMap.add r var1 vars.map; arr = vars.arr }
 
 		let string_of_values =
 			Array.fold_left (fun acc v -> acc ^ (Sfdomainhelper.json_of_value v) ^ ";") ""
@@ -221,24 +267,24 @@ module Variable =
 			!^(var.name) ^ "|" ^ string_of_int(var.index) ^ "|" ^ (string_of_values var.values) ^ "|" ^
 			(Sfdomainhelper.json_of_value var.init) ^ "|" ^ (Sfdomainhelper.json_of_value var.goal)
 
-		let string_of_array arr =
-			Array.fold_left (fun acc var -> (string_of_variable var) ^ "\n" ^ acc) "" arr
+		let string_of_variables vars =
+			Array.fold_left (fun acc var -> (string_of_variable var) ^ "\n" ^ acc) "" vars.arr
 
 		let r_dummy = ["!global"];;
 		let dummy = { name = r_dummy; index = 0; values = [| Basic (Boolean true); Basic (Boolean false) |];
 			init = Basic (Boolean false); goal = Basic (Boolean true) };;
 
-		let make env_0 fs_0 env_g fs_g typetable =
+		let make env_0 fs_0 env_g fs_g typetable : variables =
 			let type_of_var r =
 				match (TEnv.type_of env_0 r), (TEnv.type_of env_g r) with
 				| t1, t2 when t1 = t2 -> t1
 				| _, _                -> error 504  (* incompatible type between init & goal *)
 			in
-			let map0 = add r_dummy dummy empty in
+			let map0 = RefMap.add r_dummy dummy RefMap.empty in
 			let arr0 = [dummy] in
 			let (map1, total, arr1) = FlatStore.fold (
 					fun r v (map, i, arr) ->
-						if mem r map then error 505;
+						if RefMap.mem r map then error 505;
 						match type_of_var r with
 						| Sfsyntax.TBasic Sfsyntax.TAction
 						| Sfsyntax.TBasic Sfsyntax.TGlobal -> (map, i, arr)
@@ -246,7 +292,7 @@ module Variable =
 						| Sfsyntax.TBasic Sfsyntax.TSchema (_, _) ->
 							let v = FlatStore.static_object in
 							let var = { name = r; index = i; values = [|v|]; init = v; goal = v } in
-							let map1 = add r var map in
+							let map1 = RefMap.add r var map in
 							let arr1 = var :: arr in
 							(map1, i+1, arr1)
 						| t ->
@@ -254,14 +300,14 @@ module Variable =
 							let init = FlatStore.find r fs_0 in
 							let goal = FlatStore.find r fs_g in
 							let var = { name = r; index = i; values = values; init = init; goal = goal } in
-							let map1 = add r var map in
+							let map1 = RefMap.add r var map in
 							let arr1 = var :: arr in
 							(map1, i+1, arr1)
 				) fs_0 (map0, 1, arr0)
 			in
 			let arr2 = Array.of_list arr1 in
 			Array.fast_sort (fun v1 v2 -> v1.index - v2.index) arr2;
-			(map1, arr2)
+			{ map = map1; arr = arr2 }
 
 		let fdr_of (buf: Buffer.t) (var: t) : unit =
 			Buffer.add_string buf "\nbegin_variable\nvar";
@@ -278,29 +324,31 @@ module Variable =
 			) var.values;
 			Buffer.add_string buf "end_variable";;
 
-		let fdr_of_variables (buf: Buffer.t) (vars: t array) : unit =
+		let fdr_of_variables (buf: Buffer.t) (vars: variables) : unit =
 			Buffer.add_char buf '\n';
-			Buffer.add_string buf (string_of_int (Array.length vars));
-			Array.iter (fun var -> fdr_of buf var;) vars;;
+			Buffer.add_string buf (string_of_int (Array.length vars.arr));
+			Array.iter (fun var -> fdr_of buf var;) vars.arr;;
 
-		let index_of (var: t) v : int =
+		let index_of v (var: t) : int =
 			let l = Array.length var.values in
 			let rec iter i =
-				if var.values.(i) = v then i
-				else if i >= l then error 530
+				if i >= l then -1
+				else if var.values.(i) = v then i
 				else iter (i+1)
 			in
 			iter 0
 
-		let fdr_of_init (buf: Buffer.t) (vars: t array) : unit =
+		let fdr_of_init (buf: Buffer.t) (vars: variables) : unit =
 			Buffer.add_string buf "\nbegin_state";
 			Array.iter (fun var ->
+				let i = index_of var.init var in
+				if i < 0 then error 601; (* initial state is not satisfying the global constraint *)
 				Buffer.add_char buf '\n';
-				Buffer.add_string buf (string_of_int (index_of var var.init));
-			) vars;
+				Buffer.add_string buf (string_of_int i)
+			) vars.arr;
 			Buffer.add_string buf "\nend_state";;
 
-		let fdr_of_goal (buf: Buffer.t) (vars: t array) use_dummy : unit =
+		let fdr_of_goal (buf: Buffer.t) (vars: variables) use_dummy : unit =
 			let tmp = Buffer.create 50 in
 			let counter = ref 0 in
 			Array.iter (fun var ->
@@ -309,22 +357,24 @@ module Variable =
 				 * - it has more than one value
 				 * - if it is a dummy variable, then the global constraint must be exist
 				 *)
+				let i = index_of var.goal var in
+				if i < 0 then error 602; (* goal state is not satisfying the global constraint *)
 				if (Array.length var.values) > 1 && (var.index > 0 || use_dummy) then
 				(
 					Buffer.add_char tmp '\n';
 					Buffer.add_string tmp (string_of_int var.index);
 					Buffer.add_char tmp ' ';
-					Buffer.add_string tmp (string_of_int (index_of var var.goal));
+					Buffer.add_string tmp (string_of_int i);
 					counter := !counter + 1;
 				)
-			) vars;
+			) vars.arr;
 			Buffer.add_string buf "\nbegin_goal";
 			Buffer.add_char buf '\n';
 			Buffer.add_string buf (string_of_int !counter);
 			Buffer.add_string buf (Buffer.contents tmp);
 			Buffer.add_string buf "\nend_goal";;
 
-		let fdr_of_mutex (buf: Buffer.t) (vars: t array) : unit =
+		let fdr_of_mutex (buf: Buffer.t) (vars: variables) : unit =
 			Buffer.add_string buf "\n0";;
 
 	end
@@ -339,22 +389,22 @@ module Constraint =
 
 		let string_of = Sfdomainhelper.json_of_constraint
 
-		let rec prevail_of r vars =
-			if r = [] then error 506
-			else if Variable.mem r vars then r
-			else prevail_of (prefix r) vars
-
 		(* mode: {1 => Eq, 2 => Ne, 3 => In, 4 => NotIn } *)
 		let rec constraints_of_nested r v vars env mode =
+			let rec prevail_of rx =
+				if rx = [] then error 507
+				else if Variable.mem rx vars then rx
+				else prevail_of (prefix rx)
+			in
 			let rec iter r cs =
-				let prevail = prevail_of r vars in
+				let prevail = prevail_of r in
 				if prevail = r then
 					match mode, v with
 					| 1, _          -> (Eq (r, v)) :: cs
 					| 2, _          -> (Ne (r, v)) :: cs
 					| 3, Vector vec -> (In (r, vec)) :: cs
 					| 4, Vector vec -> (Not (In (r, vec))) :: cs
-					| _             -> error 507
+					| _             -> error 508
 				else
 					let cs1 = (Ne (prevail, Null)) :: cs in
 					let rs1 = r @-- prevail in
@@ -366,18 +416,10 @@ module Constraint =
 								let conclusion = And (iter (rp @++ rs1) []) in
 								(Imply (premise, conclusion)) :: acc
 							| Basic Null     -> acc
-							| _              -> error 508
+							| _              -> error 509
 					) cs1 (Variable.values_of prevail vars)
 			in
 			And (iter r [])
-
-		(* return false if formula 'c1' negates 'c2' (or vice versa), otherwise true *)
-		and incompatible c1 c2 =
-			match c1, c2 with
-			| Eq (r1, v1), Eq (r2, v2) -> if r1 = r2 then not (v1 = v2) else false
-			| Eq (r1, v1), Ne (r2, v2) -> if r1 = r2 then v1 = v2 else false
-			| Ne (r1, v1), Eq (r2, v2) -> if r1 = r2 then v1 = v2 else false
-			| _                        -> false
 
 		(**
 		 * simplify a conjunction formula
@@ -389,13 +431,20 @@ module Constraint =
 				match clauses with
 				| []         -> And acc
 				| c1 :: tail -> 
-					if List.exists (fun c2 -> incompatible c1 c2) tail then False
-					else if List.exists (fun c2 -> c1 = c2) tail then iter tail acc
+					if List.exists (fun c2 ->
+							(* return false if formula 'c1' negates 'c2' (or vice versa), otherwise true *)
+							match c1, c2 with
+							| Eq (r1, v1), Eq (r2, v2) -> if r1 = r2 then not (v1 = v2) else false
+							| Eq (r1, v1), Ne (r2, v2) -> if r1 = r2 then v1 = v2 else false
+							| Ne (r1, v1), Eq (r2, v2) -> if r1 = r2 then v1 = v2 else false
+							| _                        -> false
+						) tail then False
+					else if List.mem c1 tail then iter tail acc
 					else iter tail (c1 :: acc)
 			in
 			match c with
 			| And clauses -> iter clauses []
-			| _           -> error 509
+			| _           -> error 510
 
 		(**
 		 * simplify a disjunction formula
@@ -406,12 +455,12 @@ module Constraint =
 				match clauses with
 				| [] -> Or acc
 				| c1 :: tail ->
-					if List.exists (fun c2 -> c1 = c2) tail then iter tail acc
+					if List.mem c1 tail then iter tail acc
 					else iter tail (c1 :: acc)
 			in
 			match c with
 			| Or clauses -> iter clauses []
-			| _          -> error 510
+			| _          -> error 511
 
 		(**
 		 * cross product of disjunction clauses of a conjunction formula
@@ -428,7 +477,7 @@ module Constraint =
 				List.fold_left (fun acc c ->
 					match c with
 					| And css -> (simplify_conjunction (And (List.append css ands))) :: acc
-					| _       -> error 511
+					| _       -> error 512
 				) []
 			in
 			let rec iter cs =
@@ -436,12 +485,12 @@ module Constraint =
 				| []                           -> []
 				| (Or cs) :: []                -> merge_ands cs
 				| (Or cs1) :: (Or cs2) :: tail -> iter ((Or (cross cs1 cs2)) :: tail)
-				| _                            -> error 512
+				| _                            -> error 513
 			in
 			dnf_of (Or (iter ors))
 
 		(** convert a constraint to DNF **)
-		and dnf_of c vars env =
+		and dnf_of c (vars: variables) env =
 			match c with
 			| Eq e    -> dnf_of_equal e vars env
 			| Ne e    -> dnf_of_not_equal e vars env
@@ -465,7 +514,7 @@ module Constraint =
 						fun acc v1 ->
 							match v1 with
 							| Basic v2 -> if v2 = v then acc else v2 :: acc
-							| _        -> error 513
+							| _        -> error 514
 					) [] (Variable.values_of r vars)
 				in
 				if values = [] then False
@@ -496,9 +545,9 @@ module Constraint =
 							fun acc v ->
 								match v with
 								| Basic v1 ->
-									if List.exists (fun v2 -> v1 = v2) vec then acc
+									if List.mem v1 vec then acc
 									else (Eq (r, v1)) :: acc
-								| _        -> error 514
+								| _        -> error 515
 						) [] (Variable.values_of r vars)
 					in
 					if cs = [] then False
@@ -517,9 +566,9 @@ module Constraint =
 						fun acc v ->
 							match v with
 							| Basic v1 ->
-								if List.exists (fun v2 -> v1 = v2) vec then (Eq (r, v1)) :: acc
+								if List.mem v1 vec then (Eq (r, v1)) :: acc
 								else acc
-							| _        -> error 515
+							| _        -> error 516
 					) [] (Variable.values_of r vars)
 				in
 				if cs = [] then False
@@ -575,7 +624,7 @@ module Constraint =
 				if StrMap.mem id params then
 					match StrMap.find id params with
 					| Ref r1 -> r1 @++ tail
-					| _      -> error 516 (* cannot replace left-hand side reference with a non-reference value *)
+					| _      -> error 517 (* cannot replace left-hand side reference with a non-reference value *)
 				else r
 			| _ -> r
 
@@ -590,7 +639,7 @@ module Constraint =
 					match StrMap.find id params with
 					| Ref r1            -> Ref (r1 @++ tail)
 					| v1 when tail = [] -> v1
-					| _                 -> error 517
+					| _                 -> error 518
 				else bv
 			| _ -> bv
 	
@@ -612,17 +661,109 @@ module Constraint =
 			| In (r, v)      -> let r1 = substitute_parameter_of_reference r params in In (r1, v)
 			| _              -> c
 
+		(************************************************************************
+		 * functions to compile simple membership and equality
+		 ************************************************************************)
+		type constraints_variables = { cons: _constraint list; implies: _constraint list; vars: variables }
+
+		let compile_simple_global_membership negation r (vec: vector) cons_vars env =
+			let rec prevail_of rx =
+				if rx = [] then error 507
+				else if Variable.mem rx cons_vars.vars then rx
+				else prevail_of (prefix rx)
+			in
+			let prevail = prevail_of r in
+			if prevail = r then
+				{	cons    = cons_vars.cons;
+					implies = cons_vars.implies;
+					vars    = if negation then Variable.remove_values_from r vec cons_vars.vars
+					          else Variable.intersection_values_of r vec cons_vars.vars
+				}
+			else
+				let vars1 = Variable.remove_value_from prevail (Basic Null) cons_vars.vars in
+				let rs = r @-- prevail in
+				Array.fold_left (fun acc v1 ->
+						match v1 with
+						| Basic (Ref r1) ->
+							let r2 = r1 @++ rs in
+							let c =
+								if negation then Imply (Eq (prevail, Ref r1), Not (In (r2, vec)))
+								else Imply (Eq (prevail, Ref r1), In (r2, vec))
+							in
+							if Variable.mem r2 acc.vars then
+								{ cons = acc.cons; implies = c :: acc.implies; vars = acc.vars }
+							else
+								{ cons = c :: acc.cons; implies = acc.implies; vars = acc.vars }
+						| _              -> error 508
+					)
+					{ cons = cons_vars.cons; implies = cons_vars.implies; vars = vars1 }
+					(Variable.values_of prevail vars1)
+
+		let compile_simple_global_equality negation r v cons_vars env =
+			let rec prevail_of rx =
+				if rx = [] then error 509
+				else if Variable.mem rx cons_vars.vars then rx
+				else prevail_of (prefix rx)
+			in
+			let prevail = prevail_of r in
+			if prevail = r then
+				{	cons    = cons_vars.cons;
+					implies = cons_vars.implies;
+					vars    = if negation then Variable.remove_value_from r (Basic v) cons_vars.vars
+					          else Variable.intersection_value_of r (Basic v) cons_vars.vars
+				}
+			else 
+				let vars1 = Variable.remove_value_from prevail (Basic Null) cons_vars.vars in
+				let rs = r @-- prevail in
+				Array.fold_left (fun acc v1 ->
+						match v1 with
+						| Basic (Ref r1) ->
+							let r2 = r1 @++ rs in
+							let c = if negation then Imply (Eq (prevail, Ref r1), Ne (r2, v))
+							        else Imply (Eq (prevail, Ref r1), Eq (r2, v))
+							in
+							if Variable.mem r2 acc.vars then
+								{ cons = acc.cons; implies = c :: acc.implies; vars = acc.vars }
+							else
+								{ cons = c :: acc.cons; implies = acc.implies; vars = acc.vars }
+						| _ -> error 510
+					)
+					{ cons = cons_vars.cons; implies = cons_vars.implies; vars = vars1 }
+					(Variable.values_of prevail vars1)
+
+		let compile_simple_global global vars env =
+			match global with
+			| And cs ->
+				let result1 = List.fold_left (fun acc c ->
+						match c with
+						| Eq (r, v)         -> compile_simple_global_equality false r v acc env
+						| Not (Eq (r, v))   -> compile_simple_global_equality true r v acc env
+						| Ne (r, v)         -> compile_simple_global_equality true r v acc env
+						| Not (Ne (r, v))   -> compile_simple_global_equality false r v acc env
+						| In (r, vec)       -> compile_simple_global_membership false r vec acc env
+						| Not (In (r, vec)) -> compile_simple_global_membership true r vec acc env
+						| _                 -> { cons = c :: acc.cons; implies = acc.implies; vars = acc.vars }
+					) { cons = []; implies = []; vars = vars } cs
+				in
+				(And result1.cons, result1.implies, result1.vars)
+			| _  -> (global, [], vars)
+
 		(**
 		 * Find the global constraints element in a flat-store. If exist, then convert
 		 * and return a DNF of the global constraints
 		 *)
-		let global env fs vars =
+		let global env fs (vars: variables) =
 			let r = ["global"] in
 			if FlatStore.mem r fs then
 				match FlatStore.find r fs with
-				| Global g -> dnf_of g vars env
-				| _        -> error 518
-			else True
+				| Global g ->
+					let (global1, implies1, vars1) = compile_simple_global g vars env in
+					let global_dnf = dnf_of global1 vars1 env in
+					print_endline (Variable.string_of_variables vars1);
+					print_endline ("simple implications: " ^ (Sfdomainhelper.json_of_constraint (And implies1)));
+					(global_dnf, implies1, vars1)
+				| _        -> error 519
+			else (True, [], vars)
 
 	end
 
@@ -676,21 +817,29 @@ module Action =
 		let equals_to_map = fun map c ->
 			match c with
 			| Eq (r, v) -> RefMap.add r v map
-			| _         -> error 521
+			| _         -> error 520
 
-		(* ground an action - returns a list of grounded actions *)
-		let ground_action_of (name, params, cost, pre, eff) env vars typetable dummy : t list =
-
-			let map_effects effects params =
-				List.fold_left (fun acc (r, bv) ->
-					let r1 = Constraint.substitute_parameter_of_reference r params in
-					let bv1 = Constraint.substitute_parameter_of_basic_value bv params in
-					RefMap.add r1 bv1 acc
-				) RefMap.empty effects
+		(**
+		 * Generate the FDR actions of an SFP action.
+		 * 1. substitute the parameters
+		 * 2. convert the preconditions into the DNF-formula
+		 * 3. foreach DNF clause, copy the original action and set the clause as the preconditions
+		 * 4. apply simple implication compilation
+		 *
+		 * returns a list of FDR actions
+		 *)
+		let ground_action_of (name, params, cost, pre, eff) env vars typetable dummy g_implies : t list =
+			let compile_simple_implication name ps cost pre eff =
+				(name, ps, cost, pre, eff) (* TODO *)
 			in
 			let param_tables = create_parameter_table params name typetable in
 			List.fold_left (fun acc1 ps ->
-				let eff1 = map_effects eff ps in
+				let eff1 = List.fold_left (fun acc (r, bv) ->
+						let r1 = Constraint.substitute_parameter_of_reference r ps in
+						let bv1 = Constraint.substitute_parameter_of_basic_value bv ps in
+						RefMap.add r1 bv1 acc
+					) RefMap.empty eff
+				in
 				let eff2 = if dummy then RefMap.add Variable.r_dummy (Boolean false) eff1 else eff1 in
 				let pre1 = Constraint.substitute_parameters_of pre ps in
 				let pre2 = if dummy then RefMap.add Variable.r_dummy (Boolean true) RefMap.empty else RefMap.empty in
@@ -701,20 +850,21 @@ module Action =
 							match c with
 							| Eq (r, v) -> RefMap.add r v pre2
 							| And css   -> List.fold_left equals_to_map pre2 css
-							| _         -> error 522
+							| _         -> error 521
 						in
-						(name, ps, cost, pre3, eff2) :: acc2
+						(compile_simple_implication name ps cost pre3 eff2) :: acc2
 					) acc1 cs
 				| And css   ->
 					let pre3 = List.fold_left equals_to_map pre2 css in
-					(name, ps, cost, pre3, eff2) :: acc1
+					(compile_simple_implication name ps cost pre3 eff2) :: acc1
 				| Eq (r, v) ->
 					let pre3 = RefMap.add r v pre2 in
-					(name, ps, cost, pre3, eff2) :: acc1
-				| True      -> (name, ps, cost, pre2, eff2) :: acc1
-				| _         -> error 523
+					(compile_simple_implication name ps cost pre3 eff2) :: acc1
+				| True      -> (compile_simple_implication name ps cost pre2 eff2) :: acc1
+				| _         -> error 522
 			) [] param_tables
 
+		(** for each clause of global constraints DNF, create a dummy action **)
 		let create_global_actions (global: _constraint) (acc: t list) : t list =
 			let pre = RefMap.add Variable.r_dummy (Boolean false) RefMap.empty in
 			let eff = RefMap.add Variable.r_dummy (Boolean true) RefMap.empty in
@@ -732,22 +882,30 @@ module Action =
 					| Eq _    -> (name, params, 0, pre, eff) :: acc1
 					| _       -> error 523
 				) acc cs
-			| _     -> error 524
+			| And cs ->
+				let name = ["!global"] in
+				let pre1 = List.fold_left equals_to_map pre cs in
+				[(name, params, 0, pre1, eff)]
+			| _      -> print_endline (Sfdomainhelper.json_of_constraint global); error 524
 
 		(* ground a set of actions - returns a list of grounded actions *)
-		let ground env vars arr_vars typetable global : t list =
+		let ground_actions env vars typetable global g_implies : t list =
 			let add_dummy = not (global = True) in
 			let actions : t list = create_global_actions global [] in
 			Values.fold (
 				fun v gactions ->
 					match v with
-					| Action a -> List.append (ground_action_of a env vars typetable add_dummy) gactions
+					| Action a -> List.append (ground_action_of a env vars typetable add_dummy g_implies) gactions
 					| _        -> gactions
 			) (TypeTable.values_of t_action typetable) actions
 
-		(* type t = reference * basic StrMap.t * cost * _constraint * effect list;; *)
-
-		let fdr_of (buf: Buffer.t) ((name, params, cost, pre, eff): t) (vars: Variable.t RefMap.t) counter : unit =
+		(**
+		 * Generate the FDR of a given action. If there is an assignment whose value is not
+		 * in the variable's domain, then the action is treated as "invalid".
+		 *)
+		let fdr_of (buffer: Buffer.t) ((name, params, cost, pre, eff): t) (vars: variables) counter : unit =
+			let valid_operator = ref true in
+			let buf = Buffer.create 50 in
 			Buffer.add_string buf "\nbegin_operator\nop_";
 			(* name *)
 			Buffer.add_string buf (string_of_int !counter);
@@ -765,7 +923,9 @@ module Action =
 					let var = Variable.find r vars in
 					Buffer.add_string prevail (string_of_int var.index);
 					Buffer.add_char prevail ' ';
-					Buffer.add_string prevail (string_of_int (Variable.index_of var (Basic v)));
+					let i = Variable.index_of (Basic v) var in
+					if i < 0 then valid_operator := false;
+					Buffer.add_string prevail (string_of_int i);
 					Buffer.add_char prevail '\n';
 					n := !n + 1;
 				)
@@ -783,19 +943,31 @@ module Action =
 				Buffer.add_char buf ' ';
 				if RefMap.mem r pre then
 					let pre_v = RefMap.find r pre in
-					Buffer.add_string buf (string_of_int (Variable.index_of var (Basic pre_v)));
+					let i = Variable.index_of (Basic pre_v) var in
+					if i < 0 then valid_operator := false;
+					Buffer.add_string buf (string_of_int i);
 				else
 					Buffer.add_string buf "-1";
 				Buffer.add_char buf ' ';
-				Buffer.add_string buf (string_of_int (Variable.index_of var (Basic v)));
+				let j = Variable.index_of (Basic v) var in
+				if j < 0 then valid_operator := false;
+				Buffer.add_string buf (string_of_int j);
 				Buffer.add_char buf '\n';
 			) eff;
-			(* cost *)
-			Buffer.add_string buf (string_of_int cost);
-			Buffer.add_string buf "\nend_operator";
-			counter := !counter + 1;;
+			(* check operator validity *)
+			if !valid_operator then (
+				(* cost *)
+				Buffer.add_string buf (string_of_int cost);
+				Buffer.add_string buf "\nend_operator";
+				Buffer.add_string buffer (Buffer.contents buf);
+				counter := !counter + 1
+			)
+			else prerr_endline ("Warning: operator " ^ !^name ^ " is invalid")
 
-		let fdr_of_actions (buf: Buffer.t) (actions: t list) (vars: Variable.t RefMap.t) : unit =
+		(**
+		 * Generate the FDR of a set of actions
+		 *)
+		let fdr_of_actions (buf: Buffer.t) (actions: t list) (vars: variables) : unit =
 			let counter = ref 0 in
 			let buf_actions = Buffer.create 50 in
 			List.iter (fun a -> fdr_of buf_actions a vars counter) actions;
@@ -803,6 +975,9 @@ module Action =
 			Buffer.add_string buf (string_of_int !counter);
 			Buffer.add_string buf (Buffer.contents buf_actions);;
 
+		(**
+		 * Generate the FDR mutex - TODO
+		 *)
 		let fdr_of_mutex (buf: Buffer.t) : unit =
 			Buffer.add_string buf "\n0"
 
@@ -826,18 +1001,19 @@ let normalise store_0 store_g = (FlatStore.make store_0, FlatStore.make store_g)
 
 (** step 2: translate **)
 let translate env_0 fs_0 env_g fs_g typetable : string =
-	let (map_vars, arr_vars) = Variable.make env_0 fs_0 env_g fs_g typetable in
-	let global = Constraint.global env_g fs_g map_vars in
-	let actions = Action.ground env_g map_vars arr_vars typetable global in
-	let buffer = Buffer.create (100 + (40 * (Array.length arr_vars) * 2)) in
+	let vars = Variable.make env_0 fs_0 env_g fs_g typetable in
+	let (global, g_implies, vars1) = Constraint.global env_g fs_g vars in
+	let actions = Action.ground_actions env_g vars1 typetable global g_implies in
+	let buffer = Buffer.create (100 + (40 * (Array.length vars1.arr) * 2)) in
 	fdr_header buffer;
-	Variable.fdr_of_variables buffer arr_vars;
-	Variable.fdr_of_mutex buffer arr_vars;
-	Variable.fdr_of_init buffer arr_vars;
-	Variable.fdr_of_goal buffer arr_vars (not (global = True));
-	Action.fdr_of_actions buffer actions map_vars;
+	Variable.fdr_of_variables buffer vars1;
+	Variable.fdr_of_mutex buffer vars1;
+	Variable.fdr_of_init buffer vars1;
+	Variable.fdr_of_goal buffer vars1 (not (global = True));
+	Action.fdr_of_actions buffer actions vars1;
 	Action.fdr_of_mutex buffer;
-	Buffer.contents buffer
+	"" 
+	(* ^ Buffer.contents buffer *)
 
 let compile ast = (TEnv.make (Sftype.sfpSpecification ast), Sfvaluation.sfpSpecification ast)
 
