@@ -1,34 +1,10 @@
 (*
   csf.ml - main file
   author: Herry (herry13@gmail.com)
-
-  usage: csfp [option] <sf-file>
-  where [option] is:
-  -json   print store in JSON (default)
-  -yaml   print store in YAML
-  -ast    print abstract syntax tree
-
-
-  change log:
 *)
 
 open Array
-
-(* help message *)
-let help = "usage: csfp [option] <sfp-file> [sfp-goal-file]" ^
-           "\n\nwhere [option] is:" ^
-           "\n  -ast    print abstract syntax tree" ^
-           "\n  -type   evaluate types and print the type environment" ^
-		   "\n  -json   evaluate values and print store in JSON (default)" ^
-		   "\n  -yaml   evaluate values and print store in YAML" ^
-		   "\n  -fs     evaluate values and print flat store" ^
-		   "\n  -fdr    generate Finite Domain Representation (FDR)" ^
-           "\n          [sfp-goal-file] must be provided" ^
-           "\n  -fd     solve the problem using FastDownward search engine" ^
-           "\n          environment variable FD_PREPROCESSOR & FD_SEARCH must be set" ^
-           "\n          define FD_OPTIONS to pass options to the search engine" ^
-           "\n          define FD_DEBUG to keep all output files" ^
-           "\n\n"
+open Sfdomainhelper
 
 let ast_of_file file =
 	let dummy_lexbuf = Lexing.from_string "" in
@@ -45,49 +21,18 @@ let ast_of_file file =
 			exit 1
 		| e -> raise e
 
-let fdr_temp_file = "output.sas"
 
-(**
- * Parse main SF file.
- *
- * @param file file to be parsed
- * @param opt  an option       
- * @return Sfsyntax.sf an SF abstract syntax tree
- *)
-let rec parse_file opt file1 file2 =
-	let str =
-		try
-			match opt with
-			| "-ast"  -> Sfsyntax.string_of_sfp (ast_of_file file1)
-			| "-type" ->
-				let env = Sftype.sfpSpecification (ast_of_file file1) in
-				Sftype.string_of_env env
-			| "-fs"   ->
-				let fs = Sastranslator.FlatStore.make (eval_value (ast_of_file file1)) in
-				Sastranslator.FlatStore.string_of fs
-			| "-fdr"  -> Sastranslator.fdr (ast_of_file file1) (ast_of_file file2)
-			| "-fd"   -> solve file1 file2
-			| "-yaml" -> Sfdomainhelper.yaml_of_store (eval_value (ast_of_file file1))
-			| _       -> Sfdomainhelper.json_of_store (eval_value (ast_of_file file1))
-		with
-		| Sftype.TypeError (code, msg) -> prerr_string (msg ^ "\n"); exit code
-		| Sfdomain.SfError (code, msg) -> prerr_string (msg ^ "\n"); exit code
-	in
-	print_string (str ^ "\n")
-
-and eval_value ast = Sfvaluation.sfpSpecification ast
-
-and solve init goal =
+let fd_plan init goal =
 	let fd_preprocessor = "FD_PREPROCESSOR" in
-	let fd_search = "FD_SEARCH" in
-	let fd_option = "FD_OPTIONS" in
-	let sas_file = "output.sas" in
-	let plan_file = "sas_plan" in
-	(* let search_options = "--search \"lazy_greedy(ff())\"" in *)
+	let fd_search       = "FD_SEARCH" in
+	let fd_option       = "FD_OPTIONS" in
+	let sas_file        = "output.sas" in
+	let plan_file       = "sas_plan" in
+	let default_search_options = "--search \"lazy_greedy(ff())\"" in
 	try
-		let preprocessor = Sys.getenv fd_preprocessor in
-		let search = Sys.getenv fd_search in
-		let search_options = try Sys.getenv fd_option with e -> "--search \"lazy_greedy(ff())\""
+		let preprocessor   = Sys.getenv fd_preprocessor in
+		let search         = Sys.getenv fd_search in
+		let search_options = try Sys.getenv fd_option with e -> default_search_options
 		in
 		if not (Sys.file_exists preprocessor) then (
 			prerr_string ("Error: " ^ preprocessor ^ " is not exist!\n\n"); exit 1;
@@ -110,8 +55,8 @@ and solve init goal =
 			(* read plan_file *)
 			if Sys.file_exists plan_file then (
 				let channel = open_in plan_file in
-				let n = in_channel_length channel in
-				let s = String.create n in
+				let n       = in_channel_length channel in
+				let s       = String.create n in
 				really_input channel s 0 n;
 				close_in channel;
 				"\n\nSolution plan:\n" ^ s
@@ -133,16 +78,55 @@ and solve init goal =
 	with
 		e -> prerr_string "Error: cannot find FD_PREPROCESSOR or FD_SEARCH\n\n"; exit 1
 
+
+let usage_msg = "usage: csfp [options]\n\nwhere [options] are:";;
+let opt_init_file = ref "";;
+let opt_goal_file = ref "";;
+
 (**
  * main function
  *)
-let _ =
-	let l = length Sys.argv in
-	if l < 2 then print_string help
-	else
-		match Sys.argv.(1) with
-		| "-fdr" when l = 4 -> parse_file "-fdr" Sys.argv.(2) Sys.argv.(3)
-		| "-fd"  when l = 4 -> parse_file "-fd" Sys.argv.(2) Sys.argv.(3)
-		| _      when l = 3 -> parse_file Sys.argv.(1) Sys.argv.(2) ""
-		| _      when l = 2 -> parse_file "" Sys.argv.(1) ""
-		| _                 -> print_string help
+let main =
+	let do_compile = fun mode file ->
+		let store = Sfvaluation.sfpSpecification (ast_of_file file) in
+		match mode with
+		| 1 -> print_endline (json_of_store store)
+		| 2 -> print_endline (yaml_of_store store)
+		| 3 -> let fs = Sastranslator.FlatStore.make store in
+		       print_endline (Sastranslator.FlatStore.string_of fs)
+		| _ -> print_endline usage_msg
+	in
+	let do_ast = fun file -> print_endline (Sfsyntax.string_of_sfp (ast_of_file file))
+	in
+	let verify_files () =
+		if !opt_init_file = "" then (print_endline "Error: -init <file.sfp> is not set"; exit 1);
+		if !opt_goal_file = "" then (print_endline "Error: -goal <file.sfp> is not set"; exit 1);
+	in
+	let do_fdr = fun () ->
+		verify_files();
+		print_endline (Sastranslator.fdr (ast_of_file !opt_init_file) (ast_of_file !opt_goal_file))
+	in
+	let do_fd = fun mode ->
+		verify_files();
+		print_endline (fd_plan !opt_init_file !opt_goal_file)
+	in
+	let speclist = [
+			("-json", Arg.String (do_compile 1),    " Compile and print the result in JSON (default).");
+			("-yaml", Arg.String (do_compile 2),    " Compile and print the result in YAML.");
+			("-ast",  Arg.String do_ast,            "  Print abstract syntax tree.");
+			("-fs",   Arg.String (do_compile 3),    "   Compile and print the flat store.");
+			("-init", Arg.Set_string opt_init_file, " File specification of initial state.");
+			("-goal", Arg.Set_string opt_goal_file, " File specification of goal state.");
+			("-fdr",  Arg.Unit do_fdr,              "  Generate and print Finite Domain Representation (FDR);" ^
+			 "\n         -init <file1.sfp> -goal <file2.sfp> must be provided.");
+			("-fd",   Arg.Unit do_fd,               "   Solve the SFP task using FastDownward search engine;" ^
+			 "\n         -init <file1.sfp> -goal <file2.sfp> must be provided;" ^
+			 "\n         environment variable FD_PREPROCESSOR & FD_SEARCH must be set;" ^
+			 "\n         define FD_OPTIONS to pass options to the search engine;" ^
+			 "\n         define FD_DEBUG to keep all output files.")
+		]
+	in
+	Arg.parse speclist print_endline usage_msg;
+	if (Array.length Sys.argv) < 2 then Arg.usage speclist usage_msg;;
+
+let _ = main
