@@ -98,6 +98,8 @@ let main =
 	in
 	let do_ast = fun file -> print_endline (Sfsyntax.string_of_sfp (ast_of_file file))
 	in
+	let do_type = fun file -> print_endline (Sftype.string_of_env (Sftype.sfpSpecification (ast_of_file file)))
+	in
 	let verify_files () =
 		if !opt_init_file = "" then (print_endline "Error: -init <file.sfp> is not set"; exit 1);
 		if !opt_goal_file = "" then (print_endline "Error: -goal <file.sfp> is not set"; exit 1);
@@ -114,6 +116,7 @@ let main =
 			("-json", Arg.String (do_compile 1),    " Compile and print the result in JSON (default).");
 			("-yaml", Arg.String (do_compile 2),    " Compile and print the result in YAML.");
 			("-ast",  Arg.String do_ast,            "  Print abstract syntax tree.");
+			("-type", Arg.String do_type,           " Evaluate and print the element types.");
 			("-fs",   Arg.String (do_compile 3),    "   Compile and print the flat store.");
 			("-init", Arg.Set_string opt_init_file, " File specification of initial state.");
 			("-goal", Arg.Set_string opt_goal_file, " File specification of goal state.");
