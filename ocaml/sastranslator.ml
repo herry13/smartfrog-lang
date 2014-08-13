@@ -759,8 +759,6 @@ module Constraint =
 				| Global g ->
 					let (global1, implies1, vars1) = compile_simple_global g vars env in
 					let global_dnf = dnf_of global1 vars1 env in
-					print_endline (Variable.string_of_variables vars1);
-					print_endline ("simple implications: " ^ (Sfdomainhelper.json_of_constraint (And implies1)));
 					(global_dnf, implies1, vars1)
 				| _        -> error 519
 			else (True, [], vars)
@@ -886,7 +884,7 @@ module Action =
 				let name = ["!global"] in
 				let pre1 = List.fold_left equals_to_map pre cs in
 				[(name, params, 0, pre1, eff)]
-			| _      -> print_endline (Sfdomainhelper.json_of_constraint global); error 524
+			| _      -> error 524
 
 		(* ground a set of actions - returns a list of grounded actions *)
 		let ground_actions env vars typetable global g_implies : t list =
@@ -1013,7 +1011,7 @@ let translate env_0 fs_0 env_g fs_g typetable : string =
 	Action.fdr_of_actions buffer actions vars1;
 	Action.fdr_of_mutex buffer;
 	"" 
-	(* ^ Buffer.contents buffer *)
+	^ Buffer.contents buffer
 
 let compile ast = (TEnv.make (Sftype.sfpSpecification ast), Sfvaluation.sfpSpecification ast)
 
