@@ -1,3 +1,5 @@
+open Common
+
 (*******************************************************************
  * semantics domain
  *******************************************************************)
@@ -55,15 +57,6 @@ exception SfError of int * string
  * @code int error code
  *)
 let error code = raise (SfError (code, "[err" ^ (string_of_int code) ^ "]"))
-
-(* Module set of reference *)
-module SetRef = Set.Make
-	(
-		struct
-			let compare = Pervasives.compare
-			type t = reference
-		end
-	)
 
 let (!^) r = String.concat "." r
 

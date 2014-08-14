@@ -1,4 +1,5 @@
 open Printf
+open Common
 open Sfdomain
 
 (*******************************************************************
@@ -11,27 +12,17 @@ open Sfdomain
  * - Action     : actions
  *******************************************************************)
 
-module StrMap = Map.Make(String)
-
-module RefMap = Map.Make
-	(
-		struct
-			type t = reference
-			let compare = Pervasives.compare
-		end
-	)
-
 (*******************************************************************
  * flat-store
  *******************************************************************)
 
 module TEnv =
 	struct
-		let empty = RefMap.empty;;
-		let mem = RefMap.mem;;
-		let add = RefMap.add;;
-		let find = RefMap.find;;
-		let fold = RefMap.fold;;
+		let empty = MapRef.empty;;
+		let mem = MapRef.mem;;
+		let add = MapRef.add;;
+		let find = MapRef.find;;
+		let fold = MapRef.fold;;
 
 		let make e = List.fold_left (fun acc (r, t) -> add r t acc) empty e
 
@@ -41,11 +32,11 @@ module TEnv =
 
 module FlatStore =
 	struct
-		let empty = RefMap.empty;;
-		let mem = RefMap.mem;;
-		let add = RefMap.add;;
-		let find = RefMap.find;;
-		let fold = RefMap.fold;;
+		let empty = MapRef.empty;;
+		let mem = MapRef.mem;;
+		let add = MapRef.add;;
+		let find = MapRef.find;;
+		let fold = MapRef.fold;;
 
 		let static_object = Store []
 
@@ -203,18 +194,18 @@ module TypeTable =
  *******************************************************************)
 
 type variable = { name: reference; index: int; values: value array; init: value; goal: value }
-type variables = { map: variable RefMap.t; arr: variable array }
+type variables = { map: variable MapRef.t; arr: variable array }
 
 module Variable =
 	struct
 		(* variable := name * index * values * init * goal *)
 		type t = variable
 
-		let mem r (vars: variables) = RefMap.mem r vars.map
+		let mem r (vars: variables) = MapRef.mem r vars.map
 
-		let find r (vars: variables) = RefMap.find r vars.map
+		let find r (vars: variables) = MapRef.find r vars.map
 
-		let values_of r (vars: variables) = if RefMap.mem r vars.map then (RefMap.find r vars.map).values else [| |]
+		let values_of r (vars: variables) = if MapRef.mem r vars.map then (MapRef.find r vars.map).values else [| |]
 
 		let intersection_values_of r vec (vars: variables) =
 			let var = find r vars in
@@ -226,7 +217,7 @@ module Variable =
 			in
 			let var1 = { name = var.name; index = var.index; values = Array.of_list temp; init = var.init; goal = var.goal } in
 			vars.arr.(var1.index) <- var1;
-			{ map = RefMap.add r var1 vars.map; arr = vars.arr }
+			{ map = MapRef.add r var1 vars.map; arr = vars.arr }
 
 		let intersection_value_of r v (vars: variables) =
 			let var = find r vars in
@@ -239,14 +230,14 @@ module Variable =
 			let temp = if exists 0 then [| v |] else [| |] in
 			let var1 = { name = var.name; index = var.index; values = temp; init = var.init; goal = var.goal } in
 			vars.arr.(var1.index) <- var1;
-			{ map = RefMap.add r var1 vars.map; arr = vars.arr }
+			{ map = MapRef.add r var1 vars.map; arr = vars.arr }
 
 		let remove_value_from r v (vars: variables) =
 			let var = find r vars in
 			let temp = Array.fold_left (fun acc v1 -> if v1 = v then acc else v1 :: acc) [] var.values in
 			let var1 = { name = var.name; index = var.index; values = Array.of_list temp; init = var.init; goal = var.goal } in
 			vars.arr.(var1.index) <- var1;
-			{ map = RefMap.add r var1 vars.map; arr = vars.arr }
+			{ map = MapRef.add r var1 vars.map; arr = vars.arr }
 
 		let remove_values_from (r: reference) (vec: vector) (vars: variables) =
 			let var = find r vars in
@@ -258,7 +249,7 @@ module Variable =
 			in
 			let var1 = { name = var.name; index = var.index; values = Array.of_list temp; init = var.init; goal = var.goal } in
 			vars.arr.(var1.index) <- var1;
-			{ map = RefMap.add r var1 vars.map; arr = vars.arr }
+			{ map = MapRef.add r var1 vars.map; arr = vars.arr }
 
 		let string_of_values =
 			Array.fold_left (fun acc v -> acc ^ (Sfdomainhelper.json_of_value v) ^ ";") ""
@@ -280,11 +271,11 @@ module Variable =
 				| t1, t2 when t1 = t2 -> t1
 				| _, _                -> error 504  (* incompatible type between init & goal *)
 			in
-			let map0 = RefMap.add r_dummy dummy RefMap.empty in
+			let map0 = MapRef.add r_dummy dummy MapRef.empty in
 			let arr0 = [dummy] in
 			let (map1, total, arr1) = FlatStore.fold (
 					fun r v (map, i, arr) ->
-						if RefMap.mem r map then error 505;
+						if MapRef.mem r map then error 505;
 						match type_of_var r with
 						| Sfsyntax.TBasic Sfsyntax.TAction
 						| Sfsyntax.TBasic Sfsyntax.TGlobal -> (map, i, arr)
@@ -292,7 +283,7 @@ module Variable =
 						| Sfsyntax.TBasic Sfsyntax.TSchema (_, _) ->
 							let v = FlatStore.static_object in
 							let var = { name = r; index = i; values = [|v|]; init = v; goal = v } in
-							let map1 = RefMap.add r var map in
+							let map1 = MapRef.add r var map in
 							let arr1 = var :: arr in
 							(map1, i+1, arr1)
 						| t ->
@@ -300,7 +291,7 @@ module Variable =
 							let init = FlatStore.find r fs_0 in
 							let goal = FlatStore.find r fs_g in
 							let var = { name = r; index = i; values = values; init = init; goal = goal } in
-							let map1 = RefMap.add r var map in
+							let map1 = MapRef.add r var map in
 							let arr1 = var :: arr in
 							(map1, i+1, arr1)
 				) fs_0 (map0, 1, arr0)
@@ -562,8 +553,8 @@ module Constraint =
 		let substitute_parameter_of_reference (r: reference) params : reference =
 			match r with
 			| id :: tail ->
-				if StrMap.mem id params then
-					match StrMap.find id params with
+				if MapStr.mem id params then
+					match MapStr.find id params with
 					| Ref r1 -> r1 @++ tail
 					| _      -> error 517 (* cannot replace left-hand side reference with a non-reference value *)
 				else r
@@ -576,8 +567,8 @@ module Constraint =
 		let substitute_parameter_of_basic_value (bv: basic) params : basic =
 			match bv with
 			| Ref (id :: tail) ->
-				if StrMap.mem id params then
-					match StrMap.find id params with
+				if MapStr.mem id params then
+					match MapStr.find id params with
 					| Ref r1            -> Ref (r1 @++ tail)
 					| v1 when tail = [] -> v1
 					| _                 -> error 518
@@ -713,15 +704,15 @@ module Constraint =
 
 module Action =
 	struct
-		type t = reference * basic StrMap.t * cost * basic RefMap.t * basic RefMap.t;;
+		type t = reference * basic MapStr.t * cost * basic MapRef.t * basic MapRef.t;;
 
-		let json_of_parameters (ps: basic StrMap.t) : string =
-			let s = StrMap.fold (fun id v s -> ",\"" ^ id ^ "\":" ^ (Sfdomainhelper.json_of_basic v) ^ s) ps "" in
+		let json_of_parameters (ps: basic MapStr.t) : string =
+			let s = MapStr.fold (fun id v s -> ",\"" ^ id ^ "\":" ^ (Sfdomainhelper.json_of_basic v) ^ s) ps "" in
 			if s = "" then "" else (String.sub s 1 ((String.length s) - 1));;
 
-		let json_of_preconditions (pre: basic RefMap.t) : string =
+		let json_of_preconditions (pre: basic MapRef.t) : string =
 			let buf = Buffer.create 42 in
-			RefMap.iter (fun r v ->
+			MapRef.iter (fun r v ->
 				Buffer.add_string buf ",\"";
 				Buffer.add_string buf !^r;
 				Buffer.add_string buf "\":";
@@ -745,7 +736,7 @@ module Action =
 
 		(* convert a list of (identifier => type) to a list of maps of (identifier => value) *)
 		let create_parameter_table params name typetable =
-			let table1 = StrMap.add "this" [Ref (prefix name)] StrMap.empty in
+			let table1 = MapStr.add "this" [Ref (prefix name)] MapStr.empty in
 			let table2 = List.fold_left (fun table (id, t) ->
 					let values = Values.fold (fun v acc ->
 							match v with
@@ -753,26 +744,26 @@ module Action =
 							| _ -> acc
 						) (TypeTable.values_of t typetable) []
 					in
-					StrMap.add id values table
+					MapStr.add id values table
 				) table1 params
 			in
-			StrMap.fold (fun id values acc1 ->
+			MapStr.fold (fun id values acc1 ->
 				List.fold_left (fun acc2 v ->
-					if acc1 = [] then (StrMap.add id v StrMap.empty) :: acc2
-					else List.fold_left (fun acc3 table -> (StrMap.add id v table) :: acc3) acc2 acc1
+					if acc1 = [] then (MapStr.add id v MapStr.empty) :: acc2
+					else List.fold_left (fun acc3 table -> (MapStr.add id v table) :: acc3) acc2 acc1
 				) [] values
 			) table2 []
 
 		let equals_to_map = fun map c ->
 			match c with
-			| Eq (r, v) -> RefMap.add r v map
+			| Eq (r, v) -> MapRef.add r v map
 			| _         -> error 520
 
 		(** for each clause of global constraints DNF, create a dummy action **)
 		let create_global_actions (global: _constraint) (acc: t list) : t list =
-			let pre = RefMap.add Variable.r_dummy (Boolean false) RefMap.empty in
-			let eff = RefMap.add Variable.r_dummy (Boolean true) RefMap.empty in
-			let params = StrMap.empty in
+			let pre = MapRef.add Variable.r_dummy (Boolean false) MapRef.empty in
+			let eff = MapRef.add Variable.r_dummy (Boolean true) MapRef.empty in
+			let params = MapStr.empty in
 			let counter = ref 0 in
 			match global with
 			| True  -> acc
@@ -809,26 +800,26 @@ module Action =
 				| [] -> lpre
 				| Imply (Eq (rp, vp), Eq (rc, vc)) :: css ->
 					let compile map pre =
-						if (RefMap.mem rp map) && (RefMap.find rp map) = vp then   (* mem |= premise *)
-							if (RefMap.mem rc pre) then (
-								if (RefMap.find rc pre) <> vc then []              (* pre not|= conclusion *)
+						if (MapRef.mem rp map) && (MapRef.find rp map) = vp then   (* mem |= premise *)
+							if (MapRef.mem rc pre) then (
+								if (MapRef.find rc pre) <> vc then []              (* pre not|= conclusion *)
 								else [pre]                                         (* pre |= conclusion *)
 							) else (
 								modified := true;       (* add extra precondition such that pre |= conclusion *)
-								[RefMap.add rc vc pre]
+								[MapRef.add rc vc pre]
 							)
-						else if (RefMap.mem rc map) && (RefMap.find rc map) <> vc then   (* mem not|= conclusion *)
-							if (RefMap.mem rp pre) && (RefMap.find rp pre) = vp then []  (* pre |= premise *)
+						else if (MapRef.mem rc map) && (MapRef.find rc map) <> vc then   (* mem not|= conclusion *)
+							if (MapRef.mem rp pre) && (MapRef.find rp pre) = vp then []  (* pre |= premise *)
 							else (
 								Array.fold_left (fun acc v ->
 									match v with
 							     	| Basic vx when vx <> vp -> (
-											if RefMap.mem rp pre then (
-												if (RefMap.find rp pre) <> vp then pre :: acc  (* pre |= premise = true *)
+											if MapRef.mem rp pre then (
+												if (MapRef.find rp pre) <> vp then pre :: acc  (* pre |= premise = true *)
 												else acc                                       (* pre |= premise = false *)
 											) else (
 												modified := true;    (* add extra precondition such that pre |= conclusion *)
-												(RefMap.add rp vx pre) :: acc
+												(MapRef.add rp vx pre) :: acc
 											)
 										)
 									| _ -> acc
@@ -869,18 +860,18 @@ module Action =
 				let eff1 = List.fold_left (fun acc (r, bv) ->
 						let r1 = Constraint.substitute_parameter_of_reference r ps in
 						let bv1 = Constraint.substitute_parameter_of_basic_value bv ps in
-						RefMap.add r1 bv1 acc
-					) RefMap.empty eff
+						MapRef.add r1 bv1 acc
+					) MapRef.empty eff
 				in
-				let eff2 = if dummy then RefMap.add Variable.r_dummy (Boolean false) eff1 else eff1 in
+				let eff2 = if dummy then MapRef.add Variable.r_dummy (Boolean false) eff1 else eff1 in
 				let pre1 = Constraint.substitute_parameters_of pre ps in
-				let pre2 = if dummy then RefMap.add Variable.r_dummy (Boolean true) RefMap.empty else RefMap.empty in
+				let pre2 = if dummy then MapRef.add Variable.r_dummy (Boolean true) MapRef.empty else MapRef.empty in
 				match Constraint.dnf_of pre1 vars env with
 				| False -> acc1
 				| Or cs -> List.fold_left (fun acc2 c ->
 						let pre3 =
 							match c with
-							| Eq (r, v) -> RefMap.add r v pre2
+							| Eq (r, v) -> MapRef.add r v pre2
 							| And css   -> List.fold_left equals_to_map pre2 css
 							| _         -> error 521
 						in
@@ -894,7 +885,7 @@ module Action =
 						(name, ps, cost, pre4, eff2) :: acc2
 					) acc1 (compile_simple_implication pre3 eff2 vars g_implies)
 				| Eq (r, v) ->
-					let pre3 = RefMap.add r v pre2 in
+					let pre3 = MapRef.add r v pre2 in
 					List.fold_left (fun acc2 pre4 ->
 						(name, ps, cost, pre4, eff2) :: acc2
 					) acc1 (compile_simple_implication pre3 eff2 vars g_implies)
@@ -1012,8 +1003,8 @@ module FDR = struct
 		(* prevail *)
 		let prevail = Buffer.create 50 in
 		let n = ref 0 in
-		RefMap.iter (fun r v ->
-			if not (RefMap.mem r eff) then
+		MapRef.iter (fun r v ->
+			if not (MapRef.mem r eff) then
 			(
 				let var = Variable.find r vars in
 				Buffer.add_string prevail (string_of_int var.index);
@@ -1029,15 +1020,15 @@ module FDR = struct
 		Buffer.add_char buf '\n';
 		Buffer.add_string buf (Buffer.contents prevail);
 		(* prepost *)
-		Buffer.add_string buf (string_of_int (RefMap.cardinal eff));
+		Buffer.add_string buf (string_of_int (MapRef.cardinal eff));
 		Buffer.add_char buf '\n';
-		RefMap.iter (fun r v ->
+		MapRef.iter (fun r v ->
 			let var = Variable.find r vars in
 			Buffer.add_string buf "0 ";
 			Buffer.add_string buf (string_of_int var.index);
 			Buffer.add_char buf ' ';
-			if RefMap.mem r pre then
-				let pre_v = RefMap.find r pre in
+			if MapRef.mem r pre then
+				let pre_v = MapRef.find r pre in
 				let i = Variable.index_of (Basic pre_v) var in
 				if i < 0 then valid_operator := false;
 				Buffer.add_string buf (string_of_int i);

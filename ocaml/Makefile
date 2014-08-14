@@ -18,6 +18,7 @@ endif
 # byte code libraries
 BYTECODELIB= \
 	str.cma \
+	common.cmo \
 	sfsyntax.cmo \
 	sflexer.cmo \
 	sfparser.cmo \
@@ -32,6 +33,7 @@ BYTECODELIB= \
 # native code libraries
 NATIVELIB= \
 	str.cmxa \
+	common.cmx \
 	sfsyntax.cmx \
 	sflexer.cmx \
 	sfparser.cmx \
@@ -46,7 +48,7 @@ NATIVELIB= \
 # default
 build: csf
 
-csf: csf.ml sfhelper.cmo sfvaluation.cmo sftype.cmo sastranslator.cmo
+csf: csf.ml common sfhelper.cmo sfvaluation.cmo sftype.cmo sastranslator.cmo
 	$(COMPILER) -c csf.ml
 ifeq ($(NATIVE),1)
 	$(COMPILER) -o $(NAME) $(NATIVELIB)
@@ -54,10 +56,10 @@ else
 	$(COMPILER) -o $(NAME) $(BYTECODELIB)
 endif
 
-sfsyntax.cmo: sfsyntax.ml
+sfsyntax: sfsyntax.ml
 	$(COMPILER) -c sfsyntax.ml
 
-sfparser.cmo: sfparser.mly sfsyntax.cmo
+sfparser.cmo: sfparser.mly sfsyntax
 	ocamlyacc sfparser.mly
 	$(COMPILER) -c sfparser.mli
 	$(COMPILER) -c sfparser.ml
@@ -69,20 +71,24 @@ sflexer.cmo: sflexer.mll sfparser.cmo
 sfhelper.cmo: sfhelper.ml sfparser.cmo sflexer.cmo
 	$(COMPILER) -c sfhelper.ml
 
-sfdomain.cmo: sfdomain.mli sfdomain.ml sfdomainhelper.ml
+sfdomain: sfsyntax sfdomain.mli sfdomain.ml sfdomainhelper.ml
 	$(COMPILER) -c sfdomain.mli
 	$(COMPILER) -c sfdomain.ml
 	$(COMPILER) -c sfdomainhelper.ml
 
-sfvaluation.cmo: sfvaluation.ml sfdomain.cmo
+sfvaluation.cmo: sfvaluation.ml sfdomain
 	$(COMPILER) -c sfvaluation.ml
 
 sftype.cmo: sftype.ml
 	$(COMPILER) -c sftype.mli
 	$(COMPILER) -c sftype.ml
 
-sastranslator.cmo: sastranslator.ml sfdomain.cmo sftype.cmo
+sastranslator.cmo: sastranslator.ml sfdomain sftype.cmo
 	$(COMPILER) -c sastranslator.ml
+
+common: common.mli common.ml
+	$(COMPILER) -c common.mli
+	$(COMPILER) -c common.ml
 
 clean:
 	@rm -f *.s *.cmo sfparser.mli sflexer.mli *.cmi *.o *.cmx sfparser.ml sflexer.ml sfparser.output ocamlprof.dump

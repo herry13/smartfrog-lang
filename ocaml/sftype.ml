@@ -1,3 +1,4 @@
+open Common
 open Sfsyntax
 
 (*******************************************************************
@@ -44,8 +45,6 @@ let (@<=)  = Sfdomain.(@<=);;
 let (@<)   = Sfdomain.(@<);;
 let (!!)   = Sfdomain.(!!);;
 let (@<<)  = Sfdomain.(@<<);;
-
-module SetRef = Sfdomain.SetRef
 
 (*******************************************************************
  * typing judgement functions

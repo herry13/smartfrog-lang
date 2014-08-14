@@ -52,8 +52,6 @@ exception SfError of int * string
 
 val error : int -> 'a
 
-module SetRef : Set.S with type elt = reference
-
 val (!^) : reference -> string
 
 (*******************************************************************
