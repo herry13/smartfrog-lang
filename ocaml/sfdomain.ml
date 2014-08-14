@@ -24,22 +24,15 @@ and reference = ident list
 and ident     = string
 
 (** constraint elements **)
-and _constraint = Eq of equal
-                | Ne of notEqual
-                | Not of negation
-                | Imply of implication
-                | And of conjunction
-                | Or of disjunction
-                | In of membership
+and _constraint = Eq of reference * basic
+                | Ne of reference * basic
+                | Not of _constraint
+                | Imply of _constraint * _constraint
+                | And of _constraint list
+                | Or of _constraint list
+                | In of reference * vector
                 | True
                 | False
-and equal       = reference * basic
-and notEqual    = reference * basic
-and implication = _constraint * _constraint
-and negation    = _constraint
-and membership  = reference * vector
-and conjunction = _constraint list
-and disjunction = _constraint list
 
 (** action elements **)
 and action     = reference * parameters * cost * conditions * effects

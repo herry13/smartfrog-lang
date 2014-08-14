@@ -96,15 +96,15 @@ and json_of_vec vec =
  *******************************************************************)
 and json_of_constraint c =
 	match c with
-	| Eq e    -> json_of_equal e
-	| Ne e    -> json_of_not_equal e
-	| Not e   -> json_of_negation e
-	| Imply e -> json_of_implication e
-	| And e   -> json_of_conjunction e
-	| Or e    -> json_of_disjunction e
-	| In e    -> json_of_membership e
-	| True    -> "true"
-	| False   -> "false"
+	| Eq (r, v)      -> json_of_equal r v
+	| Ne (r, v)      -> json_of_not_equal r v
+	| Not _          -> json_of_negation c
+	| Imply (c1, c2) -> json_of_implication c1 c2
+	| And cs         -> json_of_conjunction cs
+	| Or cs          -> json_of_disjunction cs
+	| In (r, vec)    -> json_of_membership r vec
+	| True           -> "true"
+	| False          -> "false"
 
 and json_of_conjunction cs =
 	(List.fold_left (fun s c -> s ^ "," ^ (json_of_constraint c)) "[\"and\"" cs) ^ "]"
@@ -112,19 +112,19 @@ and json_of_conjunction cs =
 and json_of_disjunction cs =
 	(List.fold_left (fun s c -> s ^ "," ^ (json_of_constraint c)) "[\"or\"" cs) ^ "]"
 
-and json_of_equal (r, bv) =
+and json_of_equal r bv =
 	"[\"=\",\"" ^ !^r ^ "\"," ^ (json_of_basic bv) ^ "]"
 
-and json_of_not_equal (r, bv) =
+and json_of_not_equal r bv =
 	"[\"!=\",\"" ^ !^r ^ "\"," ^ (json_of_basic bv) ^ "]"
 
-and json_of_negation e =
-	"[\"not\"," ^ (json_of_constraint e) ^ "]"
+and json_of_negation c =
+	"[\"not\"," ^ (json_of_constraint c) ^ "]"
 
-and json_of_implication (e1, e2) =
-	"[\"imply\"," ^ (json_of_constraint e1) ^ "," ^ (json_of_constraint e2) ^ "]"
+and json_of_implication c1 c2 =
+	"[\"imply\"," ^ (json_of_constraint c1) ^ "," ^ (json_of_constraint c2) ^ "]"
 
-and json_of_membership (r, v) =
+and json_of_membership r v =
 	"[\"in\",\"" ^ !^r ^ "\",[" ^ (json_of_vec v) ^ "]]"
 
 (*******************************************************************
