@@ -69,7 +69,8 @@ sflexer.cmo: sflexer.mll sfparser.cmo
 sfhelper.cmo: sfhelper.ml sfparser.cmo sflexer.cmo
 	$(COMPILER) -c sfhelper.ml
 
-sfdomain.cmo: sfdomain.ml sfdomainhelper.ml
+sfdomain.cmo: sfdomain.mli sfdomain.ml sfdomainhelper.ml
+	$(COMPILER) -c sfdomain.mli
 	$(COMPILER) -c sfdomain.ml
 	$(COMPILER) -c sfdomainhelper.ml
 
@@ -77,13 +78,14 @@ sfvaluation.cmo: sfvaluation.ml sfdomain.cmo
 	$(COMPILER) -c sfvaluation.ml
 
 sftype.cmo: sftype.ml
+	$(COMPILER) -c sftype.mli
 	$(COMPILER) -c sftype.ml
 
 sastranslator.cmo: sastranslator.ml sfdomain.cmo sftype.cmo
 	$(COMPILER) -c sastranslator.ml
 
 clean:
-	@rm -f *.s *.cmo *.mli *.cmi *.o *.cmx sfparser.ml sflexer.ml sfparser.output ocamlprof.dump
+	@rm -f *.s *.cmo sfparser.mli sflexer.mli *.cmi *.o *.cmx sfparser.ml sflexer.ml sfparser.output ocamlprof.dump
 
 clean-all: clean
 	@rm -f $(NAME)

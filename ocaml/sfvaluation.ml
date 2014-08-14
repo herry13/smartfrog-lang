@@ -18,7 +18,7 @@ let sfDataReference dr = Sfdomain.Ref (sfReference dr)
 
 let sfLinkReference lr =
 	let rp = sfReference lr in
-	fun r -> if Sfdomain.ref_prefixeq_ref rp r then Sfdomain.error 4 else Sfdomain.Link rp
+	fun r -> if Sfdomain.(@<=) rp r then Sfdomain.error 4 else Sfdomain.Link rp
 
 let rec sfVector vec =
 	let rec eval v =
@@ -58,7 +58,7 @@ and sfValue v =
 
 (** 't' (type) is ignored since this function only evaluates the value **)
 and sfAssignment (r, t, v) =
-	fun ns s -> sfValue v ns (Sfdomain.ref_plus_ref ns r) s
+	fun ns s -> sfValue v ns (Sfdomain.(@++) ns r) s
 
 and sfBlock block =
 	fun ns s ->
@@ -117,19 +117,19 @@ and sfpGlobal g =
 		| Sfdomain.Val (Sfdomain.Global gs) ->
 			let f = Sfdomain.Global (Sfdomain.And [gc; gs]) in
 			Sfdomain.bind s r f
-		| Sfdomain.Undefined               -> Sfdomain.bind s r (Sfdomain.Global gc)
-		| _                                -> Sfdomain.error 12
+		| Sfdomain.Undefined -> Sfdomain.bind s r (Sfdomain.Global gc)
+		| _                  -> Sfdomain.error 12
 
 (** constraints **)
-and sfpEqual (r, bv) = Sfdomain.Eq (sfReference r, sfBasicValue bv)
+and sfpEqual r bv = Sfdomain.Eq (sfReference r, sfBasicValue bv)
 
-and sfpNotEqual (r, bv) = Sfdomain.Ne (sfReference r, sfBasicValue bv)
+and sfpNotEqual r bv = Sfdomain.Ne (sfReference r, sfBasicValue bv)
 
 and sfpNegation c = Sfdomain.Not (sfpConstraint c)
 
-and sfpImplication (c1, c2) = Sfdomain.Imply (sfpConstraint c1, sfpConstraint c2)
+and sfpImplication c1 c2 = Sfdomain.Imply (sfpConstraint c1, sfpConstraint c2)
 
-and sfpMembership (r, vec) =
+and sfpMembership r vec =
 	let rec eval v =
 		match v with
 		| [] -> []
@@ -143,13 +143,13 @@ and sfpDisjunction cs = Sfdomain.Or (List.fold_left (fun acc c -> (sfpConstraint
 
 and sfpConstraint (c : _constraint) =
 	match c with
-	| Eq e -> sfpEqual e
-	| Ne e -> sfpNotEqual e
-	| Not e -> sfpNegation e
-	| Imply e -> sfpImplication e
-	| In e -> sfpMembership e
-	| And e -> sfpConjunction e
-	| Or e -> sfpDisjunction e
+	| Eq (r, v)      -> sfpEqual r v
+	| Ne (r, v)      -> sfpNotEqual r v
+	| Not _          -> sfpNegation c
+	| Imply (c1, c2) -> sfpImplication c1 c2
+	| In (r, vec)    -> sfpMembership r vec
+	| And cs         -> sfpConjunction cs
+	| Or cs          -> sfpDisjunction cs
 
 (* action *)
 and sfpAction (params, _cost, conds, effs) =

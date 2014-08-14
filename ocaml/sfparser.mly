@@ -140,28 +140,28 @@ disjunction
 	|                            { [] }
 
 sfp_constraint
-	: equal                                 { Eq $1 }
+	: equal                                 { $1 }
 	| BEGIN conjunction END                 { And $2 }
 	| LPARENTHESIS disjunction RPARENTHESIS { Or $2 }
-	| not_equal                             { Ne $1 }
-	| negation                              { Not $1 }
-	| implication                           { Imply $1 }
-	| membership                            { In $1 }
+	| not_equal                             { $1 }
+	| negation                              { $1 }
+	| implication                           { $1 }
+	| membership                            { $1 }
 
 equal
-	: reference EQUAL basic EOS { ($1, $3) }
+	: reference EQUAL basic EOS { Eq ($1, $3) }
 
 not_equal
-	: reference NOT_EQUAL basic EOS { ($1, $3) }
+	: reference NOT_EQUAL basic EOS { Ne ($1, $3) }
 
 implication
-	: IF sfp_constraint THEN sfp_constraint { ($2, $4) }
+	: IF sfp_constraint THEN sfp_constraint { Imply ($2, $4) }
 
 negation
-	: NOT sfp_constraint { $2 }
+	: NOT sfp_constraint { Not $2 }
 
 membership
-	: reference IN vector EOS { ($1, $3) }
+	: reference IN vector EOS { In ($1, $3) }
 
 action
 	: parameters BEGIN cost conditions EFFECTS BEGIN effects END END

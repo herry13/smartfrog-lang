@@ -52,29 +52,22 @@ and basicType = TBool                         (* (Type Bool)   *)
 
 (** constraint syntax **)
 and global      = _constraint
-and _constraint = Eq of equal
-                | Ne of notEqual
-                | Not of negation
-                | Imply of implication
-                | And of conjunction
-                | Or of disjunction
-                | In of membership
-and equal       = reference * basicValue
-and notEqual    = reference * basicValue
-and implication = _constraint * _constraint
-and negation    = _constraint
-and membership  = reference * vector
-and conjunction = _constraint list
-and disjunction = _constraint list
+and _constraint = Eq of reference * basicValue
+                | Ne of reference * basicValue
+                | Not of _constraint
+                | Imply of _constraint * _constraint
+                | And of _constraint list
+                | Or of _constraint list
+                | In of reference * vector
 
 (** action syntax **)
-and action = parameters * cost * conditions * effects
+and action     = parameters * cost * conditions * effects
 and parameters = parameter list
-and parameter = string * _type
-and cost = Cost of string | EmptyCost
+and parameter  = string * _type
+and cost       = Cost of string | EmptyCost
 and conditions = Cond of _constraint | EmptyCondition
-and effects = effect list
-and effect = reference * basicValue
+and effects    = effect list
+and effect     = reference * basicValue
 
 (*******************************************************************
  * functions to convert elements of abstract syntax tree to string
@@ -172,27 +165,27 @@ and string_of_disjunction cs =
 
 and string_of_constraint c =
 	match c with
-	| Eq e    -> string_of_equal e
-	| Ne e    -> string_of_not_equal e
-	| Not e   -> string_of_negation e
-	| Imply e -> string_of_implication e
-	| And e   -> string_of_conjunction e
-	| Or e    -> string_of_conjunction e
-	| In e    -> string_of_membership e
+	| Eq (r, v)      -> string_of_equal r v
+	| Ne (r, v)      -> string_of_not_equal r v
+	| Not _          -> string_of_negation c
+	| Imply (c1, c2) -> string_of_implication c1 c2
+	| And cs         -> string_of_conjunction cs
+	| Or cs          -> string_of_conjunction cs
+	| In (r, vec)    -> string_of_membership r vec
 
-and string_of_equal (r, bv) =
+and string_of_equal r bv =
 	"(= " ^ !^r ^ " " ^ (string_of_basic_value bv) ^ ")"
 
-and string_of_not_equal (r, bv) =
+and string_of_not_equal r bv =
 	"(!= " ^ !^r ^ " " ^ (string_of_basic_value bv) ^ ")"
 
-and string_of_negation e =
-	"(not " ^ (string_of_constraint e) ^ ")"
+and string_of_negation c =
+	"(not " ^ (string_of_constraint c) ^ ")"
 
-and string_of_implication (e1, e2) =
-	"(imply " ^ (string_of_constraint e1) ^ " " ^ (string_of_constraint e2) ^ ")"
+and string_of_implication c1 c2 =
+	"(imply " ^ (string_of_constraint c1) ^ " " ^ (string_of_constraint c2) ^ ")"
 
-and string_of_membership (r, v) =
+and string_of_membership r v =
 	"(in " ^ !^r ^ " " ^ (string_of_vector v) ^ ")"
 
 (** action **)

@@ -93,7 +93,7 @@ let rec ref_minus_ref r1 r2 =
 
 let (@--) r1 r2 = ref_minus_ref r1 r2
 
-let ref_prefixeq_ref r1 r2 = (ref_minus_ref r1 r2) = []
+let ref_prefixeq_ref r1 r2 = ((ref_minus_ref r1 r2) = [])
 
 let (@<=) r1 r2 = ref_prefixeq_ref r1 r2
 

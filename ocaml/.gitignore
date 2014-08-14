@@ -1,6 +1,7 @@
 *.swp
 *.o
-*.mli
+sfparser.mli
+sflexer.mli
 *.cmo
 *.cmi
 csf

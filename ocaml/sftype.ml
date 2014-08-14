@@ -37,13 +37,14 @@ let rec (@==) r1 r2 =
 	| id1 :: rs1, id2 :: rs2 when id1 = id2 -> rs1 @== rs2
 	| _ -> false
 
-let (@++)  = Sfdomain.ref_plus_ref;;
-let (@--)  = Sfdomain.ref_minus_ref;;
+let (@++)  = Sfdomain.(@++);;
+let (@--)  = Sfdomain.(@--);;
 let prefix = Sfdomain.prefix;;
-let (@<=)  = Sfdomain.ref_prefixeq_ref;;
-let (@<)   = Sfdomain.ref_prefix_ref;;
-let (!!)   = Sfdomain.simplify;;
-let (@<<)  = Sfdomain.trace;;
+let (@<=)  = Sfdomain.(@<=);;
+let (@<)   = Sfdomain.(@<);;
+let (!!)   = Sfdomain.(!!);;
+let (@<<)  = Sfdomain.(@<<);;
+
 module SetRef = Sfdomain.SetRef
 
 (*******************************************************************
