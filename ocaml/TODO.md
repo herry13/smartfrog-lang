@@ -6,7 +6,8 @@ all files:
   optimise the comparison operations over references
 
 sastranslator.ml:
-- implement compilation for simple implications
+- implement compilation for simple implications (simple conjunctions) [?]
+- implement compilation for simple implications (equalities) [OK]
 
 preprocessor.ml:
 - create the file
