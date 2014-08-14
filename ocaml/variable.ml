@@ -1,6 +1,5 @@
 open Common
 open Sfdomain
-open Sfdomainhelper
 
 (** variable := name * index * values * init * goal **)
 type t = { name: reference; index: int; values: value array; init: value; goal: value }
@@ -70,11 +69,11 @@ let remove_values_from (r: reference) (vec: vector) (vars: ts) =
 	{ map = MapRef.add r var1 vars.map; arr = vars.arr }
 
 let string_of_values =
-	Array.fold_left (fun acc v -> acc ^ (Sfdomainhelper.json_of_value v) ^ ";") ""
+	Array.fold_left (fun acc v -> acc ^ (json_of_value v) ^ ";") ""
 
 let string_of_variable var =
 	!^(var.name) ^ "|" ^ string_of_int(var.index) ^ "|" ^ (string_of_values var.values) ^ "|" ^
-	(Sfdomainhelper.json_of_value var.init) ^ "|" ^ (Sfdomainhelper.json_of_value var.goal)
+	(json_of_value var.init) ^ "|" ^ (json_of_value var.goal)
 
 let string_of_variables vars =
 	Array.fold_left (fun acc var -> (string_of_variable var) ^ "\n" ^ acc) "" vars.arr

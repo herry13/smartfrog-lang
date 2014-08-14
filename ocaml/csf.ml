@@ -4,7 +4,6 @@
 *)
 
 open Array
-open Sfdomainhelper
 
 let ast_of_file file =
 	let dummy_lexbuf = Lexing.from_string "" in
@@ -90,8 +89,8 @@ let main =
 	let do_compile = fun mode file ->
 		let store = Sfvaluation.sfpSpecification (ast_of_file file) in
 		match mode with
-		| 1 -> print_endline (json_of_store store)
-		| 2 -> print_endline (yaml_of_store store)
+		| 1 -> print_endline (Sfdomain.json_of_store store)
+		| 2 -> print_endline (Sfdomain.yaml_of_store store)
 		| 3 -> let fs = Sastranslator.FlatStore.make store in
 		       print_endline (Sastranslator.FlatStore.string_of fs)
 		| _ -> print_endline usage_msg

@@ -44,19 +44,11 @@ and effects    = effect list
 and effect     = reference * basic
 
 (*******************************************************************
- * helpers
- *******************************************************************)
-
-(** exception for any error on semantics algebra **)
-exception SfError of int * string
-
-val error : int -> 'a
-
-val (!^) : reference -> string
-
-(*******************************************************************
  * semantics algebras
  *******************************************************************)
+
+(* identifier-reference functions *)
+
 val prefix : reference -> reference
 
 val (!-) : reference -> reference
@@ -75,8 +67,7 @@ val (@<<) : reference -> reference -> reference
 
 val (!!) : reference -> reference
 
-
-(** store functions **)
+(* store functions *)
 
 val find : store -> reference -> _value
 
@@ -91,3 +82,24 @@ val copy : store -> store -> reference -> store
 val inherit_proto : store -> reference -> reference -> reference -> store
 
 val accept : store -> reference -> store -> reference -> store
+
+
+(*******************************************************************
+ * helpers
+ *******************************************************************)
+
+(** exception for any error on semantics algebra **)
+exception SfError of int * string
+
+val error : int -> 'a
+
+val (!^) : reference -> string
+
+val yaml_of_store : store -> string
+
+val json_of_store : store -> string
+
+val json_of_value : value -> string
+
+val json_of_constraint : _constraint -> string
+

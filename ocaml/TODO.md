@@ -4,6 +4,7 @@ TODO
 all files:
 - save identifiers (strings) to string->integer map to save memory and
   optimise the comparison operations over references
+- create interface file (.mli) for each .ml
 
 sastranslator.ml:
 - implement compilation for simple implications (simple conjunctions) [?]

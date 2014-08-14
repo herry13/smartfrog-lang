@@ -71,7 +71,7 @@ module FlatStore =
 		(**
 		 * convert a flat-store to string
 		 *)
-		let string_of fs = fold (fun r v acc -> acc ^ !^r ^ ": " ^ (Sfdomainhelper.json_of_value v) ^ "\n") fs ""
+		let string_of fs = fold (fun r v acc -> acc ^ !^r ^ ": " ^ (json_of_value v) ^ "\n") fs ""
 
 	end
 
@@ -96,9 +96,9 @@ module Values =
 		let fold = Set.fold;;
 		let elements = Set.elements;;
 
-		let string_of sv = Set.fold (fun v s -> s ^ (Sfdomainhelper.json_of_value v) ^ ";") sv ""
+		let string_of sv = Set.fold (fun v s -> s ^ (json_of_value v) ^ ";") sv ""
 		
-		let string_of_list l = List.fold_left ( fun s v -> s ^ (Sfdomainhelper.json_of_value v) ^ ";") "" l
+		let string_of_list l = List.fold_left ( fun s v -> s ^ (json_of_value v) ^ ";") "" l
 	end
 
 (*******************************************************************
@@ -239,8 +239,6 @@ let make_variables (env_0: TEnv.t) (fs_0: FlatStore.t) (env_g: TEnv.t) (fs_g: Fl
 module Constraint =
 	struct
 		let eval s = false (* TODO *)
-
-		let string_of = Sfdomainhelper.json_of_constraint
 
 		(* mode: {1 => Eq, 2 => Ne, 3 => In, 4 => NotIn } *)
 		let rec constraints_of_nested r v vars env mode =
@@ -628,7 +626,7 @@ module Action =
 		type t = reference * basic MapStr.t * cost * basic MapRef.t * basic MapRef.t;;
 
 		let json_of_parameters (ps: basic MapStr.t) : string =
-			let s = MapStr.fold (fun id v s -> ",\"" ^ id ^ "\":" ^ (Sfdomainhelper.json_of_basic v) ^ s) ps "" in
+			let s = MapStr.fold (fun id v s -> ",\"" ^ id ^ "\":" ^ (json_of_value (Basic v)) ^ s) ps "" in
 			if s = "" then "" else (String.sub s 1 ((String.length s) - 1));;
 
 		let json_of_preconditions (pre: basic MapRef.t) : string =
@@ -637,7 +635,7 @@ module Action =
 				Buffer.add_string buf ",\"";
 				Buffer.add_string buf !^r;
 				Buffer.add_string buf "\":";
-				Buffer.add_string buf (Sfdomainhelper.json_of_basic v)
+				Buffer.add_string buf (json_of_value (Basic v))
 			) pre;
 			let s = Buffer.contents buf in
 			if s = "" then "{}" else "{" ^ (String.sub s 1 ((String.length s) -1)) ^ "}";;
@@ -819,7 +817,7 @@ module Action =
 
 		(* ground a set of actions - returns a list of grounded actions *)
 		let ground_actions env vars typetable global (g_implies : _constraint list) : t list =
-			print_endline (Constraint.string_of (And g_implies));
+			print_endline (json_of_constraint (And g_implies));
 			let add_dummy = not (global = True) in
 			let actions : t list = create_global_actions global [] in
 			Values.fold (
@@ -857,7 +855,7 @@ module FDR = struct
 			Buffer.add_string buf (string_of_int (Variable.size var));
 			Buffer.add_char buf '\n';
 			Variable.iteri_values (fun i v ->
-				Buffer.add_string buf (Sfdomainhelper.json_of_value v);
+				Buffer.add_string buf (json_of_value v);
 				Buffer.add_char buf '\n';
 			) var;
 			Buffer.add_string buf "end_variable"
