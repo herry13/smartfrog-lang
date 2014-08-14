@@ -64,8 +64,10 @@ and _constraint = Eq of reference * basicValue
 and action     = parameters * cost * conditions * effects
 and parameters = parameter list
 and parameter  = string * _type
-and cost       = Cost of string | EmptyCost
-and conditions = Cond of _constraint | EmptyCondition
+and cost       = Cost of string
+               | EmptyCost
+and conditions = Cond of _constraint
+               | EmptyCondition
 and effects    = effect list
 and effect     = reference * basicValue
 

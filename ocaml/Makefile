@@ -48,7 +48,7 @@ NATIVELIB= \
 # default
 build: csf
 
-csf: csf.ml variable sfhelper.cmo sfvaluation.cmo sftype.cmo sastranslator.cmo
+csf: csf.ml variable sfhelper sfvaluation sftype sastranslator
 	$(COMPILER) -c csf.ml
 ifeq ($(NATIVE),1)
 	$(COMPILER) -o $(NAME) $(NATIVELIB)
@@ -56,33 +56,35 @@ else
 	$(COMPILER) -o $(NAME) $(BYTECODELIB)
 endif
 
-sfsyntax: sfsyntax.ml
+sfsyntax: sfsyntax.mli sfsyntax.ml
+	$(COMPILER) -c sfsyntax.mli
 	$(COMPILER) -c sfsyntax.ml
 
-sfparser.cmo: sfparser.mly sfsyntax
+sfparser: sfparser.mly sfsyntax
 	ocamlyacc sfparser.mly
 	$(COMPILER) -c sfparser.mli
 	$(COMPILER) -c sfparser.ml
 
-sflexer.cmo: sflexer.mll sfparser.cmo
+sflexer: sflexer.mll sfparser
 	ocamllex sflexer.mll
 	$(COMPILER) -c sflexer.ml
 
-sfhelper.cmo: sfhelper.ml sfparser.cmo sflexer.cmo
+sfhelper: sfhelper.ml sfparser sflexer
 	$(COMPILER) -c sfhelper.ml
 
 sfdomain: sfsyntax sfdomain.mli sfdomain.ml
 	$(COMPILER) -c sfdomain.mli
 	$(COMPILER) -c sfdomain.ml
 
-sfvaluation.cmo: sfvaluation.ml sfdomain
+sfvaluation: sfvaluation.mli sfvaluation.ml sfdomain
+	$(COMPILER) -c sfvaluation.mli
 	$(COMPILER) -c sfvaluation.ml
 
-sftype.cmo: sftype.ml
+sftype: sftype.ml
 	$(COMPILER) -c sftype.mli
 	$(COMPILER) -c sftype.ml
 
-sastranslator.cmo: sastranslator.ml sfdomain sftype.cmo
+sastranslator: sastranslator.ml sfdomain sftype
 	$(COMPILER) -c sastranslator.ml
 
 common: common.mli common.ml
