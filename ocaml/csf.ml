@@ -23,7 +23,7 @@ let ast_of_file file =
 
 
 let fd_plan init goal =
-	let fd_preprocessor = "FD_PREPROCESSOR" in
+	let fd_preprocessor = "FD_PREPROCESS" in
 	let fd_search       = "FD_SEARCH" in
 	let fd_option       = "FD_OPTIONS" in
 	let sas_file        = "output.sas" in
@@ -76,7 +76,7 @@ let fd_plan init goal =
 					plan
 				with e -> plan
 	with
-		e -> prerr_string "Error: cannot find FD_PREPROCESSOR or FD_SEARCH\n\n"; exit 1
+		e -> prerr_string "Error: environment variable FD_PREPROCESS or FD_SEARCH is not defined.\n\n"; exit 1
 
 
 let usage_msg = "usage: csfp [options]\n\nwhere [options] are:";;
@@ -124,7 +124,7 @@ let main =
 			 "\n         -init <file1.sfp> -goal <file2.sfp> must be provided.");
 			("-fd",   Arg.Unit do_fd,               "   Solve the SFP task using FastDownward search engine;" ^
 			 "\n         -init <file1.sfp> -goal <file2.sfp> must be provided;" ^
-			 "\n         environment variable FD_PREPROCESSOR & FD_SEARCH must be set;" ^
+			 "\n         environment variable FD_PREPROCESS & FD_SEARCH must be set;" ^
 			 "\n         define FD_OPTIONS to pass options to the search engine;" ^
 			 "\n         define FD_DEBUG to keep all output files.")
 		]
