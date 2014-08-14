@@ -25,6 +25,7 @@ BYTECODELIB= \
 	sfhelper.cmo \
 	sfdomain.cmo \
 	sfdomainhelper.cmo \
+	variable.cmo \
 	sfvaluation.cmo \
 	sftype.cmo \
 	sastranslator.cmo \
@@ -40,6 +41,7 @@ NATIVELIB= \
 	sfhelper.cmx \
 	sfdomain.cmx \
 	sfdomainhelper.cmx \
+	variable.cmx \
 	sfvaluation.cmx \
 	sftype.cmx \
 	sastranslator.cmx \
@@ -48,7 +50,7 @@ NATIVELIB= \
 # default
 build: csf
 
-csf: csf.ml common sfhelper.cmo sfvaluation.cmo sftype.cmo sastranslator.cmo
+csf: csf.ml variable sfhelper.cmo sfvaluation.cmo sftype.cmo sastranslator.cmo
 	$(COMPILER) -c csf.ml
 ifeq ($(NATIVE),1)
 	$(COMPILER) -o $(NAME) $(NATIVELIB)
@@ -89,6 +91,10 @@ sastranslator.cmo: sastranslator.ml sfdomain sftype.cmo
 common: common.mli common.ml
 	$(COMPILER) -c common.mli
 	$(COMPILER) -c common.ml
+
+variable: common sfdomain variable.mli variable.ml
+	$(COMPILER) -c variable.mli
+	$(COMPILER) -c variable.ml
 
 clean:
 	@rm -f *.s *.cmo sfparser.mli sflexer.mli *.cmi *.o *.cmx sfparser.ml sflexer.ml sfparser.output ocamlprof.dump

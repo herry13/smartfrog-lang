@@ -1,0 +1,58 @@
+open Common
+open Sfdomain
+
+(** variable := name * index * values * init * goal **)
+type t = { name: reference; index: int; values: value array; init: value; goal: value }
+
+type ts = { map: t MapRef.t; arr: t array }
+
+val make : reference -> int -> value array -> value -> value -> t
+
+val make_ts : t MapRef.t -> t array -> ts
+
+val mem : reference -> ts -> bool
+
+val find : reference -> ts -> t
+
+val values_of : reference -> ts -> value array
+
+val total : ts -> int
+
+val iter : (t -> unit) -> ts -> unit
+
+val iteri_values : (int -> value -> unit) -> t -> unit
+
+val sort : ts -> unit
+
+val intersection_with_values : reference -> vector -> ts -> ts
+
+val intersection_with_value : reference -> value -> ts -> ts
+
+val remove_value_from : reference -> value -> ts -> ts
+
+val remove_values_from : reference -> vector -> ts -> ts
+
+val string_of_values : value array -> string
+
+val string_of_variable : t -> string
+
+val string_of_variables : ts -> string
+
+val r_dummy : reference
+
+val dummy : t
+
+val index : t -> int
+
+val name : t -> reference
+
+val init : t -> value
+
+val goal : t -> value
+
+val size : t -> int
+
+val values : t -> value array
+
+val index_of_value : value -> t -> int 
+

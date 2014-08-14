@@ -18,13 +18,15 @@ open Sfdomain
 
 module TEnv =
 	struct
+		type t = Sfsyntax._type MapRef.t
+
 		let empty = MapRef.empty;;
 		let mem = MapRef.mem;;
 		let add = MapRef.add;;
 		let find = MapRef.find;;
 		let fold = MapRef.fold;;
 
-		let make e = List.fold_left (fun acc (r, t) -> add r t acc) empty e
+		let make e : t = List.fold_left (fun acc (r, t) -> add r t acc) empty e
 
 		let type_of e r = if mem r e then find r e else Sfsyntax.TUndefined
 
@@ -32,6 +34,8 @@ module TEnv =
 
 module FlatStore =
 	struct
+		type t = value MapRef.t
+
 		let empty = MapRef.empty;;
 		let mem = MapRef.mem;;
 		let add = MapRef.add;;
@@ -46,7 +50,7 @@ module FlatStore =
 		 * @param s store to be flatten
 		 * @return a flat_store
 		 *)
-		let normalise s =
+		let normalise (s: store) : t =
 			let rec visit s ns fs =
 				match s with
 				| []              -> fs
@@ -190,126 +194,43 @@ module TypeTable =
 	end
 
 (*******************************************************************
- * FDR variables
+ * variables
  *******************************************************************)
 
-type variable = { name: reference; index: int; values: value array; init: value; goal: value }
-type variables = { map: variable MapRef.t; arr: variable array }
-
-module Variable =
-	struct
-		(* variable := name * index * values * init * goal *)
-		type t = variable
-
-		let mem r (vars: variables) = MapRef.mem r vars.map
-
-		let find r (vars: variables) = MapRef.find r vars.map
-
-		let values_of r (vars: variables) = if MapRef.mem r vars.map then (MapRef.find r vars.map).values else [| |]
-
-		let intersection_values_of r vec (vars: variables) =
-			let var = find r vars in
-			let temp = Array.fold_left (fun acc v1 ->
-					match v1 with
-					| Basic v2 -> if List.mem v2 vec then v1 :: acc else acc
-					| _        -> v1 :: acc
-				) [] var.values
-			in
-			let var1 = { name = var.name; index = var.index; values = Array.of_list temp; init = var.init; goal = var.goal } in
-			vars.arr.(var1.index) <- var1;
-			{ map = MapRef.add r var1 vars.map; arr = vars.arr }
-
-		let intersection_value_of r v (vars: variables) =
-			let var = find r vars in
-			let l = Array.length var.values in
-			let rec exists i =
-				if i >= l then false
-				else if var.values.(i) = v then true
-				else exists (i+1)
-			in
-			let temp = if exists 0 then [| v |] else [| |] in
-			let var1 = { name = var.name; index = var.index; values = temp; init = var.init; goal = var.goal } in
-			vars.arr.(var1.index) <- var1;
-			{ map = MapRef.add r var1 vars.map; arr = vars.arr }
-
-		let remove_value_from r v (vars: variables) =
-			let var = find r vars in
-			let temp = Array.fold_left (fun acc v1 -> if v1 = v then acc else v1 :: acc) [] var.values in
-			let var1 = { name = var.name; index = var.index; values = Array.of_list temp; init = var.init; goal = var.goal } in
-			vars.arr.(var1.index) <- var1;
-			{ map = MapRef.add r var1 vars.map; arr = vars.arr }
-
-		let remove_values_from (r: reference) (vec: vector) (vars: variables) =
-			let var = find r vars in
-			let temp = Array.fold_left (fun acc v1 ->
-					match v1 with
-					| Basic v2 -> if List.mem v2 vec then acc else v1 :: acc
-					| _        -> v1 :: acc
-				) [] var.values
-			in
-			let var1 = { name = var.name; index = var.index; values = Array.of_list temp; init = var.init; goal = var.goal } in
-			vars.arr.(var1.index) <- var1;
-			{ map = MapRef.add r var1 vars.map; arr = vars.arr }
-
-		let string_of_values =
-			Array.fold_left (fun acc v -> acc ^ (Sfdomainhelper.json_of_value v) ^ ";") ""
-
-		let string_of_variable var =
-			!^(var.name) ^ "|" ^ string_of_int(var.index) ^ "|" ^ (string_of_values var.values) ^ "|" ^
-			(Sfdomainhelper.json_of_value var.init) ^ "|" ^ (Sfdomainhelper.json_of_value var.goal)
-
-		let string_of_variables vars =
-			Array.fold_left (fun acc var -> (string_of_variable var) ^ "\n" ^ acc) "" vars.arr
-
-		let r_dummy = ["!global"];;
-		let dummy = { name = r_dummy; index = 0; values = [| Basic (Boolean true); Basic (Boolean false) |];
-			init = Basic (Boolean false); goal = Basic (Boolean true) };;
-
-		let make env_0 fs_0 env_g fs_g typetable : variables =
-			let type_of_var r =
-				match (TEnv.type_of env_0 r), (TEnv.type_of env_g r) with
-				| t1, t2 when t1 = t2 -> t1
-				| _, _                -> error 504  (* incompatible type between init & goal *)
-			in
-			let map0 = MapRef.add r_dummy dummy MapRef.empty in
-			let arr0 = [dummy] in
-			let (map1, total, arr1) = FlatStore.fold (
-					fun r v (map, i, arr) ->
-						if MapRef.mem r map then error 505;
-						match type_of_var r with
-						| Sfsyntax.TBasic Sfsyntax.TAction
-						| Sfsyntax.TBasic Sfsyntax.TGlobal -> (map, i, arr)
-						| Sfsyntax.TBasic Sfsyntax.TObject
-						| Sfsyntax.TBasic Sfsyntax.TSchema (_, _) ->
-							let v = FlatStore.static_object in
-							let var = { name = r; index = i; values = [|v|]; init = v; goal = v } in
-							let map1 = MapRef.add r var map in
-							let arr1 = var :: arr in
-							(map1, i+1, arr1)
-						| t ->
-							let values = Array.of_list (Values.elements (TypeTable.values_of t typetable)) in
-							let init = FlatStore.find r fs_0 in
-							let goal = FlatStore.find r fs_g in
-							let var = { name = r; index = i; values = values; init = init; goal = goal } in
-							let map1 = MapRef.add r var map in
-							let arr1 = var :: arr in
-							(map1, i+1, arr1)
-				) fs_0 (map0, 1, arr0)
-			in
-			let arr2 = Array.of_list arr1 in
-			Array.fast_sort (fun v1 v2 -> v1.index - v2.index) arr2;
-			{ map = map1; arr = arr2 }
-
-		let index_of v (var: t) : int =
-			let l = Array.length var.values in
-			let rec iter i =
-				if i >= l then -1
-				else if var.values.(i) = v then i
-				else iter (i+1)
-			in
-			iter 0
-
-	end
+let make_variables (env_0: TEnv.t) (fs_0: FlatStore.t) (env_g: TEnv.t) (fs_g: FlatStore.t) typetable : Variable.ts =
+	let type_of_var r =
+		match (TEnv.type_of env_0 r), (TEnv.type_of env_g r) with
+		| t1, t2 when t1 = t2 -> t1
+		| _, _                -> error 504  (* incompatible type between init & goal *)
+	in
+	let map0 = MapRef.add Variable.r_dummy Variable.dummy MapRef.empty in
+	let arr0 = [Variable.dummy] in
+	let (map1, total, arr1) = FlatStore.fold (
+			fun r v (map, i, arr) ->
+				if MapRef.mem r map then error 505;
+				match type_of_var r with
+				| Sfsyntax.TBasic Sfsyntax.TAction
+				| Sfsyntax.TBasic Sfsyntax.TGlobal -> (map, i, arr)
+				| Sfsyntax.TBasic Sfsyntax.TObject
+				| Sfsyntax.TBasic Sfsyntax.TSchema (_, _) ->
+					let v = FlatStore.static_object in
+					let var = Variable.make r i [|v|] v v in
+					let map1 = MapRef.add r var map in
+					let arr1 = var :: arr in
+					(map1, i+1, arr1)
+				| t ->
+					let values = Array.of_list (Values.elements (TypeTable.values_of t typetable)) in
+					let init = FlatStore.find r fs_0 in
+					let goal = FlatStore.find r fs_g in
+					let var = Variable.make r i values init goal in
+					let map1 = MapRef.add r var map in
+					let arr1 = var :: arr in
+					(map1, i+1, arr1)
+		) fs_0 (map0, 1, arr0)
+	in
+	let vars = Variable.make_ts map1 (Array.of_list arr1) in
+	Variable.sort vars;
+	vars
 
 (*******************************************************************
  * constraints
@@ -422,7 +343,7 @@ module Constraint =
 			dnf_of (Or (iter ors))
 
 		(** convert a constraint to DNF **)
-		and dnf_of c (vars: variables) env =
+		and dnf_of c (vars: Variable.ts) env =
 			match c with
 			| Eq (r, v)    -> dnf_of_equal r v vars env
 			| Ne (r, v)    -> dnf_of_not_equal r v vars env
@@ -596,7 +517,7 @@ module Constraint =
 		(************************************************************************
 		 * functions to compile simple membership and equality
 		 ************************************************************************)
-		type constraints_variables = { cons: _constraint list; implies: _constraint list; vars: variables }
+		type constraints_variables = { cons: _constraint list; implies: _constraint list; vars: Variable.ts }
 
 		let compile_simple_global_membership negation r (vec: vector) cons_vars env =
 			let rec prevail_of rx =
@@ -609,7 +530,7 @@ module Constraint =
 				{	cons    = cons_vars.cons;
 					implies = cons_vars.implies;
 					vars    = if negation then Variable.remove_values_from r vec cons_vars.vars
-					          else Variable.intersection_values_of r vec cons_vars.vars
+					          else Variable.intersection_with_values r vec cons_vars.vars
 				}
 			else
 				let vars1 = Variable.remove_value_from prevail (Basic Null) cons_vars.vars in
@@ -642,7 +563,7 @@ module Constraint =
 				{	cons    = cons_vars.cons;
 					implies = cons_vars.implies;
 					vars    = if negation then Variable.remove_value_from r (Basic v) cons_vars.vars
-					          else Variable.intersection_value_of r (Basic v) cons_vars.vars
+					          else Variable.intersection_with_value r (Basic v) cons_vars.vars
 				}
 			else 
 				let vars1 = Variable.remove_value_from prevail (Basic Null) cons_vars.vars in
@@ -685,7 +606,7 @@ module Constraint =
 		 * Find the global constraints element in a flat-store. If exist, then convert
 		 * and return a DNF of the global constraints
 		 *)
-		let global env fs (vars: variables) =
+		let global (env: Sfsyntax._type MapRef.t) (fs: value MapRef.t) (vars: Variable.ts) =
 			let r = ["global"] in
 			if FlatStore.mem r fs then
 				match FlatStore.find r fs with
@@ -924,55 +845,54 @@ module FDR = struct
 		Buffer.add_string buf metric;
 		Buffer.add_string buf "\nend_metric";;
 
-	let of_variables (buf: Buffer.t) (vars: variables) : unit =
+	let of_variables (buf: Buffer.t) (vars: Variable.ts) : unit =
 		Buffer.add_char buf '\n';
-		Buffer.add_string buf (string_of_int (Array.length vars.arr));
-		Array.iter (fun var ->
+		Buffer.add_string buf (string_of_int (Variable.total vars));
+		Variable.iter (fun var ->
 			Buffer.add_string buf "\nbegin_variable\nvar";
-			Buffer.add_string buf (string_of_int var.index);
+			Buffer.add_string buf (string_of_int (Variable.index var));
 			Buffer.add_char buf '_';
-			Buffer.add_string buf !^(var.name);
+			Buffer.add_string buf !^(Variable.name var);
 			Buffer.add_string buf "\n-1\n";
-			Buffer.add_string buf (string_of_int (Array.length var.values));
+			Buffer.add_string buf (string_of_int (Variable.size var));
 			Buffer.add_char buf '\n';
-			Array.iteri (fun i v ->
+			Variable.iteri_values (fun i v ->
 				Buffer.add_string buf (Sfdomainhelper.json_of_value v);
-				(* Buffer.add_string buf (string_of_int i); *)
 				Buffer.add_char buf '\n';
-			) var.values;
+			) var;
 			Buffer.add_string buf "end_variable"
-		) vars.arr;;
+		) vars;;
 
-	let of_init (buf: Buffer.t) (vars: variables) : unit =
+	let of_init (buf: Buffer.t) (vars: Variable.ts) : unit =
 		Buffer.add_string buf "\nbegin_state";
-		Array.iter (fun var ->
-			let i = Variable.index_of var.init var in
+		Variable.iter (fun var ->
+			let i = Variable.index_of_value (Variable.init var) var in
 			if i < 0 then error 601; (* initial state is not satisfying the global constraint *)
 			Buffer.add_char buf '\n';
 			Buffer.add_string buf (string_of_int i)
-		) vars.arr;
+		) vars;
 		Buffer.add_string buf "\nend_state";;
 
-	let of_goal (buf: Buffer.t) (vars: variables) use_dummy : unit =
+	let of_goal (buf: Buffer.t) (vars: Variable.ts) use_dummy : unit =
 		let tmp = Buffer.create 50 in
 		let counter = ref 0 in
-		Array.iter (fun var ->
+		Variable.iter (fun var ->
 			(**
 			 * set the variable's goal, when:
 			 * - it has more than one value
 			 * - if it is a dummy variable, then the global constraint must be exist
 			 *)
-			let i = Variable.index_of var.goal var in
+			let i = Variable.index_of_value (Variable.goal var) var in
 			if i < 0 then error 602; (* goal state is not satisfying the global constraint *)
-			if (Array.length var.values) > 1 && (var.index > 0 || use_dummy) then
+			if (Variable.size var) > 1 && ((Variable.index var) > 0 || use_dummy) then
 			(
 				Buffer.add_char tmp '\n';
-				Buffer.add_string tmp (string_of_int var.index);
+				Buffer.add_string tmp (string_of_int (Variable.index var));
 				Buffer.add_char tmp ' ';
 				Buffer.add_string tmp (string_of_int i);
 				counter := !counter + 1;
 			)
-		) vars.arr;
+		) vars;
 		Buffer.add_string buf "\nbegin_goal";
 		Buffer.add_char buf '\n';
 		Buffer.add_string buf (string_of_int !counter);
@@ -989,7 +909,7 @@ module FDR = struct
 	 * Generate the FDR of a given action. If there is an assignment whose value is not
 	 * in the variable's domain, then the action is treated as "invalid".
 	 *)
-	let of_action (buffer: Buffer.t) ((name, params, cost, pre, eff): Action.t) (vars: variables) counter : unit =
+	let of_action (buffer: Buffer.t) ((name, params, cost, pre, eff): Action.t) (vars: Variable.ts) counter : unit =
 		let valid_operator = ref true in
 		let buf = Buffer.create 50 in
 		Buffer.add_string buf "\nbegin_operator\nop_";
@@ -1007,9 +927,9 @@ module FDR = struct
 			if not (MapRef.mem r eff) then
 			(
 				let var = Variable.find r vars in
-				Buffer.add_string prevail (string_of_int var.index);
+				Buffer.add_string prevail (string_of_int (Variable.index var));
 				Buffer.add_char prevail ' ';
-				let i = Variable.index_of (Basic v) var in
+				let i = Variable.index_of_value (Basic v) var in
 				if i < 0 then valid_operator := false;
 				Buffer.add_string prevail (string_of_int i);
 				Buffer.add_char prevail '\n';
@@ -1025,17 +945,17 @@ module FDR = struct
 		MapRef.iter (fun r v ->
 			let var = Variable.find r vars in
 			Buffer.add_string buf "0 ";
-			Buffer.add_string buf (string_of_int var.index);
+			Buffer.add_string buf (string_of_int (Variable.index var));
 			Buffer.add_char buf ' ';
 			if MapRef.mem r pre then
 				let pre_v = MapRef.find r pre in
-				let i = Variable.index_of (Basic pre_v) var in
+				let i = Variable.index_of_value (Basic pre_v) var in
 				if i < 0 then valid_operator := false;
 				Buffer.add_string buf (string_of_int i);
 			else
 				Buffer.add_string buf "-1";
 			Buffer.add_char buf ' ';
-			let j = Variable.index_of (Basic v) var in
+			let j = Variable.index_of_value (Basic v) var in
 			if j < 0 then valid_operator := false;
 			Buffer.add_string buf (string_of_int j);
 			Buffer.add_char buf '\n';
@@ -1051,7 +971,7 @@ module FDR = struct
 		else prerr_endline ("Warning: operator " ^ !^name ^ " is invalid")
 
 	(* generate FDR of a set of actions *)
-	let of_actions (buf: Buffer.t) (actions: Action.t list) (vars: variables) : unit =
+	let of_actions (buf: Buffer.t) (actions: Action.t list) (vars: Variable.ts) : unit =
 		let counter = ref 0 in
 		let buf_actions = Buffer.create 50 in
 		List.iter (fun a -> of_action buf_actions a vars counter) actions;
@@ -1063,8 +983,8 @@ module FDR = struct
 	let of_axioms (buf: Buffer.t) : unit =
 		Buffer.add_string buf "\n0";;
 
-	let of_sfp (vars: variables) (actions: Action.t list) (global: _constraint) (g_implies: _constraint list) : string =
-		let buffer = Buffer.create (100 + (40 * (Array.length vars.arr) * 2)) in
+	let of_sfp (vars: Variable.ts) (actions: Action.t list) (global: _constraint) (g_implies: _constraint list) : string =
+		let buffer = Buffer.create (100 + (40 * (Variable.total vars) * 2)) in
 		of_header buffer;
 		of_variables buffer vars;
 		of_mutex buffer;
@@ -1079,15 +999,15 @@ end
 let normalise store_0 store_g = (FlatStore.make store_0, FlatStore.make store_g)
 
 (** step 2: translate **)
-let translate env_0 fs_0 env_g fs_g typetable : string =
-	let vars = Variable.make env_0 fs_0 env_g fs_g typetable in
+let translate (env_0: TEnv.t) (fs_0: FlatStore.t) (env_g: TEnv.t) (fs_g: FlatStore.t) typetable : string =
+	let vars = make_variables env_0 fs_0 env_g fs_g typetable in
 	let (global, g_implies, vars1) = Constraint.global env_g fs_g vars in
 	let actions = Action.ground_actions env_g vars1 typetable global g_implies in
 	FDR.of_sfp vars1 actions global g_implies
 
-let compile ast = (TEnv.make (Sftype.sfpSpecification ast), Sfvaluation.sfpSpecification ast)
+let compile (ast: Sfsyntax.sfp) : TEnv.t * store = (TEnv.make (Sftype.sfpSpecification ast), Sfvaluation.sfpSpecification ast)
 
-let fdr ast_0 ast_g =
+let fdr (ast_0: Sfsyntax.sfp) (ast_g: Sfsyntax.sfp) : string =
 	let (env_0, store_0) = compile ast_0 in
 	let (env_g, store_g) = compile ast_g in
 	let (fs_0, fs_g) = normalise store_0 store_g in
