@@ -71,10 +71,24 @@ let of_goal (buf: Buffer.t) (vars: Variable.ts) use_dummy : unit =
 	Buffer.add_string buf "\nend_goal";;
 
 (**
- * Generate the FDR mutex - TODO
+ * Generate the FDR mutex
  *)
-let of_mutex (buf: Buffer.t) : unit =
-	Buffer.add_string buf "\n0";;
+let of_mutex (buf: Buffer.t) (vars: Variable.ts) : unit =
+	Buffer.add_char buf '\n';
+	Buffer.add_string buf (string_of_int (Variable.total vars));
+	Variable.iter (fun var ->
+		Buffer.add_string buf "\nbegin_mutex_group\n";
+		let index = string_of_int (Variable.index var) in
+		Buffer.add_string buf (string_of_int (Variable.size var));
+		Buffer.add_char buf '\n';
+		Variable.iteri_values (fun i _ ->
+			Buffer.add_string buf index;
+			Buffer.add_char buf ' ';
+			Buffer.add_string buf (string_of_int i);
+			Buffer.add_char buf '\n';
+		) var;
+		Buffer.add_string buf "end_mutex_group";
+	) vars;;
 
 (**
  * Generate the FDR of a given action. If there is an assignment whose value is not
@@ -174,7 +188,7 @@ let of_sfp (ast_0: Sfsyntax.sfp) (ast_g: Sfsyntax.sfp) : string =
 	let buffer = Buffer.create (100 + (40 * (Variable.total vars) * 2)) in
 	of_header buffer;
 	of_variables buffer vars1;
-	of_mutex buffer;
+	of_mutex buffer vars1;
 	of_init buffer vars1;
 	of_goal buffer vars1 (not (global = True));
 	of_actions buffer actions vars1;
