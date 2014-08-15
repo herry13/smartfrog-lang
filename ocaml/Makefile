@@ -26,8 +26,10 @@ BYTECODELIB= \
 	sfdomain.cmo \
 	sftype.cmo \
 	variable.cmo \
+	constraint.cmo \
+	action.cmo \
 	sfvaluation.cmo \
-	sastranslator.cmo \
+	fdr.cmo \
 	csf.cmo
 
 # native code libraries
@@ -41,14 +43,16 @@ NATIVELIB= \
 	sfdomain.cmx \
 	sftype.cmx \
 	variable.cmx \
+	constraint.cmx \
+	action.cmx \
 	sfvaluation.cmx \
-	sastranslator.cmx \
+	fdr.cmx \
 	csf.cmx
 
 # default
 build: csf
 
-csf: csf.ml variable sfhelper sfvaluation sftype sastranslator
+csf: csf.ml action sfhelper sfvaluation sftype fdr
 	$(COMPILER) -c csf.ml
 ifeq ($(NATIVE),1)
 	$(COMPILER) -o $(NAME) $(NATIVELIB)
@@ -84,16 +88,25 @@ sftype: sftype.ml
 	$(COMPILER) -c sftype.mli
 	$(COMPILER) -c sftype.ml
 
-sastranslator: sastranslator.ml sfdomain sftype
-	$(COMPILER) -c sastranslator.ml
-
 common: common.mli common.ml
 	$(COMPILER) -c common.mli
 	$(COMPILER) -c common.ml
 
-variable: common sfdomain sftype variable.mli variable.ml
+variable: variable.mli variable.ml common sfdomain sftype
 	$(COMPILER) -c variable.mli
 	$(COMPILER) -c variable.ml
+
+constraint: variable common sfdomain sftype constraint.mli constraint.ml
+	$(COMPILER) -c constraint.mli
+	$(COMPILER) -c constraint.ml
+
+action: common sfdomain sftype variable constraint action.mli action.ml
+	$(COMPILER) -c action.mli
+	$(COMPILER) -c action.ml
+
+fdr: common sfdomain sftype variable constraint action fdr.mli fdr.ml
+	$(COMPILER) -c fdr.mli
+	$(COMPILER) -c fdr.ml
 
 clean:
 	@rm -f *.s *.cmo sfparser.mli sflexer.mli *.cmi *.o *.cmx sfparser.ml sflexer.ml sfparser.output ocamlprof.dump

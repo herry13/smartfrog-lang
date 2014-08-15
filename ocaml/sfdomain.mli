@@ -36,14 +36,12 @@ and _constraint = Eq of reference * basic
                 | True
                 | False
 
-(** action elements **)
-and action     = reference * parameters * cost * conditions * effects
-and parameters = param list
-and param      = ident * Sfsyntax._type
-and cost       = int
-and conditions = _constraint
-and effects    = effect list
-and effect     = reference * basic
+(** action elements : name * parameters * cost * preconditions * effects **)
+and action         = reference * parameter_type list * cost * conditions * effect list
+and parameter_type = ident * Sfsyntax._type
+and cost           = int
+and conditions     = _constraint
+and effect         = reference * basic
 
 (*******************************************************************
  * semantics algebras
@@ -127,3 +125,14 @@ val string_of_flatstore : flatstore -> string
 module SetValue : Set.S with type elt = value
 
 val string_of_setvalue : SetValue.t -> string
+
+
+(*******************************************************************
+ * parameters
+ *******************************************************************)
+
+type ground_parameters = basic MapStr.t
+
+val substitute_parameter_of_reference : reference -> ground_parameters -> reference
+
+val substitute_parameter_of_basic_value : basic -> ground_parameters -> basic

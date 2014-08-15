@@ -37,13 +37,11 @@ and _constraint = Eq of reference * basic
                 | False
 
 (** action elements **)
-and action     = reference * parameters * cost * conditions * effects
-and parameters = param list
-and param      = ident * Sfsyntax._type
-and cost       = int
-and conditions = _constraint
-and effects    = effect list
-and effect     = reference * basic
+and action         = reference * parameter_type list * int * conditions * effect list
+and parameter_type = ident * Sfsyntax._type
+and cost           = int
+and conditions     = _constraint
+and effect         = reference * basic
 
 (*******************************************************************
  * helpers
@@ -436,4 +434,40 @@ end )
 
 let string_of_setvalue (sv: SetValue.t) : string =
 	SetValue.fold (fun v s -> s ^ (json_of_value v) ^ ";") sv ""
+
+
+(*******************************************************************
+ * parameters
+ *******************************************************************)
+
+type ground_parameters = basic MapStr.t
+
+(**
+ * substitute each left-hand side reference with a reference as
+ * specified in the parameters table
+ *)
+let substitute_parameter_of_reference (r: reference) (params: ground_parameters) : reference =
+	match r with
+	| id :: tail ->
+		if MapStr.mem id params then
+			match MapStr.find id params with
+			| Ref r1 -> r1 @++ tail
+			| _      -> error 517 (* cannot replace left-hand side reference with a non-reference value *)
+		else r
+	| _ -> r
+
+(**
+ * substitute each right-hand side reference of basic value
+ * with a value as specified in the parameters table
+ *)
+let substitute_parameter_of_basic_value (bv: basic) (params: ground_parameters) : basic =
+	match bv with
+	| Ref (id :: tail) ->
+		if MapStr.mem id params then
+			match MapStr.find id params with
+			| Ref r1            -> Ref (r1 @++ tail)
+			| v1 when tail = [] -> v1
+			| _                 -> error 518
+		else bv
+	| _ -> bv
 

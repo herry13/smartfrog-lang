@@ -39,7 +39,7 @@ let fd_plan init goal =
 		if not (Sys.file_exists search) then (
 			prerr_string ("Error: " ^ search ^ " is not exist!\n\n"); exit 1;
 		);
-		let fdr = Sastranslator.fdr (ast_of_file init) (ast_of_file goal) in
+		let fdr = Fdr.of_sfp (ast_of_file init) (ast_of_file goal) in
 		(* save FDR to sas_file *)
 		let channel = open_out sas_file in
 		output_string channel fdr;
@@ -105,7 +105,7 @@ let main =
 	in
 	let do_fdr = fun () ->
 		verify_files();
-		print_endline (Sastranslator.fdr (ast_of_file !opt_init_file) (ast_of_file !opt_goal_file))
+		print_endline (Fdr.of_sfp (ast_of_file !opt_init_file) (ast_of_file !opt_goal_file))
 	in
 	let do_fd = fun mode ->
 		verify_files();
