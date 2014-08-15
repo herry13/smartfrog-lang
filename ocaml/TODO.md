@@ -1,10 +1,11 @@
 TODO
 ====
 
-all files:
+refactor:
 - save identifiers (strings) to string->integer map to save memory and
   optimise the comparison operations over references
-- create interface file (.mli) for each .ml
+- extract Constraint & Action from sastranslator.ml to constraint.ml and action.ml
+- rename sastranslator to fdr
 
 sastranslator.ml:
 - implement compilation for simple implications (simple conjunctions) [?]
