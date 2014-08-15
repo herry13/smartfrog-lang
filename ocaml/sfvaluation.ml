@@ -154,7 +154,11 @@ and sfpConstraint (c : _constraint) =
 (* action *)
 and sfpAction (params, _cost, conds, effs) =
 	let parameters =
-		List.fold_left (fun acc (id, t) -> (id, t) :: acc) [] params
+		List.fold_left (fun acc (id, t) ->
+			match t with
+			| TBasic TNum | TBasic TStr -> Sfdomain.error 101
+			| _ -> (id, t) :: acc
+		) [] params
 	in
 	let cost =
 		match _cost with
