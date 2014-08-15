@@ -108,7 +108,7 @@ and dnf_of c (vars: Variable.ts) env =
 	match c with
 	| Eq (r, v)      -> dnf_of_equal r v vars env
 	| Ne (r, v)      -> dnf_of_not_equal r v vars env
-	| Not _          -> dnf_of_negation c vars env
+	| Not c1         -> dnf_of_negation c1 vars env
 	| Imply (c1, c2) -> dnf_of_implication c1 c2 vars env
 	| In (r, vec)    -> dnf_of_membership r vec vars env
 	| And cs         -> dnf_of_conjunction cs vars env
@@ -144,7 +144,7 @@ and dnf_of_negation c vars env =
 	| False     -> True
 	| Eq (r, v) -> dnf_of (Ne (r, v)) vars env
 	| Ne (r, v) -> dnf_of (Eq (r, v)) vars env
-	| Not _     -> dnf_of c vars env
+	| Not c1    -> dnf_of c1 vars env
 	| Imply (premise, conclusion) ->
 		dnf_of (And [premise; (Not conclusion)]) vars env                (* -(p -> q) = p ^ -q *)
 	| And cs ->
@@ -227,6 +227,7 @@ and dnf_of_disjunction cs vars env =
 	if all_true then True
 	else if (List.tl cs1) = [] then List.hd cs1
 	else simplify_disjunction (Or cs1)
+	;;
 
 (* substitute each parameter with a value as specified in the parameters table *)
 let rec substitute_parameters_of (c: _constraint) params =
@@ -245,6 +246,7 @@ let rec substitute_parameters_of (c: _constraint) params =
 	| Or cs          -> Or (List.fold_left (fun css c -> (substitute_parameters_of c params) :: css) [] cs)
 	| In (r, v)      -> let r1 = substitute_parameter_of_reference r params in In (r1, v)
 	| _              -> c
+	;;
 
 
 (************************************************************************
@@ -350,8 +352,9 @@ let global_of (env: Sftype.env) (fs: Sfdomain.flatstore) (vars: Variable.ts) : (
 	if MapRef.mem r fs then
 		match MapRef.find r fs with
 		| Global g ->
-			let (global1, implies1, vars1) = compile_simple_global g vars env in
+			(* let (global1, implies1, vars1) = compile_simple_global g vars env in
 			let global_dnf = dnf_of global1 vars1 env in
-			(global_dnf, implies1, vars1)
+			(global_dnf, implies1, vars1) *)
+			(dnf_of g vars env, [], vars)
 		| _        -> error 519
 	else (True, [], vars)
