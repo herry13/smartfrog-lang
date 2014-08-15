@@ -5,39 +5,24 @@ open Sfsyntax
  * type environment
  *******************************************************************)
 
+type env = _type MapRef.t
+
 type _t = Type of _type
         | Undefined
 and var = string list * _type
-and env = var list
+and lenv = var list
 
 (*******************************************************************
  * helper functions
  *******************************************************************)
 
-exception TypeError of int * string
-
-let error code msg = raise (TypeError (code, "[type-err" ^ string_of_int(code) ^ "] " ^ msg))
-
-let (!^) r = String.concat "." r
-
-let string_of_env e =
-	let rec str_of_env e s =
-		match e with
-		| (r1, t1) :: tail ->
-			let buf = (!^r1) ^ " : " ^ (string_of_type t1) in
-			if tail = [] then s ^ buf
-			else str_of_env tail (s ^ buf ^ "\n")
-		| _ -> s
-	in
-	str_of_env e ""
-
-(** alias of functions from module Sfdomain **)
 let rec (@==) r1 r2 =
 	match r1, r2 with
 	| [], [] -> true
 	| id1 :: rs1, id2 :: rs2 when id1 = id2 -> rs1 @== rs2
 	| _ -> false
 
+(* alias of functions from module Sfdomain *)
 let (@++)  = Sfdomain.(@++);;
 let (@--)  = Sfdomain.(@--);;
 let prefix = Sfdomain.prefix;;
@@ -45,25 +30,39 @@ let (@<=)  = Sfdomain.(@<=);;
 let (@<)   = Sfdomain.(@<);;
 let (!!)   = Sfdomain.(!!);;
 let (@<<)  = Sfdomain.(@<<);;
+let (!^)   = Sfdomain.(!^);;
+
+exception TypeError of int * string
+
+let error (code: int) (msg: string) : 'a = raise (TypeError (code, "[type-err" ^ string_of_int(code) ^ "] " ^ msg))
+
+let string_of_env (e: env) =
+	MapRef.fold (fun r t s -> s ^ (!^r) ^ " : " ^ (string_of_type t) ^ "\n") e ""
+
+(** convert a type environment to a map **)
+let map_of (le: lenv) : env =
+	List.fold_left (fun acc (r, t) -> MapRef.add r t acc) MapRef.empty le
+
+let type_of (r: reference) (e: env) : _type = MapRef.find r e
 
 (*******************************************************************
  * typing judgement functions
  *******************************************************************)
 
 (** return the type of variable 'r' **)
-let rec type_of e r : _t =
+let rec find (e: lenv) (r: reference) : _t =
 	match e with
 	| []               -> Undefined
-	| (vr, vt) :: tail -> if r = vr then Type vt else type_of tail r
+	| (vr, vt) :: tail -> if r = vr then Type vt else find tail r
 
 (** return true if variable 'r' is in environment 'e', otherwise false *)
-let rec domain e r : bool =
+let rec domain (e: lenv) (r: reference) : bool =
 	match e with
 	| []               -> false
 	| (vr, vt) :: tail -> if r = vr then true else (domain tail r)
 
 (* return true if type 't1' is a sub-type of 't2', otherwise false *)
-let rec (<:) t1 t2 : bool =                                               (* Subtyping rules  *)
+let rec (<:) (t1: _type) (t2: _type) : bool =                             (* Subtyping rules  *)
 	if t1 = t2 then true                                                  (* (Reflex)         *)
 	else
 		match t1, t2 with
@@ -80,7 +79,7 @@ let rec (<:) t1 t2 : bool =                                               (* Sub
  *******************************************************************)
 
 (* return true if type 't' is available in environment 'e', otherwise false *)
-let rec has_type e t : bool =
+let rec has_type (e: lenv) (t: _type) : bool =
 	match t with
 	| TUndefined                -> false
 	| TForward (_, _)           -> true                    (* TODO (Type Forward) *)
@@ -101,7 +100,7 @@ let rec has_type e t : bool =
 		                                               else has_type tail t
 		| (_, _) :: tail                            -> has_type tail t
 
-let well_typed e : bool =
+let well_typed (e: lenv) : bool =
 	let rec iter e env: bool =
 		match e with
 		| []             -> true
@@ -111,9 +110,9 @@ let well_typed e : bool =
 	in
 	iter e e
 
-let is_schema t : bool = t <: (TBasic TRootSchema)
+let is_schema (t: _type) : bool = t <: (TBasic TRootSchema)
 
-let rec object_of_schema t : basicType =
+let rec object_of_schema (t: basicType) : basicType =
 	match t with
 	| TSchema (sid, TRootSchema) -> TSchema (sid, TObject)
 	| TSchema (sid, super) -> TSchema (sid, object_of_schema super)
@@ -124,10 +123,10 @@ let rec object_of_schema t : basicType =
  *******************************************************************)
 
 (* bind type 't' to variable 'r' into environment 'e' *)
-let bind e r t : env =
-	if (type_of e r) != Undefined then error 1 ("cannot bind type to an existing variable " ^ !^r)
+let bind (e: lenv) (r: reference) (t: _type) : lenv =
+	if (find e r) != Undefined then error 1 ("cannot bind type to an existing variable " ^ !^r)
 	else if (List.length r) > 1 then
-		match type_of e (prefix r) with
+		match find e (prefix r) with
 		| Undefined     -> error 2 ("prefix of " ^ !^r ^ " is not defined")
 		| Type t_prefix ->
 			if t_prefix <: TBasic TObject then (r, t) :: e
@@ -140,8 +139,8 @@ let bind e r t : env =
  * @param t       pre-defined type
  * @param t_value type of value which will be assigned
  *)
-let assign e r t t_value =
-	match (type_of e r), t, t_value with
+let assign (e: lenv) (r: reference) (t: _type) (t_value: _type) : lenv =
+	match (find e r), t, t_value with
 	| Undefined, TUndefined, _                             -> bind e r t_value                          (* (Assign1) *)
 	| Undefined, t, _ when t_value <: t                    -> bind e r t                                (* (Assign3) *)
 	| Undefined, t, TForward (r, islink)                   -> (r, t) :: (r, TForward (r, islink)) :: e  (* TODO (Assign5) *)
@@ -159,7 +158,7 @@ let assign e r t t_value =
  * the prefix of variables will be removed when 'cut' is true, otherwise
  * the variables will have original references
  *)
-let rec env_of_ref env ref cut =
+let rec env_of_ref (env: lenv) (ref: reference) (cut: bool) : lenv =
 	if ref = [] then env
 	else if env = [] then []
 	else
@@ -178,15 +177,15 @@ let rec env_of_ref env ref cut =
  * @param ns namespace where the reference will be resolved
  * @param r  reference to be resolved
  *)
-let rec resolve e ns r =
+let rec resolve (e: lenv) (ns: reference) (r: reference) : (reference * _t) =
 	match ns, r with
-	| _, "ROOT"   :: rs -> ([], type_of e !!rs)
+	| _, "ROOT"   :: rs -> ([], find e !!rs)
 	| _, "PARENT" :: rs -> if ns = [] then error 4 "PARENT of root namespace is impossible"
-	                       else (prefix ns, type_of e !!((prefix ns) @++ rs))
-	| _, "THIS"   :: rs -> (ns, type_of e !!(ns @++ rs))
-	| [], _             -> ([], type_of e r)
+	                       else (prefix ns, find e !!((prefix ns) @++ rs))
+	| _, "THIS"   :: rs -> (ns, find e !!(ns @++ rs))
+	| [], _             -> ([], find e r)
 	| _, _              ->
-		match type_of e (ns @<< r) with
+		match find e (ns @<< r) with
 		| Undefined -> resolve e (prefix ns) r
 		| t         -> (ns, t)
 
@@ -196,7 +195,7 @@ let rec resolve e ns r =
  * @param proto prototype reference whose attributes to be copied
  * @param dest  reference of destination
  *)
-let copy e proto dest =
+let copy (e: lenv) (proto: reference) (dest: reference) : lenv =
 	let e_proto = env_of_ref e proto true in
 	List.fold_left (fun ep (rep, tep) -> (dest @++ rep, tep) :: ep) e e_proto
 
@@ -207,7 +206,7 @@ let copy e proto dest =
  * @param proto reference of prototype
  * @param r     target variable
  *)
-let inherit_env e ns proto r =
+let inherit_env (e: lenv) (ns: reference) (proto: reference) (r: reference) : lenv =
 	let get_proto =
 		match resolve e ns proto with
 		| _, Undefined                    -> error 5 ("prototype is not found: " ^ !^proto)
@@ -222,7 +221,7 @@ let inherit_env e ns proto r =
  *******************************************************************)
 
 (* TODO resolve forward type assignment for lazy & data reference *)
-let rec resolve_tforward e ns r acc =
+let rec resolve_tforward (e: lenv) (ns: reference) (r: reference) (acc: SetRef.t) : (reference * _type) =
 	let follow_tforward nsp tr =
 		let rp = nsp @++ r in
 		if rp @<= tr then error 10 ("implicit cyclic reference " ^ !^tr)
@@ -236,7 +235,7 @@ let rec resolve_tforward e ns r acc =
 		| nsp, Type t                     -> (nsp @++ r, t)
 
 (* TODO replace all TForward elements in environment 'e' *)
-let replace_tforward_in_env e =
+let replace_tforward_in_env (e: lenv) : lenv =
 	let main = ["main"] in
 	let replace_tforward e1 r t tr islink =
 		let (proto, t_val) =
@@ -264,12 +263,12 @@ let replace_tforward_in_env e =
 	iter e e
 
 (* perform second valuation of environment 'e' *)
-let second_pass_eval e =
+let second_pass_eval (e: lenv) : lenv =
 	let e1 = replace_tforward_in_env e in
 	if well_typed e1 then e1
 	else error 201 "not well-typed"
 
-let get_main e =
+let get_main (e: lenv) : lenv =
 	let main = ["main"] in
 	let rec iter e buf =
 		match e with
@@ -296,7 +295,7 @@ let sfNull = TBasic TNull       (* (Null) *)
 
 let sfReference r = r
 
-let sfDataReference dr =  (* (Deref Data) *)
+let sfDataReference dr : lenv -> reference -> _type =  (* (Deref Data) *)
 	(**
 	 * @param ns namespace
 	 * @param e  type environment
@@ -311,7 +310,7 @@ let sfDataReference dr =  (* (Deref Data) *)
 		| _, Type TUndefined -> error 102 ("dereference of " ^ !^r ^ " is TUndefined")
 		| _, Undefined       -> TForward (r, false)
 
-let sfLinkReference lr =  (* (Deref Link) *)
+let sfLinkReference lr : lenv -> reference -> reference -> (reference * _type) =  (* (Deref Link) *)
 	(**
 	 * @param ns namespace
 	 * @param e  type environment
@@ -322,7 +321,7 @@ let sfLinkReference lr =  (* (Deref Link) *)
 		| nsp, Undefined -> (nsp @++ link, TForward (link, true))
 		| nsp, Type t    -> (nsp @++ link, t)
 
-let rec sfVector vec =
+let rec sfVector vec : lenv -> reference -> _type =
 	(**
 	 * @param ns namespace
 	 * @param e  type environment
@@ -343,7 +342,7 @@ let rec sfVector vec =
 		in
 		TVec (eval vec)
 
-and sfBasicValue bv =
+and sfBasicValue bv : lenv -> reference -> _type =
 	(**
 	 * @param ns namespace
 	 * @param e  type environment
@@ -362,7 +361,7 @@ and sfBasicValue bv =
  * @param first true if this is the first prototype, otherwise false
  * @param t_val the type of the first prototype
  *)
-let rec sfPrototype proto first t_val =
+let rec sfPrototype proto first t_val : reference -> reference -> lenv -> lenv =
 	(**
 	 * @param ns namespace
 	 * @param r  target variable
@@ -389,7 +388,7 @@ let rec sfPrototype proto first t_val =
 				let t_proto = if first then t else t_val in
 				sfPrototype p false t_proto ns r (inherit_env e_proto ns proto r)
 
-and sfValue v =
+and sfValue v : reference -> reference -> _type -> lenv -> lenv =
 	(**
 	 * @param ns namespace
      * @param r  variable's reference
@@ -411,7 +410,7 @@ and sfValue v =
 			match schema with
 			| SID sid ->
 				(
-					match type_of e [sid] with
+					match find e [sid] with
 					| Undefined  -> error 107 ("schema " ^ sid ^ " is not exist")
 					| Type TBasic TSchema (sid, super) when (TBasic super) <: (TBasic TRootSchema) ->
 						let t_sid = TBasic (object_of_schema (TSchema (sid, super))) in
@@ -421,14 +420,14 @@ and sfValue v =
 				)
 			| EmptySchema -> sfPrototype proto true TUndefined ns r e
 
-and sfAssignment (r, t, v) =
+and sfAssignment (r, t, v) : reference -> lenv -> lenv =
 	(**
 	 * @param ns namespace
 	 * @param e  type environment
 	 *)
 	fun ns e -> sfValue v ns (ns @++ r) t e
 
-and sfpBlock block =
+and sfpBlock block : reference -> lenv -> lenv =
 	(**
 	 * @param ns namespace
 	 * @param e  type environment
@@ -439,7 +438,7 @@ and sfpBlock block =
 		| G_B (g, b) -> sfpBlock b ns (sfpGlobal g e)
 		| EmptyBlock -> e
 
-and sfpSchema s =
+and sfpSchema s : lenv -> lenv =
 	let (sid, parent, b) = s in
 	fun e ->
 		let r_sid = [sid] in
@@ -456,14 +455,17 @@ and sfpSchema s =
 		match parent with
 		| EmptySchema -> define_schema [] TRootSchema
 		| SID superid ->
-			match type_of e [superid] with
+			match find e [superid] with
 			| Undefined        -> error 108 ("super schema " ^ superid ^ " is not exist")
 			| Type (TBasic t)  ->
 				if is_schema (TBasic t) then define_schema [superid] t
 				else error 108 (superid ^ " is not a schema")
 			| _                -> error 110 (superid ^ " is not a schema")
 
-and sfpContext ctx =
+and sfpGlobal g : lenv -> lenv =
+	fun e -> assign e ["global"] TUndefined (TBasic TGlobal)
+
+and sfpContext ctx : lenv -> lenv =
 	fun e ->
 		match ctx with
 		| A_C (a, c) -> sfpContext c (sfAssignment a [] e)
@@ -471,12 +473,76 @@ and sfpContext ctx =
 		| G_C (g, c) -> sfpContext c (sfpGlobal g e)
 		| EmptyContext -> e
 
-and sfpSpecification sfp =
+and sfpSpecification sfp : env =
 	let e1 = sfpContext sfp [] in
 	if not (domain e1 ["main"]) then error 200 "main object is not exist"
 	else
 		let e2 = get_main (second_pass_eval e1) in
-		assign e2 ["global"] TUndefined (TBasic TGlobal)
+		let e_main = assign e2 ["global"] TUndefined (TBasic TGlobal) in
+		map_of e_main
 
-and sfpGlobal g =
-	fun e -> assign e ["global"] TUndefined (TBasic TGlobal)
+
+(*******************************************************************
+ * a map from type to set of values
+ *******************************************************************)
+
+module MapType = Map.Make ( struct
+	type t = _type
+	let compare = Pervasives.compare
+end )
+
+type typevalue = Sfdomain.SetValue.t MapType.t
+
+let values_of (t: _type) (map: typevalue) : Sfdomain.SetValue.t =
+	if MapType.mem t map then MapType.find t map
+	else Sfdomain.SetValue.empty
+
+let add_value (t: _type) (v: Sfdomain.value) (map: typevalue) : typevalue =
+	MapType.add t (Sfdomain.SetValue.add v (values_of t map)) map
+
+let make_typevalue (env_0: env) (fs_0: Sfdomain.flatstore) (env_g: env) (fs_g: Sfdomain.flatstore) : typevalue =
+	(** group action effects' values based on their type **)
+	let add_action_values (e: env) map =
+		let actions = values_of (TBasic TAction) map in
+		let add_effect_values =
+			List.fold_left (
+				fun acc (r, v) ->
+					match v with
+					| Sfdomain.Boolean _ -> add_value (TBasic TBool) (Sfdomain.Basic v) acc
+					| Sfdomain.Number  _ -> add_value (TBasic TNum) (Sfdomain.Basic v) acc
+					| Sfdomain.String  _ -> add_value (TBasic TStr) (Sfdomain.Basic v) acc
+					| Sfdomain.Vector  _ -> error 501 "adding vector value of effects" (* TODO *)
+					| _         -> acc
+			)
+		in
+		Sfdomain.SetValue.fold (
+			fun v map ->
+				match v with
+				| Sfdomain.Action (n, ps, c, pre, eff) -> add_effect_values map eff
+				| _                           -> map
+		) actions map
+	in
+	let null = Sfdomain.Basic Sfdomain.Null in
+	let rec add_object (t: basicType) (v: Sfdomain.value) (t_next: basicType) map =
+		let map1 = add_value (TBasic t) v map in
+		let map2 = add_value (TRef t) v map1 in
+		let map3 = add_value (TRef t) null map2 in
+		match t_next with
+		| TObject              -> add_value (TBasic TObject) v map3
+		| TSchema (sid, super) -> add_object t_next v super map3
+		| _                    -> error 502 "super-type is not a schema or an object type"
+	in
+	let add_store_values (e: env) =
+		MapRef.fold (
+			fun r v (map: typevalue) ->
+				match type_of r e with
+				| TUndefined -> error 503 ("Type of " ^ !^r ^ " is undefined.")
+				| TBasic TSchema (sid, super) ->
+					add_object (TSchema (sid, super)) (Sfdomain.Basic (Sfdomain.Ref r)) super map
+				| t -> add_value t v map
+		)
+	in
+	let table00 = add_store_values env_0 fs_0 MapType.empty in
+	let table01 = add_action_values env_0 table00 in
+	let table10 = add_store_values env_g fs_g table01 in
+	add_action_values env_g table10

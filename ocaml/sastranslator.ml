@@ -4,233 +4,9 @@ open Sfdomain
 
 (*******************************************************************
  * Modules and functions to convert SFP to FD-SAS.
- * There are three modules:
- * - FlatStore  : a map which is the flat version of store domain
- * - Values     : a set of values (of particular type)
- * - TypeTable  : a map of type -> values
  * - Constraint : (global) constraints
  * - Action     : actions
  *******************************************************************)
-
-(*******************************************************************
- * flat-store
- *******************************************************************)
-
-module TEnv =
-	struct
-		type t = Sfsyntax._type MapRef.t
-
-		let empty = MapRef.empty;;
-		let mem = MapRef.mem;;
-		let add = MapRef.add;;
-		let find = MapRef.find;;
-		let fold = MapRef.fold;;
-
-		let make e : t = List.fold_left (fun acc (r, t) -> add r t acc) empty e
-
-		let type_of e r = if mem r e then find r e else Sfsyntax.TUndefined
-
-	end
-
-module FlatStore =
-	struct
-		type t = value MapRef.t
-
-		let empty = MapRef.empty;;
-		let mem = MapRef.mem;;
-		let add = MapRef.add;;
-		let find = MapRef.find;;
-		let fold = MapRef.fold;;
-
-		let static_object = Store []
-
-		(**
-		 * Convert a store to a flat_store
-		 *
-		 * @param s store to be flatten
-		 * @return a flat_store
-		 *)
-		let normalise (s: store) : t =
-			let rec visit s ns fs =
-				match s with
-				| []              -> fs
-				| (id, v) :: tail ->
-					let r = ns @+. id in
-					let fss =
-						match v with
-						| Store child -> visit child r (add r static_object fs)
-						| Action (_, ps, c, pre, post) -> add r (Action (r, ps, c, pre, post)) fs
-						| _           -> add r v fs
-					in
-					visit tail ns fss
-			in
-			visit s [] empty
-
-		let make = normalise
-
-		(**
-		 * convert a flat-store to string
-		 *)
-		let string_of fs = fold (fun r v acc -> acc ^ !^r ^ ": " ^ (json_of_value v) ^ "\n") fs ""
-
-	end
-
-
-(*******************************************************************
- * set-value
- *******************************************************************)
-
-module Values =
-	struct
-		module Set = Set.Make
-			( struct
-				type t = value
-				let compare = Pervasives.compare
-			end )
-
-		type t_arr = value array;;
-		type t_list = value list;;
-
-		let empty = Set.empty;;
-		let add = Set.add;;
-		let fold = Set.fold;;
-		let elements = Set.elements;;
-
-		let string_of sv = Set.fold (fun v s -> s ^ (json_of_value v) ^ ";") sv ""
-		
-		let string_of_list l = List.fold_left ( fun s v -> s ^ (json_of_value v) ^ ";") "" l
-	end
-
-(*******************************************************************
- * type-table
- *******************************************************************)
-
-(** import types from Sfsyntax module **)
-let t_bool   = Sfsyntax.TBasic Sfsyntax.TBool
-let t_num    = Sfsyntax.TBasic Sfsyntax.TNum
-let t_str    = Sfsyntax.TBasic Sfsyntax.TStr
-let t_obj    = Sfsyntax.TBasic Sfsyntax.TObject
-let t_action = Sfsyntax.TBasic Sfsyntax.TAction
-let t_global = Sfsyntax.TBasic Sfsyntax.TGlobal
-
-module TypeTable =
-	struct
-		module Map = Map.Make
-			( struct
-				type t = Sfsyntax._type
-				let compare = Pervasives.compare
-			end )
-
-		let empty = Map.empty;;
-		let mem = Map.mem;;
-		let add = Map.add;;
-		let find = Map.find;;
-		let fold = Map.fold;;
-
-		let values_of t table = if mem t table then find t table else Values.empty
-
-		let add_value t v table = add t (Values.add v (values_of t table)) table
-
-		let string_of table = fold (
-				fun t v s -> s ^ (Sfsyntax.string_of_type t) ^ ": " ^ (Values.string_of v) ^ "\n"
-			) table ""
-
-		(** group action effects' values based on their type **)
-		let add_action_values env table =
-			let actions = values_of t_action table in
-			let add_effect_values =
-				List.fold_left (
-					fun acc (r, v) ->
-						match v with
-						| Boolean _ -> add_value t_bool (Basic v) acc
-						| Number  _ -> add_value t_num (Basic v) acc
-						| String  _ -> add_value t_str (Basic v) acc
-						| Vector  _ -> error 501 (* TODO *)
-						| _         -> acc
-				)
-			in
-			Values.fold (
-				fun v table1 ->
-					match v with
-					| Action (n, ps, c, pre, eff) -> add_effect_values table1 eff
-					| _                           -> table1
-			) actions table
-
-		(**
-		 * create a TypeTable by grouping values based on their type
-		 *
-		 * @param env_0  type environment of initial state
-		 * @param fs_0   flat-store of initial state
-		 * @param env_g  type environment of goal state
-		 * @param fs_g   flat-store of goal state
-		 * @return a type-table
-		 *)
-		let make env_0 fs_0 env_g fs_g = (* e: type-environment, fs: flat-store *)
-			let null = Basic Null in
-			let rec add_object t v t_next table =
-				let table1 = add_value (Sfsyntax.TBasic t) v table in
-				let table2 = add_value (Sfsyntax.TRef t) v table1 in
-				let table3 = add_value (Sfsyntax.TRef t) null table2 in
-				match t_next with
-				| Sfsyntax.TObject              -> add_value t_obj v table3
-				| Sfsyntax.TSchema (sid, super) -> add_object t_next v super table3
-				| _                             -> error 502 (* super-type must be another schema or an object-type *)
-			in
-			let add_store_values env =
-				FlatStore.fold (
-					fun r v table ->
-						match TEnv.type_of env r with
-						| Sfsyntax.TUndefined -> error 503
-						| Sfsyntax.TBasic Sfsyntax.TSchema (sid, super) ->
-							add_object (Sfsyntax.TSchema (sid, super)) (Basic (Ref r)) super table
-						| t -> add_value t v table
-				)
-			in
-			let table00 = add_store_values env_0 fs_0 empty in
-			let table01 = add_action_values env_0 table00 in
-			let table10 = add_store_values env_g fs_g table01 in
-			add_action_values env_g table10
-
-	end
-
-(*******************************************************************
- * variables
- *******************************************************************)
-
-let make_variables (env_0: TEnv.t) (fs_0: FlatStore.t) (env_g: TEnv.t) (fs_g: FlatStore.t) typetable : Variable.ts =
-	let type_of_var r =
-		match (TEnv.type_of env_0 r), (TEnv.type_of env_g r) with
-		| t1, t2 when t1 = t2 -> t1
-		| _, _                -> error 504  (* incompatible type between init & goal *)
-	in
-	let map0 = MapRef.add Variable.r_dummy Variable.dummy MapRef.empty in
-	let arr0 = [Variable.dummy] in
-	let (map1, total, arr1) = FlatStore.fold (
-			fun r v (map, i, arr) ->
-				if MapRef.mem r map then error 505;
-				match type_of_var r with
-				| Sfsyntax.TBasic Sfsyntax.TAction
-				| Sfsyntax.TBasic Sfsyntax.TGlobal -> (map, i, arr)
-				| Sfsyntax.TBasic Sfsyntax.TObject
-				| Sfsyntax.TBasic Sfsyntax.TSchema (_, _) ->
-					let v = FlatStore.static_object in
-					let var = Variable.make r i [|v|] v v in
-					let map1 = MapRef.add r var map in
-					let arr1 = var :: arr in
-					(map1, i+1, arr1)
-				| t ->
-					let values = Array.of_list (Values.elements (TypeTable.values_of t typetable)) in
-					let init = FlatStore.find r fs_0 in
-					let goal = FlatStore.find r fs_g in
-					let var = Variable.make r i values init goal in
-					let map1 = MapRef.add r var map in
-					let arr1 = var :: arr in
-					(map1, i+1, arr1)
-		) fs_0 (map0, 1, arr0)
-	in
-	let vars = Variable.make_ts map1 (Array.of_list arr1) in
-	Variable.sort vars;
-	vars
 
 (*******************************************************************
  * constraints
@@ -541,6 +317,7 @@ module Constraint =
 								if negation then Imply (Eq (prevail, Ref r1), Not (In (r2, vec)))
 								else Imply (Eq (prevail, Ref r1), In (r2, vec))
 							in
+							(* below lines were commented because the above TODO has not been implemented *)
 							if Variable.mem r2 acc.vars then
 								{ cons = acc.cons; implies = c :: acc.implies; vars = acc.vars }
 							else
@@ -574,6 +351,7 @@ module Constraint =
 								if negation then Imply (Eq (prevail, Ref r1), Ne (r2, v))
 								else Imply (Eq (prevail, Ref r1), Eq (r2, v))
 							in
+							(* below lines were commented because the above TODO has not been implemented *)
 							if Variable.mem r2 acc.vars then
 								{ cons = acc.cons; implies = c :: acc.implies; vars = acc.vars }
 							else
@@ -606,8 +384,8 @@ module Constraint =
 		 *)
 		let global (env: Sfsyntax._type MapRef.t) (fs: value MapRef.t) (vars: Variable.ts) =
 			let r = ["global"] in
-			if FlatStore.mem r fs then
-				match FlatStore.find r fs with
+			if MapRef.mem r fs then
+				match MapRef.find r fs with
 				| Global g ->
 					let (global1, implies1, vars1) = compile_simple_global g vars env in
 					let global_dnf = dnf_of global1 vars1 env in
@@ -654,14 +432,14 @@ module Action =
 			| act :: acts -> "[" ^ (json_of act) ^ (List.fold_left (fun s a -> s ^ "," ^ (json_of a)) "" acts) ^ "]"
 
 		(* convert a list of (identifier => type) to a list of maps of (identifier => value) *)
-		let create_parameter_table params name typetable =
+		let create_parameter_table params name (tvalues: Sftype.typevalue) =
 			let table1 = MapStr.add "this" [Ref (prefix name)] MapStr.empty in
 			let table2 = List.fold_left (fun table (id, t) ->
-					let values = Values.fold (fun v acc ->
+					let values = SetValue.fold (fun v acc ->
 							match v with
 							| Basic bv -> bv :: acc
 							| _ -> acc
-						) (TypeTable.values_of t typetable) []
+						) (Sftype.values_of t tvalues) []
 					in
 					MapStr.add id values table
 				) table1 params
@@ -773,8 +551,8 @@ module Action =
 		 *
 		 * returns a list of grounded actions
 		 *)
-		let ground_action_of (name, params, cost, pre, eff) env vars typetable dummy (g_implies : _constraint list) : t list =
-			let param_tables = create_parameter_table params name typetable in
+		let ground_action_of (name, params, cost, pre, eff) env vars typevalue dummy (g_implies : _constraint list) : t list =
+			let param_tables = create_parameter_table params name typevalue in
 			List.fold_left (fun acc1 ps ->
 				let eff1 = List.fold_left (fun acc (r, bv) ->
 						let r1 = Constraint.substitute_parameter_of_reference r ps in
@@ -816,16 +594,16 @@ module Action =
 			) [] param_tables
 
 		(* ground a set of actions - returns a list of grounded actions *)
-		let ground_actions env vars typetable global (g_implies : _constraint list) : t list =
+		let ground_actions env vars (tvalues: Sftype.typevalue) global (g_implies : _constraint list) : t list =
 			print_endline (json_of_constraint (And g_implies));
 			let add_dummy = not (global = True) in
 			let actions : t list = create_global_actions global [] in
-			Values.fold (
+			SetValue.fold (
 				fun v gactions ->
 					match v with
-					| Action a -> List.append (ground_action_of a env vars typetable add_dummy g_implies) gactions
+					| Action a -> List.append (ground_action_of a env vars tvalues add_dummy g_implies) gactions
 					| _        -> gactions
-			) (TypeTable.values_of t_action typetable) actions
+			) (Sftype.values_of (Sfsyntax.TBasic Sfsyntax.TAction) tvalues) actions
 
 	end
 
@@ -994,23 +772,22 @@ module FDR = struct
 end
 
 (** step 1: generate flat-stores of current and desired specifications **)
-let normalise store_0 store_g = (FlatStore.make store_0, FlatStore.make store_g)
+let normalise store_0 store_g = (normalise store_0, normalise store_g)
 
 (** step 2: translate **)
-let translate (env_0: TEnv.t) (fs_0: FlatStore.t) (env_g: TEnv.t) (fs_g: FlatStore.t) typetable : string =
-	let vars = make_variables env_0 fs_0 env_g fs_g typetable in
+let translate (env_0: Sftype.env) (fs_0: flatstore) (env_g: Sftype.env) (fs_g: flatstore) typevalue : string =
+	let vars = Variable.make_ts env_0 fs_0 env_g fs_g typevalue in
 	let (global, g_implies, vars1) = Constraint.global env_g fs_g vars in
-	let actions = Action.ground_actions env_g vars1 typetable global g_implies in
+	let actions = Action.ground_actions env_g vars1 typevalue global g_implies in
 	FDR.of_sfp vars1 actions global g_implies
 
-let compile (ast: Sfsyntax.sfp) : TEnv.t * store = (TEnv.make (Sftype.sfpSpecification ast), Sfvaluation.sfpSpecification ast)
+let compile (ast: Sfsyntax.sfp) : Sftype.env * store = (Sftype.sfpSpecification ast, Sfvaluation.sfpSpecification ast)
 
 let fdr (ast_0: Sfsyntax.sfp) (ast_g: Sfsyntax.sfp) : string =
 	let (env_0, store_0) = compile ast_0 in
 	let (env_g, store_g) = compile ast_g in
 	let (fs_0, fs_g) = normalise store_0 store_g in
-	let typetable = TypeTable.make env_0 fs_0 env_g fs_g in
-	let fdr = translate env_0 fs_0 env_g fs_g typetable in
-	fdr
+	let tvalues = Sftype.make_typevalue env_0 fs_0 env_g fs_g in
+	translate env_0 fs_0 env_g fs_g tvalues
 
 

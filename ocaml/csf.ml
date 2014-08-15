@@ -91,8 +91,8 @@ let main =
 		match mode with
 		| 1 -> print_endline (Sfdomain.json_of_store store)
 		| 2 -> print_endline (Sfdomain.yaml_of_store store)
-		| 3 -> let fs = Sastranslator.FlatStore.make store in
-		       print_endline (Sastranslator.FlatStore.string_of fs)
+		| 3 -> let fs = Sfdomain.normalise store in
+		       print_endline (Sfdomain.string_of_flatstore fs)
 		| _ -> print_endline usage_msg
 	in
 	let do_ast = fun file -> print_endline (Sfsyntax.string_of_sfp (ast_of_file file))

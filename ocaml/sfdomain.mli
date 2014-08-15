@@ -1,3 +1,5 @@
+open Common
+
 (*******************************************************************
  * semantics domain
  *******************************************************************)
@@ -47,6 +49,12 @@ and effect     = reference * basic
  * semantics algebras
  *******************************************************************)
 
+(** exception for any error on semantics algebra **)
+exception SfError of int * string
+
+(** a function that raise an SfError **)
+val error : int -> 'a
+
 (* identifier-reference functions *)
 
 val prefix : reference -> reference
@@ -85,13 +93,8 @@ val accept : store -> reference -> store -> reference -> store
 
 
 (*******************************************************************
- * helpers
+ * domain convertion functions to string, JSON, or YAML
  *******************************************************************)
-
-(** exception for any error on semantics algebra **)
-exception SfError of int * string
-
-val error : int -> 'a
 
 val (!^) : reference -> string
 
@@ -103,3 +106,24 @@ val json_of_value : value -> string
 
 val json_of_constraint : _constraint -> string
 
+
+(*******************************************************************
+ * Flat-Store domain
+ *******************************************************************)
+
+type flatstore = value MapRef.t
+
+val static_object : value
+
+val normalise : store -> flatstore
+
+val string_of_flatstore : flatstore -> string
+
+
+(*******************************************************************
+ * set of values
+ *******************************************************************)
+
+module SetValue : Set.S with type elt = value
+
+val string_of_setvalue : SetValue.t -> string

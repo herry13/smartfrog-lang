@@ -24,9 +24,9 @@ BYTECODELIB= \
 	sfparser.cmo \
 	sfhelper.cmo \
 	sfdomain.cmo \
+	sftype.cmo \
 	variable.cmo \
 	sfvaluation.cmo \
-	sftype.cmo \
 	sastranslator.cmo \
 	csf.cmo
 
@@ -39,9 +39,9 @@ NATIVELIB= \
 	sfparser.cmx \
 	sfhelper.cmx \
 	sfdomain.cmx \
+	sftype.cmx \
 	variable.cmx \
 	sfvaluation.cmx \
-	sftype.cmx \
 	sastranslator.cmx \
 	csf.cmx
 
@@ -72,7 +72,7 @@ sflexer: sflexer.mll sfparser
 sfhelper: sfhelper.ml sfparser sflexer
 	$(COMPILER) -c sfhelper.ml
 
-sfdomain: sfsyntax sfdomain.mli sfdomain.ml
+sfdomain: common sfsyntax sfdomain.mli sfdomain.ml
 	$(COMPILER) -c sfdomain.mli
 	$(COMPILER) -c sfdomain.ml
 
@@ -91,7 +91,7 @@ common: common.mli common.ml
 	$(COMPILER) -c common.mli
 	$(COMPILER) -c common.ml
 
-variable: common sfdomain variable.mli variable.ml
+variable: common sfdomain sftype variable.mli variable.ml
 	$(COMPILER) -c variable.mli
 	$(COMPILER) -c variable.ml
 

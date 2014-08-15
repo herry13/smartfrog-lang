@@ -6,37 +6,18 @@ type t = { name: reference; index: int; values: value array; init: value; goal: 
 
 type ts = { map: t MapRef.t; arr: t array }
 
+
+(*****************************************************************
+ * variable functions
+ *****************************************************************)
+
 val make : reference -> int -> value array -> value -> value -> t
 
-val make_ts : t MapRef.t -> t array -> ts
-
-val mem : reference -> ts -> bool
-
-val find : reference -> ts -> t
-
-val values_of : reference -> ts -> value array
-
-val total : ts -> int
-
-val iter : (t -> unit) -> ts -> unit
-
 val iteri_values : (int -> value -> unit) -> t -> unit
-
-val sort : ts -> unit
-
-val intersection_with_values : reference -> vector -> ts -> ts
-
-val intersection_with_value : reference -> value -> ts -> ts
-
-val remove_value_from : reference -> value -> ts -> ts
-
-val remove_values_from : reference -> vector -> ts -> ts
 
 val string_of_values : value array -> string
 
 val string_of_variable : t -> string
-
-val string_of_variables : ts -> string
 
 val r_dummy : reference
 
@@ -55,4 +36,35 @@ val size : t -> int
 val values : t -> value array
 
 val index_of_value : value -> t -> int 
+
+
+(*****************************************************************
+ * variables functions
+ *****************************************************************)
+
+(* val make_ts : t MapRef.t -> t array -> ts *)
+val make_ts : Sftype.env -> flatstore -> Sftype.env -> flatstore -> Sftype.typevalue -> ts
+
+val mem : reference -> ts -> bool
+
+val find : reference -> ts -> t
+
+val values_of : reference -> ts -> value array
+
+val total : ts -> int
+
+val iter : (t -> unit) -> ts -> unit
+
+val sort : ts -> unit
+
+val intersection_with_values : reference -> vector -> ts -> ts
+
+val intersection_with_value : reference -> value -> ts -> ts
+
+val remove_value_from : reference -> value -> ts -> ts
+
+val remove_values_from : reference -> vector -> ts -> ts
+
+val string_of_variables : ts -> string
+
 

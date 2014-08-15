@@ -1,7 +1,7 @@
 open Common
 
 (*******************************************************************
- * semantics domain
+ * semantics primary and secondary domains
  *******************************************************************)
 (** core elements **)
 type number   = Int of int
@@ -223,12 +223,6 @@ and accept s ns ss nss =
 		accept sq ns sp nss
 
 
-
-(*******************************************************************
- * helper functions to convert semantics domain to string, YAML
- * or JSON
- *******************************************************************)
-
 (*******************************************************************
  * convert reference (list of string) to string
  *******************************************************************)
@@ -236,8 +230,9 @@ let string_of_ref r = "$." ^ String.concat "." r
 
 let (!^) r = string_of_ref r
 
+
 (*******************************************************************
- * convert a store to YAML
+ * convert the semantics domain to YAML
  *******************************************************************)
 let rec yaml_of_store s = yaml_of_store1 s ""
 
@@ -278,7 +273,7 @@ and yaml_of_basic v =
 	| Ref r -> string_of_ref r
 
 (*******************************************************************
- * convert a store to JSON
+ * convert the semantics domains to JSON
  *******************************************************************)
 and json_of_store s = "{" ^ (json_of_store1 s) ^ "}"
 
@@ -400,4 +395,45 @@ and yaml_of_effects effs tab =
 	List.fold_left (fun acc eff -> acc ^ "\n" ^ (yaml_of_effect eff tab)) "" effs
 
 and yaml_of_effect (r, bv) tab = tab ^ !^r ^ ": " ^ (json_of_basic bv)
+
+
+(*******************************************************************
+ * Flat-Store domain
+ *******************************************************************)
+
+type flatstore = value MapRef.t
+
+let static_object = Store []
+
+let normalise (s: store) : flatstore =
+	let rec visit (s: store) (ns: reference) (fs: flatstore) : flatstore =
+		match s with
+		| [] -> fs
+		| (id, v) :: tail ->
+			let r = ns @+. id in
+			let fss =
+				match v with
+				| Store child                  -> visit child r (MapRef.add r static_object fs)
+				| Action (_, ps, c, pre, post) -> MapRef.add r (Action (r, ps, c, pre, post)) fs
+				| _                            -> MapRef.add r v fs
+			in
+			visit tail ns fss
+	in
+	visit s [] MapRef.empty
+
+let string_of_flatstore (fs: flatstore) : string =
+	MapRef.fold (fun r v acc -> acc ^ !^r ^ ": " ^ (json_of_value v) ^ "\n") fs ""
+
+
+(*******************************************************************
+ * set of values
+ *******************************************************************)
+
+module SetValue = Set.Make ( struct
+	type t = value
+	let compare = Pervasives.compare
+end )
+
+let string_of_setvalue (sv: SetValue.t) : string =
+	SetValue.fold (fun v s -> s ^ (json_of_value v) ^ ";") sv ""
 
