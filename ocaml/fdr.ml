@@ -28,8 +28,11 @@ let of_variables (buf: Buffer.t) (vars: Variable.ts) : unit =
 		Buffer.add_string buf (string_of_int (Variable.size var));
 		Buffer.add_char buf '\n';
 		Variable.iteri_values (fun i v ->
+			Buffer.add_string buf "Atom (";
+			Buffer.add_string buf !^(Variable.name var);
+			Buffer.add_char buf ' ';
 			Buffer.add_string buf (json_of_value v);
-			Buffer.add_char buf '\n';
+			Buffer.add_string buf ")\n";
 		) var;
 		Buffer.add_string buf "end_variable"
 	) vars;;
@@ -190,7 +193,7 @@ let of_sfp (ast_0: Sfsyntax.sfp) (ast_g: Sfsyntax.sfp) : string =
 	of_variables buffer vars1;
 	of_mutex buffer vars1;
 	of_init buffer vars1;
-	of_goal buffer vars1 (not (global = True));
+	of_goal buffer vars1 (global <> True);
 	of_actions buffer actions vars1;
 	of_axioms buffer;
 	Buffer.contents buffer
