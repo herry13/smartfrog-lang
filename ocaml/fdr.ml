@@ -126,26 +126,30 @@ let of_action (buffer: Buffer.t) ((name, params, cost, pre, eff): Action.t) (var
 	Buffer.add_char buf '\n';
 	Buffer.add_string buf (Buffer.contents prevail);
 	(* prepost *)
-	Buffer.add_string buf (string_of_int (MapRef.cardinal eff));
-	Buffer.add_char buf '\n';
+	let temp = Buffer.create 10 in
+	let n = ref 0 in
 	MapRef.iter (fun r v ->
 		let var = Variable.find r vars in
-		Buffer.add_string buf "0 ";
-		Buffer.add_string buf (string_of_int (Variable.index var));
-		Buffer.add_char buf ' ';
+		Buffer.add_string temp "0 ";
+		Buffer.add_string temp (string_of_int (Variable.index var));
+		Buffer.add_char temp ' ';
 		if MapRef.mem r pre then
 			let pre_v = MapRef.find r pre in
 			let i = Variable.index_of_value (Basic pre_v) var in
 			if i < 0 then valid_operator := false;
-			Buffer.add_string buf (string_of_int i);
+			Buffer.add_string temp (string_of_int i);
 		else
-			Buffer.add_string buf "-1";
-		Buffer.add_char buf ' ';
+			Buffer.add_string temp "-1";
+		Buffer.add_char temp ' ';
 		let j = Variable.index_of_value (Basic v) var in
 		if j < 0 then valid_operator := false;
-		Buffer.add_string buf (string_of_int j);
-		Buffer.add_char buf '\n';
+		Buffer.add_string temp (string_of_int j);
+		Buffer.add_char temp '\n';
+		n := !n + 1;
 	) eff;
+	Buffer.add_string buf (string_of_int !n);
+	Buffer.add_char buf '\n';
+	Buffer.add_string buf (Buffer.contents temp);
 	(* check operator validity *)
 	if !valid_operator then (
 		(* cost *)
