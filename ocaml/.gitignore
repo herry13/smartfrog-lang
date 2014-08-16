@@ -1,13 +1,13 @@
 *.swp
 *.o
-sfparser.mli
-sflexer.mli
+parser.mli
+lexer.mli
 *.cmo
 *.cmi
 csf
 csfp
-sflexer.ml
-sfparser.ml
+lexer.ml
+parser.ml
 .paths
 .project
 .settings
