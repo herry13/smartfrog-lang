@@ -281,9 +281,9 @@ let compile_simple_global_membership negation r (vec: vector) cons_vars env =
 						else Imply (Eq (prevail, Ref r1), In (r2, vec))
 					in
 					(* below lines were commented because the above TODO has not been implemented *)
-					if Variable.mem r2 acc.vars then
+					(* if Variable.mem r2 acc.vars then
 						{ cons = acc.cons; implies = c :: acc.implies; vars = acc.vars }
-					else
+					else *)
 						{ cons = c :: acc.cons; implies = acc.implies; vars = acc.vars }
 				| _              -> error 508
 			)
@@ -316,7 +316,8 @@ let compile_simple_global_equality negation r v cons_vars env =
 						else Imply (Eq (prevail, Ref r1), Eq (r2, v))
 					in
 					(* below lines were commented because the above TODO has not been implemented *)
-					if Variable.mem r2 acc.vars then
+					(* if Variable.mem r2 acc.vars then *)
+					if (Variable.mem r2 acc.vars) && not negation then
 						{ cons = acc.cons; implies = c :: acc.implies; vars = acc.vars }
 					else
 						{ cons = c :: acc.cons; implies = acc.implies; vars = acc.vars }
