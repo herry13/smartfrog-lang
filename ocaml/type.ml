@@ -1,5 +1,5 @@
 open Common
-open Sfsyntax
+open Syntax
 
 (*******************************************************************
  * type environment
@@ -22,15 +22,15 @@ let rec (@==) r1 r2 =
 	| id1 :: rs1, id2 :: rs2 when id1 = id2 -> rs1 @== rs2
 	| _ -> false
 
-(* alias of functions from module Sfdomain *)
-let (@++)  = Sfdomain.(@++);;
-let (@--)  = Sfdomain.(@--);;
-let prefix = Sfdomain.prefix;;
-let (@<=)  = Sfdomain.(@<=);;
-let (@<)   = Sfdomain.(@<);;
-let (!!)   = Sfdomain.(!!);;
-let (@<<)  = Sfdomain.(@<<);;
-let (!^)   = Sfdomain.(!^);;
+(* alias of functions from module Domain *)
+let (@++)  = Domain.(@++);;
+let (@--)  = Domain.(@--);;
+let prefix = Domain.prefix;;
+let (@<=)  = Domain.(@<=);;
+let (@<)   = Domain.(@<);;
+let (!!)   = Domain.(!!);;
+let (@<<)  = Domain.(@<<);;
+let (!^)   = Domain.(!^);;
 
 exception TypeError of int * string
 
@@ -491,16 +491,16 @@ module MapType = Map.Make ( struct
 	let compare = Pervasives.compare
 end )
 
-type typevalue = Sfdomain.SetValue.t MapType.t
+type typevalue = Domain.SetValue.t MapType.t
 
-let values_of (t: _type) (map: typevalue) : Sfdomain.SetValue.t =
+let values_of (t: _type) (map: typevalue) : Domain.SetValue.t =
 	if MapType.mem t map then MapType.find t map
-	else Sfdomain.SetValue.empty
+	else Domain.SetValue.empty
 
-let add_value (t: _type) (v: Sfdomain.value) (map: typevalue) : typevalue =
-	MapType.add t (Sfdomain.SetValue.add v (values_of t map)) map
+let add_value (t: _type) (v: Domain.value) (map: typevalue) : typevalue =
+	MapType.add t (Domain.SetValue.add v (values_of t map)) map
 
-let make_typevalue (env_0: env) (fs_0: Sfdomain.flatstore) (env_g: env) (fs_g: Sfdomain.flatstore) : typevalue =
+let make_typevalue (env_0: env) (fs_0: Domain.flatstore) (env_g: env) (fs_g: Domain.flatstore) : typevalue =
 	(** group action effects' values based on their type **)
 	let add_action_values (e: env) map =
 		let actions = values_of (TBasic TAction) map in
@@ -508,22 +508,22 @@ let make_typevalue (env_0: env) (fs_0: Sfdomain.flatstore) (env_g: env) (fs_g: S
 			List.fold_left (
 				fun acc (r, v) ->
 					match v with
-					| Sfdomain.Boolean _ -> add_value (TBasic TBool) (Sfdomain.Basic v) acc
-					| Sfdomain.Number  _ -> add_value (TBasic TNum) (Sfdomain.Basic v) acc
-					| Sfdomain.String  _ -> add_value (TBasic TStr) (Sfdomain.Basic v) acc
-					| Sfdomain.Vector  _ -> error 501 "adding vector value of effects" (* TODO *)
+					| Domain.Boolean _ -> add_value (TBasic TBool) (Domain.Basic v) acc
+					| Domain.Number  _ -> add_value (TBasic TNum) (Domain.Basic v) acc
+					| Domain.String  _ -> add_value (TBasic TStr) (Domain.Basic v) acc
+					| Domain.Vector  _ -> error 501 "adding vector value of effects" (* TODO *)
 					| _         -> acc
 			)
 		in
-		Sfdomain.SetValue.fold (
+		Domain.SetValue.fold (
 			fun v map ->
 				match v with
-				| Sfdomain.Action (n, ps, c, pre, eff) -> add_effect_values map eff
+				| Domain.Action (n, ps, c, pre, eff) -> add_effect_values map eff
 				| _                           -> map
 		) actions map
 	in
-	let null = Sfdomain.Basic Sfdomain.Null in
-	let rec add_object (t: basicType) (v: Sfdomain.value) (t_next: basicType) map =
+	let null = Domain.Basic Domain.Null in
+	let rec add_object (t: basicType) (v: Domain.value) (t_next: basicType) map =
 		let map1 = add_value (TBasic t) v map in
 		let map2 = add_value (TRef t) v map1 in
 		let map3 = add_value (TRef t) null map2 in
@@ -538,7 +538,7 @@ let make_typevalue (env_0: env) (fs_0: Sfdomain.flatstore) (env_g: env) (fs_g: S
 				match type_of r e with
 				| TUndefined -> error 503 ("Type of " ^ !^r ^ " is undefined.")
 				| TBasic TSchema (sid, super) ->
-					add_object (TSchema (sid, super)) (Sfdomain.Basic (Sfdomain.Ref r)) super map
+					add_object (TSchema (sid, super)) (Domain.Basic (Domain.Ref r)) super map
 				| t -> add_value t v map
 		)
 	in

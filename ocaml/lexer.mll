@@ -8,7 +8,7 @@
 
 {
 	open Lexing
-	open Sfparser
+	open Parser
 
 	exception SyntaxError of string
 

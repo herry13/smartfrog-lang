@@ -7,14 +7,14 @@ open Array
 
 let ast_of_file file =
 	let dummy_lexbuf = Lexing.from_string "" in
-	let lexstack = Sfhelper.create file Sflexer.token in
+	let lexstack = Helper.create file Lexer.token in
 	try
-		Sfparser.sfp (Sfhelper.get_token lexstack) dummy_lexbuf
+		Parser.sfp (Helper.get_token lexstack) dummy_lexbuf
 	with e ->
 		try
-			Sfhelper.check_error e lexstack
+			Helper.check_error e lexstack
 		with
-		| Sfhelper.ParseError (fname, lnum, lpos, token) ->
+		| Helper.ParseError (fname, lnum, lpos, token) ->
 			prerr_string ("--- Parse error ---\nfile:   " ^ fname ^ "\nline:   " ^ (string_of_int lnum) ^
 			              "\ncolumn: " ^ (string_of_int lpos) ^ "\ntoken:  '" ^ token ^ "'\n\n");
 			exit 1
@@ -87,17 +87,17 @@ let opt_goal_file = ref "";;
  *)
 let main =
 	let do_compile = fun mode file ->
-		let store = Sfvaluation.sfpSpecification (ast_of_file file) in
+		let store = Valuation.sfpSpecification (ast_of_file file) in
 		match mode with
-		| 1 -> print_endline (Sfdomain.json_of_store store)
-		| 2 -> print_endline (Sfdomain.yaml_of_store store)
-		| 3 -> let fs = Sfdomain.normalise store in
-		       print_endline (Sfdomain.string_of_flatstore fs)
+		| 1 -> print_endline (Domain.json_of_store store)
+		| 2 -> print_endline (Domain.yaml_of_store store)
+		| 3 -> let fs = Domain.normalise store in
+		       print_endline (Domain.string_of_flatstore fs)
 		| _ -> print_endline usage_msg
 	in
-	let do_ast = fun file -> print_endline (Sfsyntax.string_of_sfp (ast_of_file file))
+	let do_ast = fun file -> print_endline (Syntax.string_of_sfp (ast_of_file file))
 	in
-	let do_type = fun file -> print_endline (Sftype.string_of_env (Sftype.sfpSpecification (ast_of_file file)))
+	let do_type = fun file -> print_endline (Type.string_of_env (Type.sfpSpecification (ast_of_file file)))
 	in
 	let verify_files () =
 		if !opt_init_file = "" then (print_endline "Error: -init <file.sfp> is not set"; exit 1);

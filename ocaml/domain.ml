@@ -38,7 +38,7 @@ and _constraint = Eq of reference * basic
 
 (** action elements **)
 and action         = reference * parameter_type list * int * conditions * effect list
-and parameter_type = ident * Sfsyntax._type
+and parameter_type = ident * Syntax._type
 and cost           = int
 and conditions     = _constraint
 and effect         = reference * basic
@@ -363,7 +363,7 @@ and json_of_conditions cond = "[\"conditions\"," ^ (json_of_constraint cond) ^ "
 
 and json_of_cost cost = "[\"cost\"," ^ (string_of_int cost) ^ "]"
 
-and json_of_parameter (id, t) = "[\"" ^ id ^ "\",\"" ^ (Sfsyntax.string_of_type t) ^ "\"]"
+and json_of_parameter (id, t) = "[\"" ^ id ^ "\",\"" ^ (Syntax.string_of_type t) ^ "\"]"
 
 and json_of_parameters params =
 	(List.fold_left (fun acc p -> acc ^ "," ^ (json_of_parameter p)) "[\"parameters\"" params) ^ "]"
@@ -387,7 +387,7 @@ and yaml_of_action (name, params, cost, conds, effs) tab =
 and yaml_of_parameters params tab =
 	List.fold_left (fun acc p -> acc ^ "\n" ^ (yaml_of_parameter p tab)) "" params
 
-and yaml_of_parameter (id, t) tab = tab ^ id ^ ": " ^ (Sfsyntax.string_of_type t)
+and yaml_of_parameter (id, t) tab = tab ^ id ^ ": " ^ (Syntax.string_of_type t)
 
 and yaml_of_effects effs tab =
 	List.fold_left (fun acc eff -> acc ^ "\n" ^ (yaml_of_effect eff tab)) "" effs

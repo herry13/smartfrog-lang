@@ -38,7 +38,7 @@ and _constraint = Eq of reference * basic
 
 (** action elements : name * parameters * cost * preconditions * effects **)
 and action         = reference * parameter_type list * cost * conditions * effect list
-and parameter_type = ident * Sfsyntax._type
+and parameter_type = ident * Syntax._type
 and cost           = int
 and conditions     = _constraint
 and effect         = reference * basic

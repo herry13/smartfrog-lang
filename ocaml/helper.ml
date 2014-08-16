@@ -6,7 +6,7 @@
  * 22.07.2014 - first released
  *)
 
-open Sfsyntax
+open Syntax
 
 (*******************************************************************
  * lexer helper type and functions
@@ -61,27 +61,27 @@ let current_pos ls =
 let rec get_token ls dummy_lexbuf =
 	let token = ls.lexfunc ls.lexbuf in
 	match token with
-	| Sfparser.INCLUDE file -> (* parse included file *)
+	| Parser.INCLUDE file -> (* parse included file *)
 		(* this SF-style include (the included file must be legal statements) **)
-		Sfparser.SF_INCLUDE
+		Parser.SF_INCLUDE
 		(
-			let lexstack = create file Sflexer.token in
+			let lexstack = create file Lexer.token in
 			try 
-				Sfparser.inblock_included (get_token lexstack) dummy_lexbuf
+				Parser.inblock_included (get_token lexstack) dummy_lexbuf
 			with e -> check_error_sf_include e lexstack
 		)
-	| Sfparser.SFP_INCLUDE_FILE file ->
-		Sfparser.SFP_INCLUDE
+	| Parser.SFP_INCLUDE_FILE file ->
+		Parser.SFP_INCLUDE
 		(
-			let lexstack = create file Sflexer.token in
+			let lexstack = create file Lexer.token in
 			try
-				Sfparser.incontext_included (get_token lexstack) dummy_lexbuf
+				Parser.incontext_included (get_token lexstack) dummy_lexbuf
 			with e -> check_error_sfp e lexstack
 		)
-	| Sfparser.EOF ->
+	| Parser.EOF ->
 		(
 			match ls.stack with
-			| [] -> Sfparser.EOF      (* buffer is empty, then return EOF *)
+			| [] -> Parser.EOF      (* buffer is empty, then return EOF *)
 			| (fn, ch, lb) :: tail -> (* buffer isn't empty, then continue to parse top file *) 
 				ls.filename <- fn;
 				ls.chan <- ch;

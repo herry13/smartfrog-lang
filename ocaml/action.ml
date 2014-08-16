@@ -1,6 +1,6 @@
 open Printf
 open Common
-open Sfdomain
+open Domain
 
 type t = reference * basic MapStr.t * cost * basic MapRef.t * basic MapRef.t;;
 
@@ -44,14 +44,14 @@ let json_of_actions (actions: t list) : string =
 	| act :: acts -> "[" ^ (json_of act) ^ (List.fold_left (fun s a -> s ^ "," ^ (json_of a)) "" acts) ^ "]"
 
 (* convert a list of (identifier => type) to a list of maps of (identifier => value) *)
-let create_parameter_table params name (tvalues: Sftype.typevalue) =
+let create_parameter_table params name (tvalues: Type.typevalue) =
 	let table1 = MapStr.add "this" [Ref (prefix name)] MapStr.empty in
 	let table2 = List.fold_left (fun table (id, t) ->
 			let values = SetValue.fold (fun v acc ->
 					match v with
 					| Basic bv -> bv :: acc
 					| _ -> acc
-				) (Sftype.values_of t tvalues) []
+				) (Type.values_of t tvalues) []
 			in
 			MapStr.add id values table
 		) table1 params
@@ -206,7 +206,7 @@ let ground_action_of (name, params, cost, pre, eff) env vars typevalue dummy (g_
 	) [] param_tables
 
 (* ground a set of actions - returns a list of grounded actions *)
-let ground_actions (env: Sftype.env) (vars: Variable.ts) (tvalues: Sftype.typevalue)
+let ground_actions (env: Type.env) (vars: Variable.ts) (tvalues: Type.typevalue)
                    (global: _constraint) (g_implies : _constraint list) : t list =
 	print_endline (json_of_constraint (And g_implies));
 	let add_dummy = not (global = True) in
@@ -216,4 +216,4 @@ let ground_actions (env: Sftype.env) (vars: Variable.ts) (tvalues: Sftype.typeva
 			match v with
 			| Action a -> List.append (ground_action_of a env vars tvalues add_dummy g_implies) gactions
 			| _        -> gactions
-	) (Sftype.values_of (Sfsyntax.TBasic Sfsyntax.TAction) tvalues) actions
+	) (Type.values_of (Syntax.TBasic Syntax.TAction) tvalues) actions

@@ -1,5 +1,5 @@
 open Common
-open Sfdomain
+open Domain
 
 (** variable := name * index * values * init * goal **)
 type t = { name: reference; index: int; values: value array; init: value; goal: value }
@@ -114,9 +114,9 @@ let string_of_variables vars =
 
 
 (* let make_ts map arr = { map = map; arr = arr } *)
-let make_ts (env_0: Sftype.env) (fs_0: flatstore) (env_g: Sftype.env) (fs_g: flatstore) (tvalues: Sftype.typevalue) : ts =
+let make_ts (env_0: Type.env) (fs_0: flatstore) (env_g: Type.env) (fs_g: flatstore) (tvalues: Type.typevalue) : ts =
 	let type_of_var r =
-		match (Sftype.type_of r env_0), (Sftype.type_of r env_g) with
+		match (Type.type_of r env_0), (Type.type_of r env_g) with
 		| t1, t2 when t1 = t2 -> t1
 		| _, _                -> error 504  (* incompatible type between init & goal *)
 	in
@@ -126,17 +126,17 @@ let make_ts (env_0: Sftype.env) (fs_0: flatstore) (env_g: Sftype.env) (fs_g: fla
 			fun r v (map, i, arr) ->
 				if MapRef.mem r map then error 505;
 				match type_of_var r with
-				| Sfsyntax.TBasic Sfsyntax.TAction
-				| Sfsyntax.TBasic Sfsyntax.TGlobal -> (map, i, arr)
-				| Sfsyntax.TBasic Sfsyntax.TObject
-				| Sfsyntax.TBasic Sfsyntax.TSchema (_, _) ->
+				| Syntax.TBasic Syntax.TAction
+				| Syntax.TBasic Syntax.TGlobal -> (map, i, arr)
+				| Syntax.TBasic Syntax.TObject
+				| Syntax.TBasic Syntax.TSchema (_, _) ->
 					let v = static_object in
 					let var = make r i [|v|] v v in
 					let map1 = MapRef.add r var map in
 					let arr1 = var :: arr in
 					(map1, i+1, arr1)
 				| t ->
-					let values = Array.of_list (SetValue.elements (Sftype.values_of t tvalues)) in
+					let values = Array.of_list (SetValue.elements (Type.values_of t tvalues)) in
 					let init = MapRef.find r fs_0 in
 					let goal = MapRef.find r fs_g in
 					let var = make r i values init goal in

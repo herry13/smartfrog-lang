@@ -19,97 +19,97 @@ endif
 BYTECODELIB= \
 	str.cma \
 	common.cmo \
-	sfsyntax.cmo \
-	sflexer.cmo \
-	sfparser.cmo \
-	sfhelper.cmo \
-	sfdomain.cmo \
-	sftype.cmo \
+	syntax.cmo \
+	lexer.cmo \
+	parser.cmo \
+	helper.cmo \
+	domain.cmo \
+	type.cmo \
 	variable.cmo \
 	constraint.cmo \
 	action.cmo \
-	sfvaluation.cmo \
+	valuation.cmo \
 	fdr.cmo \
-	csf.cmo
+	csfp.cmo
 
 # native code libraries
 NATIVELIB= \
 	str.cmxa \
 	common.cmx \
-	sfsyntax.cmx \
-	sflexer.cmx \
-	sfparser.cmx \
-	sfhelper.cmx \
-	sfdomain.cmx \
-	sftype.cmx \
+	syntax.cmx \
+	lexer.cmx \
+	parser.cmx \
+	helper.cmx \
+	domain.cmx \
+	type.cmx \
 	variable.cmx \
 	constraint.cmx \
 	action.cmx \
-	sfvaluation.cmx \
+	valuation.cmx \
 	fdr.cmx \
-	csf.cmx
+	csfp.cmx
 
 # default
-build: csf
+build: csfp
 
-csf: csf.ml action sfhelper sfvaluation sftype fdr
-	$(COMPILER) -c csf.ml
+csfp: csfp.ml action helper valuation type fdr
+	$(COMPILER) -c csfp.ml
 ifeq ($(NATIVE),1)
 	$(COMPILER) -o $(NAME) $(NATIVELIB)
 else
 	$(COMPILER) -o $(NAME) $(BYTECODELIB)
 endif
 
-sfsyntax: sfsyntax.mli sfsyntax.ml
-	$(COMPILER) -c sfsyntax.mli
-	$(COMPILER) -c sfsyntax.ml
+syntax: syntax.mli syntax.ml
+	$(COMPILER) -c syntax.mli
+	$(COMPILER) -c syntax.ml
 
-sfparser: sfparser.mly sfsyntax
-	ocamlyacc sfparser.mly
-	$(COMPILER) -c sfparser.mli
-	$(COMPILER) -c sfparser.ml
+parser: parser.mly syntax
+	ocamlyacc parser.mly
+	$(COMPILER) -c parser.mli
+	$(COMPILER) -c parser.ml
 
-sflexer: sflexer.mll sfparser
-	ocamllex sflexer.mll
-	$(COMPILER) -c sflexer.ml
+lexer: lexer.mll parser
+	ocamllex lexer.mll
+	$(COMPILER) -c lexer.ml
 
-sfhelper: sfhelper.ml sfparser sflexer
-	$(COMPILER) -c sfhelper.ml
+helper: helper.ml parser lexer
+	$(COMPILER) -c helper.ml
 
-sfdomain: common sfsyntax sfdomain.mli sfdomain.ml
-	$(COMPILER) -c sfdomain.mli
-	$(COMPILER) -c sfdomain.ml
+domain: common syntax domain.mli domain.ml
+	$(COMPILER) -c domain.mli
+	$(COMPILER) -c domain.ml
 
-sfvaluation: sfvaluation.mli sfvaluation.ml sfdomain
-	$(COMPILER) -c sfvaluation.mli
-	$(COMPILER) -c sfvaluation.ml
+valuation: valuation.mli valuation.ml domain
+	$(COMPILER) -c valuation.mli
+	$(COMPILER) -c valuation.ml
 
-sftype: sftype.ml
-	$(COMPILER) -c sftype.mli
-	$(COMPILER) -c sftype.ml
+type: type.ml
+	$(COMPILER) -c type.mli
+	$(COMPILER) -c type.ml
 
 common: common.mli common.ml
 	$(COMPILER) -c common.mli
 	$(COMPILER) -c common.ml
 
-variable: variable.mli variable.ml common sfdomain sftype
+variable: variable.mli variable.ml common domain type
 	$(COMPILER) -c variable.mli
 	$(COMPILER) -c variable.ml
 
-constraint: variable common sfdomain sftype constraint.mli constraint.ml
+constraint: variable common domain type constraint.mli constraint.ml
 	$(COMPILER) -c constraint.mli
 	$(COMPILER) -c constraint.ml
 
-action: common sfdomain sftype variable constraint action.mli action.ml
+action: common domain type variable constraint action.mli action.ml
 	$(COMPILER) -c action.mli
 	$(COMPILER) -c action.ml
 
-fdr: common sfdomain sftype variable constraint action fdr.mli fdr.ml
+fdr: common domain type variable constraint action fdr.mli fdr.ml
 	$(COMPILER) -c fdr.mli
 	$(COMPILER) -c fdr.ml
 
 clean:
-	@rm -f *.s *.cmo sfparser.mli sflexer.mli *.cmi *.o *.cmx sfparser.ml sflexer.ml sfparser.output ocamlprof.dump
+	@rm -f *.s *.cmo parser.mli lexer.mli *.cmi *.o *.cmx parser.ml lexer.ml parser.output ocamlprof.dump
 
 clean-all: clean
 	@rm -f $(NAME)

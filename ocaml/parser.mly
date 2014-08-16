@@ -8,7 +8,7 @@
 
 %{
 
-open Sfsyntax
+open Syntax
 
 %}
 
@@ -19,8 +19,8 @@ open Sfsyntax
 %token <string> ID
 %token <string> INCLUDE
 %token <string> SFP_INCLUDE_FILE
-%token <Sfsyntax.block -> Sfsyntax.block> SF_INCLUDE
-%token <Sfsyntax.sfpcontext -> Sfsyntax.sfpcontext> SFP_INCLUDE
+%token <Syntax.block -> Syntax.block> SF_INCLUDE
+%token <Syntax.sfpcontext -> Syntax.sfpcontext> SFP_INCLUDE
 %token EXTENDS COMMA DATA BEGIN END SEP NULL
 %token LBRACKET RBRACKET EOS EOF
 %token ISA SCHEMA ASTERIX COLON TBOOL TNUM TSTR TOBJ
@@ -29,9 +29,9 @@ open Sfsyntax
 
 /* entry point for main-file is 'sfp', for included file is 'incontext_included' or 'inblock_included' */
 %start inblock_included sfp incontext_included
-%type <Sfsyntax.block -> Sfsyntax.block> inblock_included
-%type <Sfsyntax.sfp> sfp
-%type <Sfsyntax.sfpcontext -> Sfsyntax.sfpcontext> incontext_included
+%type <Syntax.block -> Syntax.block> inblock_included
+%type <Syntax.sfp> sfp
+%type <Syntax.sfpcontext -> Syntax.sfpcontext> incontext_included
 
 %%
 

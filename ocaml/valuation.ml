@@ -1,24 +1,24 @@
-open Sfsyntax
+open Syntax
 
-let sfBoolean b = if b = "true" then Sfdomain.Boolean true else Sfdomain.Boolean false
+let sfBoolean b = if b = "true" then Domain.Boolean true else Domain.Boolean false
 
 let int_regex = Str.regexp "\\(^-?[0-9]+$\\)"
 
 let sfNumber n =
-	if Str.string_match int_regex n 0 then Sfdomain.Number (Sfdomain.Int (int_of_string n))
-	else Sfdomain.Number (Sfdomain.Float (float_of_string n))
+	if Str.string_match int_regex n 0 then Domain.Number (Domain.Int (int_of_string n))
+	else Domain.Number (Domain.Float (float_of_string n))
 
-let sfString s = Sfdomain.String s
+let sfString s = Domain.String s
 
-let sfNull = Sfdomain.Null
+let sfNull = Domain.Null
 
 let sfReference r = r
 
-let sfDataReference dr = Sfdomain.Ref (sfReference dr)
+let sfDataReference dr = Domain.Ref (sfReference dr)
 
 let sfLinkReference lr =
 	let rp = sfReference lr in
-	fun r -> if Sfdomain.(@<=) rp r then Sfdomain.error 4 else Sfdomain.Link rp
+	fun r -> if Domain.(@<=) rp r then Domain.error 4 else Domain.Link rp
 
 let rec sfVector vec =
 	let rec eval v =
@@ -26,7 +26,7 @@ let rec sfVector vec =
 		| [] -> []
 		| head :: tail -> (sfBasicValue head) :: (eval tail)
 	in
-	Sfdomain.Vector (eval vec)
+	Domain.Vector (eval vec)
 
 and sfBasicValue bv =
 	match bv with
@@ -41,24 +41,24 @@ let rec sfPrototype ps =
 	fun ns r s ->
 		match ps with
 		| B_P (pb, p) -> sfPrototype p ns r (sfBlock pb r s)
-		| R_P (pr, p) -> sfPrototype p ns r (Sfdomain.inherit_proto s ns (sfReference pr) r)
+		| R_P (pr, p) -> sfPrototype p ns r (Domain.inherit_proto s ns (sfReference pr) r)
 		| EmptyPrototype    -> s
 
 and sfValue v =
 	fun ns r s ->
 		match v with
-		| BV bv              -> Sfdomain.bind s r (Sfdomain.Basic (sfBasicValue bv))
-		| LR lr              -> Sfdomain.bind s r (sfLinkReference lr r)
-		| P (EmptySchema, p) -> sfPrototype p ns r (Sfdomain.bind s r (Sfdomain.Store []))
+		| BV bv              -> Domain.bind s r (Domain.Basic (sfBasicValue bv))
+		| LR lr              -> Domain.bind s r (sfLinkReference lr r)
+		| P (EmptySchema, p) -> sfPrototype p ns r (Domain.bind s r (Domain.Store []))
 		| P (SID sid, p)     ->
-			let s1 = Sfdomain.bind s r (Sfdomain.Store []) in
-			let s2 = Sfdomain.inherit_proto s1 [] [sid] r in
+			let s1 = Domain.bind s r (Domain.Store []) in
+			let s2 = Domain.inherit_proto s1 [] [sid] r in
 			sfPrototype p ns r s2
 		| Ac a               -> sfpAction a ns r s
 
 (** 't' (type) is ignored since this function only evaluates the value **)
 and sfAssignment (r, t, v) =
-	fun ns s -> sfValue v ns (Sfdomain.(@++) ns r) s
+	fun ns s -> sfValue v ns (Domain.(@++) ns r) s
 
 and sfBlock block =
 	fun ns s ->
@@ -70,11 +70,11 @@ and sfBlock block =
 and sfpSchema (sid, parent, b) =
 	fun s ->
 		let r_sid = [sid] in
-		let s1 = Sfdomain.bind s r_sid (Sfdomain.Store []) in
+		let s1 = Domain.bind s r_sid (Domain.Store []) in
 		let s2 =
 			match parent with
 			| EmptySchema -> s1
-			| SID superid -> Sfdomain.inherit_proto s1 [] [superid] r_sid
+			| SID superid -> Domain.inherit_proto s1 [] [superid] r_sid
 		in
 		sfBlock b r_sid s2
 
@@ -89,23 +89,23 @@ and sfpContext ctx =
 and sfpSpecification sfp =
 	let r = ["main"] in
 	let s1 = sfpContext sfp [] in
-	let v1 = Sfdomain.find s1 r in
+	let v1 = Domain.find s1 r in
 	let s2 =
 		match v1 with
-		| Sfdomain.Val (Sfdomain.Store s) -> Sfdomain.accept s1 r s r
-		| _ -> Sfdomain.error 11
+		| Domain.Val (Domain.Store s) -> Domain.accept s1 r s r
+		| _ -> Domain.error 11
 	in
-	let v2 = Sfdomain.find s2 r in
+	let v2 = Domain.find s2 r in
 	let rg = ["global"] in
 	let add_global s =
-		match Sfdomain.find s1 rg with
-		| Sfdomain.Undefined -> s
-		| Sfdomain.Val (Sfdomain.Global vg) -> Sfdomain.bind s rg (Sfdomain.Global vg)
-		| _ -> Sfdomain.error 12
+		match Domain.find s1 rg with
+		| Domain.Undefined -> s
+		| Domain.Val (Domain.Global vg) -> Domain.bind s rg (Domain.Global vg)
+		| _ -> Domain.error 12
 	in
 	match v2 with
-	| Sfdomain.Val (Sfdomain.Store s) -> add_global s
-	| _ -> Sfdomain.error 11
+	| Domain.Val (Domain.Store s) -> add_global s
+	| _ -> Domain.error 11
 
 
 (** global constraints **)
@@ -113,21 +113,21 @@ and sfpGlobal g =
 	fun s ->
 		let r = ["global"] in
 		let gc = sfpConstraint g in
-		match Sfdomain.find s r with
-		| Sfdomain.Val (Sfdomain.Global gs) ->
-			let f = Sfdomain.Global (Sfdomain.And [gc; gs]) in
-			Sfdomain.bind s r f
-		| Sfdomain.Undefined -> Sfdomain.bind s r (Sfdomain.Global gc)
-		| _                  -> Sfdomain.error 12
+		match Domain.find s r with
+		| Domain.Val (Domain.Global gs) ->
+			let f = Domain.Global (Domain.And [gc; gs]) in
+			Domain.bind s r f
+		| Domain.Undefined -> Domain.bind s r (Domain.Global gc)
+		| _                  -> Domain.error 12
 
 (** constraints **)
-and sfpEqual r bv = Sfdomain.Eq (sfReference r, sfBasicValue bv)
+and sfpEqual r bv = Domain.Eq (sfReference r, sfBasicValue bv)
 
-and sfpNotEqual r bv = Sfdomain.Ne (sfReference r, sfBasicValue bv)
+and sfpNotEqual r bv = Domain.Ne (sfReference r, sfBasicValue bv)
 
-and sfpNegation c = Sfdomain.Not (sfpConstraint c)
+and sfpNegation c = Domain.Not (sfpConstraint c)
 
-and sfpImplication c1 c2 = Sfdomain.Imply (sfpConstraint c1, sfpConstraint c2)
+and sfpImplication c1 c2 = Domain.Imply (sfpConstraint c1, sfpConstraint c2)
 
 and sfpMembership r vec =
 	let rec eval v =
@@ -135,11 +135,11 @@ and sfpMembership r vec =
 		| [] -> []
 		| head :: tail -> (sfBasicValue head) :: (eval tail)
 	in
-	Sfdomain.In (sfReference r, eval vec)
+	Domain.In (sfReference r, eval vec)
 
-and sfpConjunction cs = Sfdomain.And (List.fold_left (fun acc c -> (sfpConstraint c) :: acc) [] cs)
+and sfpConjunction cs = Domain.And (List.fold_left (fun acc c -> (sfpConstraint c) :: acc) [] cs)
 
-and sfpDisjunction cs = Sfdomain.Or (List.fold_left (fun acc c -> (sfpConstraint c) :: acc) [] cs)
+and sfpDisjunction cs = Domain.Or (List.fold_left (fun acc c -> (sfpConstraint c) :: acc) [] cs)
 
 and sfpConstraint (c : _constraint) =
 	match c with
@@ -156,7 +156,7 @@ and sfpAction (params, _cost, conds, effs) =
 	let parameters =
 		List.fold_left (fun acc (id, t) ->
 			match t with
-			| TBasic TNum | TBasic TStr -> Sfdomain.error 101
+			| TBasic TNum | TBasic TStr -> Domain.error 101
 			| _ -> (id, t) :: acc
 		) [] params
 	in
@@ -167,7 +167,7 @@ and sfpAction (params, _cost, conds, effs) =
 	in
 	let conditions =
 		match conds with
-		| EmptyCondition -> Sfdomain.True
+		| EmptyCondition -> Domain.True
 		| Cond c         -> sfpConstraint c
 	in
 	let effects = 
@@ -175,4 +175,4 @@ and sfpAction (params, _cost, conds, effs) =
 	in
 	fun ns r s ->
 		let a = (r, parameters, cost, conditions, effects) in
-		Sfdomain.bind s r (Sfdomain.Action a)
+		Domain.bind s r (Domain.Action a)

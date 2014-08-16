@@ -1,5 +1,5 @@
 open Common
-open Sfdomain
+open Domain
 
 (** variable := name * index * values * init * goal **)
 type t = { name: reference; index: int; values: value array; init: value; goal: value }
@@ -43,7 +43,7 @@ val index_of_value : value -> t -> int
  *****************************************************************)
 
 (* val make_ts : t MapRef.t -> t array -> ts *)
-val make_ts : Sftype.env -> flatstore -> Sftype.env -> flatstore -> Sftype.typevalue -> ts
+val make_ts : Type.env -> flatstore -> Type.env -> flatstore -> Type.typevalue -> ts
 
 val mem : reference -> ts -> bool
 

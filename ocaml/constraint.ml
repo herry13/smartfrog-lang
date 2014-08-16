@@ -1,5 +1,5 @@
 open Common
-open Sfdomain
+open Domain
 
 let eval (s: store) (c: _constraint) : bool = false (* TODO *)
 
@@ -347,7 +347,7 @@ let compile_simple_global global vars env =
  * Find the global constraints element in a flat-store. If exist, then convert
  * and return a DNF of the global constraints
  *)
-let global_of (env: Sftype.env) (fs: Sfdomain.flatstore) (vars: Variable.ts) : (_constraint * _constraint list * Variable.ts) =
+let global_of (env: Type.env) (fs: Domain.flatstore) (vars: Variable.ts) : (_constraint * _constraint list * Variable.ts) =
 	let r = ["global"] in
 	if MapRef.mem r fs then
 		match MapRef.find r fs with

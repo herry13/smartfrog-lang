@@ -1,5 +1,5 @@
 open Common
-open Sfdomain
+open Domain
 
 (*******************************************************************
  * functions for translating SFP to FDR
@@ -169,17 +169,17 @@ let of_actions (buf: Buffer.t) (actions: Action.t list) (vars: Variable.ts) : un
 let of_axioms (buf: Buffer.t) : unit =
 	Buffer.add_string buf "\n0";;
 
-let of_sfp (ast_0: Sfsyntax.sfp) (ast_g: Sfsyntax.sfp) : string =
+let of_sfp (ast_0: Syntax.sfp) (ast_g: Syntax.sfp) : string =
 	(* step 0: parse the specification and generate a store *)
-	let env_0 = Sftype.sfpSpecification ast_0 in
-	let store_0 = Sfvaluation.sfpSpecification ast_0 in
-	let env_g = Sftype.sfpSpecification ast_g in
-	let store_g = Sfvaluation.sfpSpecification ast_g in
+	let env_0 = Type.sfpSpecification ast_0 in
+	let store_0 = Valuation.sfpSpecification ast_0 in
+	let env_g = Type.sfpSpecification ast_g in
+	let store_g = Valuation.sfpSpecification ast_g in
 	(* step 1: generate flat-stores of current and desired specifications *)
 	let fs_0 = normalise store_0 in
 	let fs_g = normalise store_g in
 	(* step 1a: generate a type->value map *)
-	let tvalues = Sftype.make_typevalue env_0 fs_0 env_g fs_g in
+	let tvalues = Type.make_typevalue env_0 fs_0 env_g fs_g in
 	(* step 2: translate *)
 	(* step 2.1: generate variables *)
 	let vars = Variable.make_ts env_0 fs_0 env_g fs_g tvalues in
