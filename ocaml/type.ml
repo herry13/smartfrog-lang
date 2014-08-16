@@ -43,7 +43,9 @@ let string_of_env (e: env) =
 let map_of (le: lenv) : env =
 	List.fold_left (fun acc (r, t) -> MapRef.add r t acc) MapRef.empty le
 
-let type_of (r: reference) (e: env) : _type = MapRef.find r e
+let type_of (r: reference) (e: env) : _type =
+	if MapRef.mem r e then MapRef.find r e else TUndefined
+
 
 (*******************************************************************
  * typing judgement functions
