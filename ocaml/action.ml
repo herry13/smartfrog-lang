@@ -80,11 +80,13 @@ let create_global_actions (global: _constraint) (acc: t list) : t list =
 			let name = ["!global" ^ (string_of_int !counter)] in
 			counter := !counter + 1;
 			match c with
-			| And css ->
+			| And css   ->
 				let pre1 = List.fold_left equals_to_map pre css in
 				(name, params, 0, pre1, eff) :: acc1
-			| Eq _    -> (name, params, 0, pre, eff) :: acc1
-			| _       -> error 523
+			| Eq (r, v) ->
+				let pre1 = MapRef.add r v pre in
+				(name, params, 0, pre1, eff) :: acc1
+			| _         -> error 523
 		) acc cs
 	| And cs ->
 		let name = ["!global"] in
@@ -208,7 +210,6 @@ let ground_action_of (name, params, cost, pre, eff) env vars typevalue dummy (g_
 (* ground a set of actions - returns a list of grounded actions *)
 let ground_actions (env: Type.env) (vars: Variable.ts) (tvalues: Type.typevalue)
                    (global: _constraint) (g_implies : _constraint list) : t list =
-	print_endline (json_of_constraint (And g_implies));
 	let add_dummy = not (global = True) in
 	let actions : t list = create_global_actions global [] in
 	SetValue.fold (
