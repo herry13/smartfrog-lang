@@ -337,6 +337,7 @@ let compile_simple_global global vars env =
 				| Not (Ne (r, v))   -> compile_simple_global_equality false r v acc env
 				| In (r, vec)       -> compile_simple_global_membership false r vec acc env
 				| Not (In (r, vec)) -> compile_simple_global_membership true r vec acc env
+				| Imply (Eq (_, _), Eq (_, _)) -> { cons = acc.cons; implies = c :: acc.implies; vars = acc.vars }
 				| _                 -> { cons = c :: acc.cons; implies = acc.implies; vars = acc.vars }
 			) { cons = []; implies = []; vars = vars } cs
 		in
@@ -352,9 +353,8 @@ let global_of (env: Type.env) (fs: Domain.flatstore) (vars: Variable.ts) : (_con
 	if MapRef.mem r fs then
 		match MapRef.find r fs with
 		| Global g ->
-			(* let (global1, implies1, vars1) = compile_simple_global g vars env in
+			let (global1, implies1, vars1) = compile_simple_global g vars env in
 			let global_dnf = dnf_of global1 vars1 env in
-			(global_dnf, implies1, vars1) *)
-			(dnf_of g vars env, [], vars)
+			(global_dnf, implies1, vars1)
 		| _        -> error 519
 	else (True, [], vars)
