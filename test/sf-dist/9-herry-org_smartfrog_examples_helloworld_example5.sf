@@ -1,0 +1,49 @@
+sfCodeBase "default";
+sfClass "org.smartfrog.sfcore.workflow.combinators.DetachingCompoundImpl";
+detachDownwards true;
+detachUpwards true;
+autoDestruct true;
+hostA "localhost";
+hostB "localhost";
+pair1 extends  {
+  sfCodeBase "default";
+  sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+  printerHost "localhost";
+  generatorHost "localhost";
+  messages [|"hello", "world", "again"|];
+  frequency 10;
+  g extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.helloworld.GeneratorImpl";
+    frequency 10;
+    messages [|"hello", "world", "again"|];
+    sfProcessHost "localhost";
+    printer LAZY p;
+  }
+  p extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.helloworld.PrinterImpl";
+    sfProcessHost "localhost";
+  }
+}
+pair2 extends  {
+  sfCodeBase "default";
+  sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+  printerHost "localhost";
+  generatorHost "localhost";
+  messages [|"this is an", "boring", "set of strings"|];
+  frequency 5;
+  g extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.helloworld.GeneratorImpl";
+    frequency 5;
+    messages [|"this is an", "boring", "set of strings"|];
+    sfProcessHost "localhost";
+    printer LAZY p;
+  }
+  p extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.helloworld.PrinterImpl";
+    sfProcessHost "localhost";
+  }
+}

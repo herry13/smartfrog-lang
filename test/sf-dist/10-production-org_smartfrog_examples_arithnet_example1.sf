@@ -1,0 +1,44 @@
+sfCodeBase "default";
+sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+sfProcessComponentName "default";
+example extends  {
+  sfCodeBase "default";
+  sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+  generator extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.arithnet.Generator";
+    inputs extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+    }
+    outputs extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      value extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+        to LAZY printer:inputs:printVal;
+      }
+    }
+    seed 6298426;
+    max 10;
+    min 1;
+    interval 1;
+  }
+  printer extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.arithnet.Printer";
+    inputs extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      printVal extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.examples.arithnet.InputImpl";
+      }
+    }
+    outputs extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+    }
+  }
+}

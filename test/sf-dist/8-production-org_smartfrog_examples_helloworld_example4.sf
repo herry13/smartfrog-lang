@@ -1,0 +1,39 @@
+sfCodeBase "default";
+sfClass "org.smartfrog.sfcore.workflow.combinators.DetachingCompoundImpl";
+detachDownwards true;
+detachUpwards true;
+autoDestruct true;
+pair1 extends  {
+  sfCodeBase "default";
+  sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+  messages [|"hello", "world", "again"|];
+  frequency 10;
+  g extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.helloworld.GeneratorImpl";
+    frequency 10;
+    messages [|"hello", "world", "again"|];
+    printer LAZY p;
+  }
+  p extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.helloworld.PrinterImpl";
+  }
+}
+pair2 extends  {
+  sfCodeBase "default";
+  sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+  messages [|"this is a", "boring", "set of strings"|];
+  frequency 5;
+  g extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.helloworld.GeneratorImpl";
+    frequency 5;
+    messages [|"this is a", "boring", "set of strings"|];
+    printer LAZY p;
+  }
+  p extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.helloworld.PrinterImpl";
+  }
+}

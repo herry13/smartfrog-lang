@@ -1,0 +1,16 @@
+sfCodeBase "default";
+sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+g extends  {
+  sfCodeBase "default";
+  sfClass "org.smartfrog.examples.helloworld.GeneratorImpl";
+  frequency 10;
+  messages [|"hello", "world"|];
+  sfProcessHost "localhost";
+  printer LAZY p;
+}
+p extends  {
+  sfCodeBase "default";
+  sfClass "org.smartfrog.examples.helloworld.PrinterImpl";
+  sfProcessHost "localhost";
+  name "myPrinter";
+}

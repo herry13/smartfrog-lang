@@ -1,0 +1,242 @@
+sfCodeBase "default";
+sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+hostAhost "localhost";
+hostBhost "localhost";
+hostChost "localhost";
+hostDhost "localhost";
+sfProcessComponentName "default";
+example extends  {
+  sfCodeBase "default";
+  sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+  hostA extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+    sfProcessHost "localhost";
+    gen extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.examples.arithnet.Generator";
+      inputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      }
+      outputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        value extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+          to LAZY plus:inputs:lhs;
+        }
+      }
+      seed 12331;
+      max 199;
+      min 100;
+      interval 5;
+    }
+    six extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.examples.arithnet.Constant";
+      inputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      }
+      outputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        value extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+          to LAZY plus:inputs:rhs;
+        }
+      }
+      constant 6;
+    }
+    plus extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.examples.arithnet.Plus";
+      inputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        lhs extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.InputImpl";
+        }
+        rhs extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.InputImpl";
+        }
+      }
+      outputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        value extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+          to LAZY hostC:times:inputs:lhs;
+        }
+      }
+    }
+  }
+  hostB extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+    sfProcessHost "localhost";
+    gen extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.examples.arithnet.Generator";
+      inputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      }
+      outputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        value extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+          to LAZY plus:inputs:rhs;
+        }
+      }
+      seed 6576;
+      max 25;
+      min -25;
+      interval 1;
+    }
+    five extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.examples.arithnet.Constant";
+      inputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      }
+      outputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        value extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+          to LAZY plus:inputs:lhs;
+        }
+      }
+      constant 5;
+    }
+    plus extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.examples.arithnet.Plus";
+      inputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        lhs extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.InputImpl";
+        }
+        rhs extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.InputImpl";
+        }
+      }
+      outputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        value extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+          to LAZY hostC:times:inputs:rhs;
+        }
+      }
+    }
+  }
+  hostC extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+    sfProcessHost "localhost";
+    times extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.examples.arithnet.Times";
+      inputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        lhs extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.InputImpl";
+        }
+        rhs extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.InputImpl";
+        }
+      }
+      outputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        value extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+          to LAZY dup:inputs:value;
+        }
+      }
+    }
+    dup extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.examples.arithnet.Dup";
+      inputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        value extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.InputImpl";
+        }
+      }
+      outputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        copy1 extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+          to LAZY print:inputs:printVal;
+        }
+        copy2 extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+          to LAZY hostD:print:inputs:printVal;
+        }
+      }
+    }
+    print extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.examples.arithnet.Printer";
+      inputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        printVal extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.InputImpl";
+        }
+      }
+      outputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      }
+    }
+  }
+  hostD extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+    sfProcessHost "localhost";
+    print extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.examples.arithnet.Printer";
+      inputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+        printVal extends  {
+          sfCodeBase "default";
+          sfClass "org.smartfrog.examples.arithnet.InputImpl";
+        }
+      }
+      outputs extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      }
+    }
+  }
+}

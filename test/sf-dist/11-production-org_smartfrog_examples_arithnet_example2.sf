@@ -1,0 +1,88 @@
+sfCodeBase "default";
+sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+printerHostname "localhost";
+sfProcessComponentName "default";
+example extends  {
+  sfCodeBase "default";
+  sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+  generator extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.arithnet.Generator";
+    inputs extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+    }
+    outputs extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      value extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+        to LAZY dup:inputs:value;
+      }
+    }
+    seed 6298426;
+    max 10;
+    min 1;
+    interval 1;
+  }
+  dup extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.arithnet.Dup";
+    inputs extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      value extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.examples.arithnet.InputImpl";
+      }
+    }
+    outputs extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      copy1 extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+        to LAZY printerLocal:inputs:printVal;
+      }
+      copy2 extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.examples.arithnet.OutputImpl";
+        to LAZY printerRemote:inputs:printVal;
+      }
+    }
+  }
+  printerLocal extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.arithnet.Printer";
+    inputs extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      printVal extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.examples.arithnet.InputImpl";
+      }
+    }
+    outputs extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+    }
+  }
+  printerRemote extends  {
+    sfCodeBase "default";
+    sfClass "org.smartfrog.examples.arithnet.Printer";
+    inputs extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+      printVal extends  {
+        sfCodeBase "default";
+        sfClass "org.smartfrog.examples.arithnet.InputImpl";
+      }
+    }
+    outputs extends  {
+      sfCodeBase "default";
+      sfClass "org.smartfrog.sfcore.compound.CompoundImpl";
+    }
+    sfProcessHost "localhost";
+  }
+}
