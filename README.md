@@ -8,7 +8,7 @@ There are three implementations:
 
 - [Scala](scala/) by Herry (herry13@gmail.com)
 - [OCaml](ocaml/) by Herry (herry13@gmail.com)
-- [Haskell] (haskell/) by Paul Anderson (dcspaul@ed.ac.uk)
+- [Haskell](haskell/) by Paul Anderson (dcspaul@ed.ac.uk)
 
 Please read the **readme** file of each implementation for usage instructions.
 
@@ -18,6 +18,6 @@ Please read the **readme** file of each implementation for usage instructions.
 The above build status is the test results of Scala and OCaml compiler using [Travis-CI](https://travis-ci.org/herry13/smartfrog-lang) platform. Unfortunately, the Haskell compiler has not been integrated yet.
 
 
-## License
+## License
 
 [BSD License](https://raw.githubusercontent.com/herry13/smartfrog-lang/master/LICENSE)
